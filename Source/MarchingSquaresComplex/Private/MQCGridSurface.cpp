@@ -67,6 +67,12 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
     // Reserves geometry container spaces
 
     Section.Positions.Reserve(voxelCount);
+    Section.UVs.Reserve(voxelCount);
+    if (bGenerateExtrusion)
+    {
+        Section.TangentsX.Reserve(voxelCount);
+        Section.TangentsZ.Reserve(voxelCount);
+    }
     Section.Tangents.Reserve(voxelCount*2);
     Section.Indices.Reserve(voxelCount * 6);
 }
@@ -110,13 +116,19 @@ void FMQCGridSurface::CopyFrom(const FMQCGridSurface& Surface)
     // Reserves geometry container spaces
 
     Section.Positions.Reserve(voxelCount);
+    Section.UVs.Reserve(voxelCount);
+    if (bGenerateExtrusion)
+    {
+        Section.TangentsX.Reserve(voxelCount);
+        Section.TangentsZ.Reserve(voxelCount);
+    }
     Section.Tangents.Reserve(voxelCount*2);
     Section.Indices.Reserve(voxelCount * 6);
 }
 
 void FMQCGridSurface::GenerateEdgeNormals()
 {
-#if 0
+#if 1
     if (bGenerateExtrusion)
     {
         for (const TPair<int32, int32>& EdgePair : EdgePairs)
@@ -130,16 +142,42 @@ void FMQCGridSurface::GenerateEdgeNormals()
             const FVector EdgeDirection = (v0-v1).GetSafeNormal();
             const FVector EdgeCross = EdgeDirection ^ FVector::UpVector;
 
-            //Section.VertexBuffer[a  ].Normal += EdgeCross;
-            //Section.VertexBuffer[b  ].Normal += EdgeCross;
-            //Section.VertexBuffer[a+1].Normal += EdgeCross;
-            //Section.VertexBuffer[b+1].Normal += EdgeCross;
+            Section.TangentsX[a  ] += EdgeDirection;
+            Section.TangentsX[b  ] += EdgeDirection;
+            Section.TangentsX[a+1] += EdgeDirection;
+            Section.TangentsX[b+1] += EdgeDirection;
+
+            Section.TangentsZ[a  ] += EdgeCross;
+            Section.TangentsZ[b  ] += EdgeCross;
+            Section.TangentsZ[a+1] += EdgeCross;
+            Section.TangentsZ[b+1] += EdgeCross;
         }
 
         for (int32 i : EdgeIndexSet)
         {
-            //Section.VertexBuffer[i  ].Normal.Normalize();
-            //Section.VertexBuffer[i+1].Normal.Normalize();
+            int32 i0 = i;
+            int32 i1 = i+1;
+
+            int32 it0 = i0*2;
+            int32 it1 = i1*2;
+
+            Section.TangentsX[i0].Normalize();
+            Section.TangentsX[i1].Normalize();
+
+            Section.TangentsZ[i0].Normalize();
+            Section.TangentsZ[i1].Normalize();
+
+            FPackedNormal TX0(Section.TangentsX[i0]);
+            FPackedNormal TX1(Section.TangentsX[i1]);
+
+            FPackedNormal TZ0(FVector4(Section.TangentsZ[i0], 1));
+            FPackedNormal TZ1(FVector4(Section.TangentsZ[i1], 1));
+
+            Section.Tangents[it0] = TX0.Vector.Packed;
+            Section.Tangents[it1] = TX1.Vector.Packed;
+
+            Section.Tangents[it0+1] = TZ0.Vector.Packed;
+            Section.Tangents[it1+1] = TZ1.Vector.Packed;
         }
     }
 #endif

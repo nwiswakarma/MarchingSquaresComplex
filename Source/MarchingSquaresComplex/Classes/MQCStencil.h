@@ -42,8 +42,8 @@ protected:
     float centerX;
     float centerY;
 
-	static void ValidateHorizontalNormal(FMQCVoxel& xMin, const FMQCVoxel& xMax);
-	static void ValidateVerticalNormal(FMQCVoxel& yMin, const FMQCVoxel& yMax);
+	static void ValidateNormalX(FMQCVoxel& xMin, const FMQCVoxel& xMax);
+	static void ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax);
 
     void GetMapRange(int32& x0, int32& x1, int32& y0, int32& y1, const float voxelSize, const float chunkSize, const int32 chunkResolution) const
     {
@@ -99,9 +99,8 @@ protected:
         }
     }
 
-    virtual void FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const = 0;
-
-    virtual void FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const = 0;
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const = 0;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const = 0;
 
     virtual void SetVoxels(FMQCGridChunk& Chunk);
 
@@ -144,9 +143,8 @@ public:
         centerY = y;
     }
 
-    void SetHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const;
-
-    void SetVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const;
+    void SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const;
+    void SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const;
 
     virtual void EditMap(FMQCMap& Map, const FVector2D& center);
 

@@ -61,19 +61,32 @@ struct FMQCVoxel
 
     FORCEINLINE FVector2D GetXEdgePoint() const
     {
+#ifndef MQC_VOXEL_DEBUG_LEGACY
         return FVector2D(position.X+FMath::Max(0.f, xEdge), position.Y);
+#else
+        return FVector2D(xEdge, position.Y);
+#endif
     }
     
     FORCEINLINE FVector2D GetYEdgePoint() const
     {
+#ifndef MQC_VOXEL_DEBUG_LEGACY
         return FVector2D(position.X, position.Y+FMath::Max(0.f, yEdge));
+#else
+        return FVector2D(position.X, yEdge);
+#endif
     }
 
     FORCEINLINE void Reset()
     {
         state = 0;
+#ifndef MQC_VOXEL_DEBUG_LEGACY
         xEdge = -1.f;
         yEdge = -1.f;
+#else
+        xEdge = TNumericLimits<float>::Lowest();
+        yEdge = TNumericLimits<float>::Lowest();
+#endif
     }
 
     FORCEINLINE void Set(int32 x, int32 y, float size)
@@ -81,8 +94,13 @@ struct FMQCVoxel
         position.X = (x + 0.5f) * size;
         position.Y = (y + 0.5f) * size;
 
+#ifndef MQC_VOXEL_DEBUG_LEGACY
         xEdge = -1.f;
         yEdge = -1.f;
+#else
+        xEdge = TNumericLimits<float>::Lowest();
+        yEdge = TNumericLimits<float>::Lowest();
+#endif
 
         state = 0;
     }
@@ -92,8 +110,13 @@ struct FMQCVoxel
         state = voxel.state;
         position = voxel.position;
         position.X += offset;
+#ifndef MQC_VOXEL_DEBUG_LEGACY
         xEdge = voxel.xEdge;
         yEdge = voxel.yEdge;
+#else
+        xEdge = voxel.xEdge + offset;
+        yEdge = voxel.yEdge;
+#endif
         yNormal = voxel.yNormal;
     }
     
@@ -102,8 +125,13 @@ struct FMQCVoxel
         state = voxel.state;
         position = voxel.position;
         position.Y += offset;
+#ifndef MQC_VOXEL_DEBUG_LEGACY
         xEdge = voxel.xEdge;
         yEdge = voxel.yEdge;
+#else
+        xEdge = voxel.xEdge;
+        yEdge = voxel.yEdge + offset;
+#endif
         xNormal = voxel.xNormal;
     }
 
@@ -113,7 +141,12 @@ struct FMQCVoxel
         position = voxel.position;
         position.X += offset;
         position.Y += offset;
+#ifndef MQC_VOXEL_DEBUG_LEGACY
         xEdge = voxel.xEdge;
         yEdge = voxel.yEdge;
+#else
+        xEdge = voxel.xEdge + offset;
+        yEdge = voxel.yEdge + offset;
+#endif
     }
 };

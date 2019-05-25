@@ -29,7 +29,7 @@
 #include "MQCGridChunk.h"
 #include "MQCVoxel.h"
 
-void FMQCStencil::ValidateHorizontalNormal(FMQCVoxel& xMin, const FMQCVoxel& xMax)
+void FMQCStencil::ValidateNormalX(FMQCVoxel& xMin, const FMQCVoxel& xMax)
 {
     if (xMin.state < xMax.state)
     {
@@ -44,7 +44,7 @@ void FMQCStencil::ValidateHorizontalNormal(FMQCVoxel& xMin, const FMQCVoxel& xMa
     }
 }
 
-void FMQCStencil::ValidateVerticalNormal(FMQCVoxel& yMin, const FMQCVoxel& yMax)
+void FMQCStencil::ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax)
 {
     if (yMin.state < yMax.state)
     {
@@ -59,28 +59,35 @@ void FMQCStencil::ValidateVerticalNormal(FMQCVoxel& yMin, const FMQCVoxel& yMax)
     }
 }
 
-void FMQCStencil::SetHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
 {
     if (xMin.state != xMax.state)
     {
-        FindHorizontalCrossing(xMin, xMax);
+        FindCrossingX(xMin, xMax);
     }
     else
     {
-        xMin.xEdge = -1.f; //TNumericLimits<float>::Lowest();
+#ifndef MQC_VOXEL_DEBUG_LEGACY
+        xMin.xEdge = -1.f;
+#else
+        xMin.xEdge = TNumericLimits<float>::Lowest();
+#endif
     }
 }
 
-void FMQCStencil::SetVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
 {
     if (yMin.state != yMax.state)
     {
-        FindVerticalCrossing(yMin, yMax);
+        FindCrossingY(yMin, yMax);
     }
     else
     {
-        //yMin.yEdge = TNumericLimits<float>::Lowest();
-        yMin.yEdge = -1.f; //TNumericLimits<float>::Lowest();
+#ifndef MQC_VOXEL_DEBUG_LEGACY
+        yMin.yEdge = -1.f;
+#else
+        yMin.yEdge = TNumericLimits<float>::Lowest();
+#endif
     }
 }
 

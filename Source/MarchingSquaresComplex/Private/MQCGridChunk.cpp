@@ -164,9 +164,9 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
         return;
     }
 
-    bool includeLastVerticalRow = false;
-    bool crossHorizontalGap = false;
-    bool crossVerticalGap = false;
+    bool bIncludeLastRowY = false;
+    bool bCrossGapX = false;
+    bool bCrossGapY = false;
     
     if (xStart > 0)
     {
@@ -176,7 +176,7 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
     if (xEnd == voxelResolution - 1)
     {
         xEnd -= 1;
-        crossHorizontalGap = xNeighbor != nullptr;
+        bCrossGapX = xNeighbor != nullptr;
     }
 
     if (yStart > 0)
@@ -187,8 +187,8 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
     if (yEnd == voxelResolution - 1)
     {
         yEnd -= 1;
-        includeLastVerticalRow = true;
-        crossVerticalGap = yNeighbor != nullptr;
+        bIncludeLastRowY = true;
+        bCrossGapY = yNeighbor != nullptr;
     }
 
     FMQCVoxel* a;
@@ -203,25 +203,25 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
         {
             a = b;
             b = &voxels[i + 1];
-            stencil.SetHorizontalCrossing(*a, *b);
-            stencil.SetVerticalCrossing(*a, voxels[i + voxelResolution]);
+            stencil.SetCrossingX(*a, *b);
+            stencil.SetCrossingY(*a, voxels[i + voxelResolution]);
         }
 
-        stencil.SetVerticalCrossing(*b, voxels[i + voxelResolution]);
+        stencil.SetCrossingY(*b, voxels[i + voxelResolution]);
 
-        if (crossHorizontalGap)
+        if (bCrossGapX)
         {
             check(xNeighbor);
             const int32 neighborIndex = y * voxelResolution;
             if (xNeighbor->voxels.IsValidIndex(neighborIndex))
             {
                 dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], gridSize);
-                stencil.SetHorizontalCrossing(*b, dummyX);
+                stencil.SetCrossingX(*b, dummyX);
             }
         }
     }
 
-    if (includeLastVerticalRow)
+    if (bIncludeLastRowY)
     {
         int32 i = voxels.Num() - voxelResolution + xStart;
         b = &voxels[i];
@@ -230,36 +230,36 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
         {
             a = b;
             b = &voxels[i + 1];
-            stencil.SetHorizontalCrossing(*a, *b);
+            stencil.SetCrossingX(*a, *b);
 
-            if (crossVerticalGap)
+            if (bCrossGapY)
             {
                 check(yNeighbor);
                 check(yNeighbor->voxels.IsValidIndex(x));
                 dummyY.BecomeYDummyOf(yNeighbor->voxels[x], gridSize);
-                stencil.SetVerticalCrossing(*a, dummyY);
+                stencil.SetCrossingY(*a, dummyY);
             }
         }
 
-        if (crossVerticalGap)
+        if (bCrossGapY)
         {
             check(yNeighbor);
             const int32 neighborIndex = xEnd + 1;
             if (yNeighbor->voxels.IsValidIndex(neighborIndex))
             {
                 dummyY.BecomeYDummyOf(yNeighbor->voxels[neighborIndex], gridSize);
-                stencil.SetVerticalCrossing(*b, dummyY);
+                stencil.SetCrossingY(*b, dummyY);
             }
         }
 
-        if (crossHorizontalGap)
+        if (bCrossGapX)
         {
             check(xNeighbor);
             const int32 neighborIndex = voxels.Num() - voxelResolution;
             if (xNeighbor->voxels.IsValidIndex(neighborIndex))
             {
                 dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], gridSize);
-                stencil.SetHorizontalCrossing(*b, dummyX);
+                stencil.SetCrossingX(*b, dummyX);
             }
         }
     }

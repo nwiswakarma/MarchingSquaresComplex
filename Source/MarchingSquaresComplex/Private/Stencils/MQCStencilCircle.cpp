@@ -27,7 +27,9 @@
 
 #include "MQCStencilCircle.h"
 
-void FMQCStencilCircle::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+#ifndef MQC_VOXEL_DEBUG_LEGACY
+
+void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
 {
     float y2 = xMin.position.Y - centerY;
     y2 *= y2;
@@ -38,37 +40,40 @@ void FMQCStencilCircle::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel&
         if (x * x + y2 <= sqrRadius)
         {
             x = centerX + FMath::Sqrt(sqrRadius - y2);
-            if (xMin.xEdge < 0.f || xMin.xEdge < x)
+            const float xEdge = x-xMin.position.X;
+            if (xMin.xEdge < 0.f || xMin.xEdge < xEdge)
             {
-                xMin.xEdge = x-xMin.position.X;
+                xMin.xEdge = xEdge;
                 xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMax);
             }
             else
             {
-                ValidateHorizontalNormal(xMin, xMax);
+                ValidateNormalX(xMin, xMax);
             }
         }
     }
-    else if (xMax.state == fillType)
+    else
+    if (xMax.state == fillType)
     {
         float x = xMax.position.X - centerX;
         if (x * x + y2 <= sqrRadius)
         {
             x = centerX - FMath::Sqrt(sqrRadius - y2);
-            if (xMin.xEdge < 0.f || xMin.xEdge > x)
+            const float xEdge = 1.f - (xMax.position.X-x);
+            if (xMin.xEdge < 0.f || xMin.xEdge > xEdge)
             {
-                xMin.xEdge = 1.f - (xMax.position.X-x);
+                xMin.xEdge = xEdge;
                 xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMin);
             }
             else
             {
-                ValidateHorizontalNormal(xMin, xMax);
+                ValidateNormalX(xMin, xMax);
             }
         }
     }
 }
 
-void FMQCStencilCircle::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
 {
     float x2 = yMin.position.X - centerX;
     x2 *= x2;
@@ -79,14 +84,101 @@ void FMQCStencilCircle::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& y
         if (y * y + x2 <= sqrRadius)
         {
             y = centerY + FMath::Sqrt(sqrRadius - x2);
-            if (yMin.yEdge < 0.f || yMin.yEdge < y)
+            const float yEdge = y-yMin.position.Y;
+            if (yMin.yEdge < 0.f || yMin.yEdge < yEdge)
             {
-                yMin.yEdge = y-yMin.position.Y;
+                yMin.yEdge = yEdge;
                 yMin.yNormal = ComputeNormal(yMin.position.X, y, yMax);
             }
             else
             {
-                ValidateVerticalNormal(yMin, yMax);
+                ValidateNormalY(yMin, yMax);
+            }
+        }
+    }
+    else
+    if (yMax.state == fillType)
+    {
+        float y = yMax.position.Y - centerY;
+        if (y * y + x2 <= sqrRadius)
+        {
+            y = centerY - FMath::Sqrt(sqrRadius - x2);
+            const float yEdge = 1.f - (yMax.position.Y-y);
+            if (yMin.yEdge < 0.f || yMin.yEdge > yEdge)
+            {
+                yMin.yEdge = yEdge;
+                yMin.yNormal = ComputeNormal(yMin.position.X, y, yMin);
+            }
+            else
+            {
+                ValidateNormalY(yMin, yMax);
+            }
+        }
+    }
+}
+
+#else // MQC_VOXEL_DEBUG_LEGACY
+
+void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+{
+    float y2 = xMin.position.Y - centerY;
+    y2 *= y2;
+
+    if (xMin.state == fillType)
+    {
+        float x = xMin.position.X - centerX;
+        if (x * x + y2 <= sqrRadius)
+        {
+            x = centerX + FMath::Sqrt(sqrRadius - y2);
+            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < x)
+            {
+                xMin.xEdge = x;
+                xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMax);
+            }
+            else
+            {
+                ValidateNormalX(xMin, xMax);
+            }
+        }
+    }
+    else if (xMax.state == fillType)
+    {
+        float x = xMax.position.X - centerX;
+        if (x * x + y2 <= sqrRadius)
+        {
+            x = centerX - FMath::Sqrt(sqrRadius - y2);
+            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > x)
+            {
+                xMin.xEdge = x;
+                xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMin);
+            }
+            else
+            {
+                ValidateNormalX(xMin, xMax);
+            }
+        }
+    }
+}
+
+void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+{
+    float x2 = yMin.position.X - centerX;
+    x2 *= x2;
+
+    if (yMin.state == fillType)
+    {
+        float y = yMin.position.Y - centerY;
+        if (y * y + x2 <= sqrRadius)
+        {
+            y = centerY + FMath::Sqrt(sqrRadius - x2);
+            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < y)
+            {
+                yMin.yEdge = y;
+                yMin.yNormal = ComputeNormal(yMin.position.X, y, yMax);
+            }
+            else
+            {
+                ValidateNormalY(yMin, yMax);
             }
         }
     }
@@ -96,15 +188,17 @@ void FMQCStencilCircle::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& y
         if (y * y + x2 <= sqrRadius)
         {
             y = centerY - FMath::Sqrt(sqrRadius - x2);
-            if (yMin.yEdge < 0.f || yMin.yEdge > y)
+            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > y)
             {
-                yMin.yEdge = 1.f - (yMax.position.Y-y);
+                yMin.yEdge = y;
                 yMin.yNormal = ComputeNormal(yMin.position.X, y, yMin);
             }
             else
             {
-                ValidateVerticalNormal(yMin, yMax);
+                ValidateNormalY(yMin, yMax);
             }
         }
     }
 }
+
+#endif

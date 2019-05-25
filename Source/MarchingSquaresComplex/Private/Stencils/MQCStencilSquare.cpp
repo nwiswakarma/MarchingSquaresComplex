@@ -27,7 +27,9 @@
 
 #include "MQCStencilSquare.h"
 
-void FMQCStencilSquare::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+#ifndef MQC_VOXEL_DEBUG_LEGACY
+
+void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
 {
     if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
     {
@@ -39,36 +41,39 @@ void FMQCStencilSquare::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel&
         const float x = GetXEnd();
         if (xMin.position.X <= x && xMax.position.X >= x)
         {
-            if (xMin.xEdge < 0.f || xMin.xEdge < x)
+            const float xEdge = x-xMin.position.X;
+            if (xMin.xEdge < 0.f || xMin.xEdge < xEdge)
             {
                 xMin.xEdge = x-xMin.position.X;
                 xMin.xNormal = FVector2D(fillType ? 1.f : -1.f, 0.f);
             }
             else
             {
-                ValidateHorizontalNormal(xMin, xMax);
+                ValidateNormalX(xMin, xMax);
             }
         }
     }
-    else if (xMax.state == fillType)
+    else
+    if (xMax.state == fillType)
     {
         const float x = GetXStart();
         if (xMin.position.X <= x && xMax.position.X >= x)
         {
-            if (xMin.xEdge < 0.f || xMin.xEdge > x)
+            const float xEdge = 1.f - (xMax.position.X-x);
+            if (xMin.xEdge < 0.f || xMin.xEdge > xEdge)
             {
-                xMin.xEdge = 1.f - (xMax.position.X-x);
+                xMin.xEdge = xEdge;
                 xMin.xNormal = FVector2D(fillType ? -1.f : 1.f, 0.f);
             }
             else
             {
-                ValidateHorizontalNormal(xMin, xMax);
+                ValidateNormalX(xMin, xMax);
             }
         }
     }
 }
 
-void FMQCStencilSquare::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
 {
     if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
     {
@@ -80,31 +85,122 @@ void FMQCStencilSquare::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& y
         const float y = GetYEnd();
         if (yMin.position.Y <= y && yMax.position.Y >= y)
         {
-            if (yMin.yEdge < 0.f || yMin.yEdge < y)
+            const float yEdge = y-yMin.position.Y;
+            if (yMin.yEdge < 0.f || yMin.yEdge < yEdge)
             {
-                yMin.yEdge = y-yMin.position.Y;
+                yMin.yEdge = yEdge;
                 yMin.yNormal = FVector2D(0.f, fillType ? 1.f : -1.f);
             }
             else
             {
-                ValidateVerticalNormal(yMin, yMax);
+                ValidateNormalY(yMin, yMax);
             }
         }
     }
-    else if (yMax.state == fillType)
+    else
+    if (yMax.state == fillType)
     {
         const float y = GetYStart();
         if (yMin.position.Y <= y && yMax.position.Y >= y)
         {
-            if (yMin.yEdge < 0.f || yMin.yEdge > y)
+            const float yEdge = 1.f - (yMax.position.Y-y);
+            if (yMin.yEdge < 0.f || yMin.yEdge > yEdge)
             {
-                yMin.yEdge = 1.f - (yMax.position.Y-y);
+                yMin.yEdge = yEdge;
                 yMin.yNormal = FVector2D(0.f, fillType ? -1.f : 1.f);
             }
             else
             {
-                ValidateVerticalNormal(yMin, yMax);
+                ValidateNormalY(yMin, yMax);
             }
         }
     }
 }
+
+#else // MQC_VOXEL_DEBUG_LEGACY
+
+void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+{
+    if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
+    {
+        return;
+    }
+
+    if (xMin.state == fillType)
+    {
+        if (xMin.position.X <= GetXEnd() && xMax.position.X >= GetXEnd())
+        {
+            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < GetXEnd())
+            {
+                xMin.xEdge = GetXEnd();
+                xMin.xNormal = FVector2D(fillType ? 1.f : -1.f, 0.f);
+            }
+            else
+            {
+                ValidateNormalX(xMin, xMax);
+                UE_LOG(LogTemp,Warning, TEXT("VALIDATE NORMAL (xMin.state == fillType)"));
+            }
+        }
+    }
+    else
+    if (xMax.state == fillType)
+    {
+        if (xMin.position.X <= GetXStart() && xMax.position.X >= GetXStart())
+        {
+            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > GetXStart())
+            {
+                xMin.xEdge = GetXStart();
+                xMin.xNormal = FVector2D(fillType ? -1.f : 1.f, 0.f);
+            }
+            else
+            {
+                ValidateNormalX(xMin, xMax);
+                UE_LOG(LogTemp,Warning, TEXT("VALIDATE NORMAL (xMax.state == fillType)"));
+            }
+        }
+    }
+}
+
+void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+{
+    if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
+    {
+        return;
+    }
+
+    if (yMin.state == fillType)
+    {
+        if (yMin.position.Y <= GetYEnd() && yMax.position.Y >= GetYEnd())
+        {
+            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < GetYEnd())
+            {
+                yMin.yEdge = GetYEnd();
+                yMin.yNormal = FVector2D(0.f, fillType ? 1.f : -1.f);
+            }
+            else
+            {
+                ValidateNormalY(yMin, yMax);
+                UE_LOG(LogTemp,Warning, TEXT("VALIDATE NORMAL (yMin.state == fillType)"));
+            }
+        }
+    }
+    else
+    if (yMax.state == fillType)
+    {
+        if (yMin.position.Y <= GetYStart() && yMax.position.Y >= GetYStart())
+        {
+            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > GetYStart())
+            {
+                yMin.yEdge = GetYStart();
+                yMin.yNormal = FVector2D(0.f, fillType ? -1.f : 1.f);
+            }
+            else
+            {
+                ValidateNormalY(yMin, yMax);
+                UE_LOG(LogTemp,Warning, TEXT("VALIDATE NORMAL (yMax.state == fillType)"));
+            }
+        }
+    }
+}
+
+#endif // MQC_VOXEL_DEBUG_LEGACY

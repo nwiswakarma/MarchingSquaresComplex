@@ -40,8 +40,8 @@ protected:
 
     float radius;
 
-    virtual void FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const override;
-    virtual void FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const override;
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const override;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const override;
 
 public:
 

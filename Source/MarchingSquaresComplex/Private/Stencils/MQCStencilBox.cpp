@@ -27,7 +27,99 @@
 
 #include "MQCStencilBox.h"
 
-void FMQCStencilBox::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+#ifndef MQC_VOXEL_DEBUG_LEGACY
+
+void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+{
+    if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
+    {
+        return;
+    }
+
+    if (xMin.state == fillType)
+    {
+        const float x = GetXEnd();
+        if (xMin.position.X <= x && xMax.position.X >= x)
+        {
+            const float xEdge = x-xMin.position.X;
+            if (xMin.xEdge < 0.f || xMin.xEdge < xEdge)
+            {
+                xMin.xEdge = x-xMin.position.X;
+                xMin.xNormal = FVector2D(fillType ? 1.f : -1.f, 0.f);
+            }
+            else
+            {
+                ValidateNormalX(xMin, xMax);
+            }
+        }
+    }
+    else
+    if (xMax.state == fillType)
+    {
+        const float x = GetXStart();
+        if (xMin.position.X <= x && xMax.position.X >= x)
+        {
+            const float xEdge = 1.f - (xMax.position.X-x);
+            if (xMin.xEdge < 0.f || xMin.xEdge > xEdge)
+            {
+                xMin.xEdge = xEdge;
+                xMin.xNormal = FVector2D(fillType ? -1.f : 1.f, 0.f);
+            }
+            else
+            {
+                ValidateNormalX(xMin, xMax);
+            }
+        }
+    }
+}
+
+void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+{
+    if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
+    {
+        return;
+    }
+
+    if (yMin.state == fillType)
+    {
+        const float y = GetYEnd();
+        if (yMin.position.Y <= y && yMax.position.Y >= y)
+        {
+            const float yEdge = y-yMin.position.Y;
+            if (yMin.yEdge < 0.f || yMin.yEdge < yEdge)
+            {
+                yMin.yEdge = yEdge;
+                yMin.yNormal = FVector2D(0.f, fillType ? 1.f : -1.f);
+            }
+            else
+            {
+                ValidateNormalY(yMin, yMax);
+            }
+        }
+    }
+    else
+    if (yMax.state == fillType)
+    {
+        const float y = GetYStart();
+        if (yMin.position.Y <= y && yMax.position.Y >= y)
+        {
+            const float yEdge = 1.f - (yMax.position.Y-y);
+            if (yMin.yEdge < 0.f || yMin.yEdge > yEdge)
+            {
+                yMin.yEdge = yEdge;
+                yMin.yNormal = FVector2D(0.f, fillType ? -1.f : 1.f);
+            }
+            else
+            {
+                ValidateNormalY(yMin, yMax);
+            }
+        }
+    }
+}
+
+#else
+
+void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
 {
     if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
     {
@@ -38,14 +130,14 @@ void FMQCStencilBox::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xM
     {
         if (xMin.position.X <= GetXEnd() && xMax.position.X >= GetXEnd())
         {
-            if (xMin.xEdge < 0.f || xMin.xEdge < GetXEnd())
+            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < GetXEnd())
             {
-                xMin.xEdge = GetXEnd()-xMin.position.X;
+                xMin.xEdge = GetXEnd();
                 xMin.xNormal = FVector2D(fillType ? 1.f : -1.f, 0.f);
             }
             else
             {
-                ValidateHorizontalNormal(xMin, xMax);
+                ValidateNormalX(xMin, xMax);
             }
         }
     }
@@ -53,20 +145,20 @@ void FMQCStencilBox::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xM
     {
         if (xMin.position.X <= GetXStart() && xMax.position.X >= GetXStart())
         {
-            if (xMin.xEdge < 0.f || xMin.xEdge > GetXStart())
+            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > GetXStart())
             {
-                xMin.xEdge = 1.f - (xMax.position.X-GetXStart());
+                xMin.xEdge = GetXStart();
                 xMin.xNormal = FVector2D(fillType ? -1.f : 1.f, 0.f);
             }
             else
             {
-                ValidateHorizontalNormal(xMin, xMax);
+                ValidateNormalX(xMin, xMax);
             }
         }
     }
 }
 
-void FMQCStencilBox::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
 {
     if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
     {
@@ -77,14 +169,14 @@ void FMQCStencilBox::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax
     {
         if (yMin.position.Y <= GetYEnd() && yMax.position.Y >= GetYEnd())
         {
-            if (yMin.yEdge < 0.f || yMin.yEdge < GetYEnd())
+            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < GetYEnd())
             {
-                yMin.yEdge = GetYEnd()-yMin.position.Y;
+                yMin.yEdge = GetYEnd();
                 yMin.yNormal = FVector2D(0.f, fillType ? 1.f : -1.f);
             }
             else
             {
-                ValidateVerticalNormal(yMin, yMax);
+                ValidateNormalY(yMin, yMax);
             }
         }
     }
@@ -92,15 +184,17 @@ void FMQCStencilBox::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax
     {
         if (yMin.position.Y <= GetYStart() && yMax.position.Y >= GetYStart())
         {
-            if (yMin.yEdge < 0.f || yMin.yEdge > GetYStart())
+            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > GetYStart())
             {
-                yMin.yEdge = 1.f - (yMax.position.Y-GetYStart());
+                yMin.yEdge = GetYStart();
                 yMin.yNormal = FVector2D(0.f, fillType ? -1.f : 1.f);
             }
             else
             {
-                ValidateVerticalNormal(yMin, yMax);
+                ValidateNormalY(yMin, yMax);
             }
         }
     }
 }
+
+#endif

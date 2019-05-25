@@ -100,6 +100,9 @@ public:
 
         // Compact geometry containers
         Section.Positions.Shrink();
+        Section.UVs.Shrink();
+        Section.TangentsX.Reset();
+        Section.TangentsZ.Reset();
         Section.Tangents.Shrink();
         Section.Indices.Shrink();
 	}
@@ -122,12 +125,6 @@ public:
 	FORCEINLINE void CacheXEdge(int32 i, const FMQCVoxel& voxel)
     {
         FVector2D EdgePoint(voxel.GetXEdgePoint());
-
-        //if (EdgePoint.X < KINDA_SMALL_NUMBER)
-        //{
-        //    EdgePoint.X = i;
-        //}
-
 		xEdgesMax[i] = AddVertex4(EdgePoint);
 	}
 
@@ -587,16 +584,16 @@ private:
         EdgePairs.Emplace(a, b);
 
 #if 0
-        const FVector& v0(Section.VertexBuffer[a].Position);
-        const FVector& v1(Section.VertexBuffer[b].Position);
+        const FVector& v0(Section.Positions[a]);
+        const FVector& v1(Section.Positions[b]);
 
         const FVector EdgeDirection = (v0-v1).GetSafeNormal();
         const FVector EdgeCross = EdgeDirection ^ FVector::UpVector;
 
-        Section.VertexBuffer[a  ].Normal += EdgeCross;
-        Section.VertexBuffer[b  ].Normal += EdgeCross;
-        Section.VertexBuffer[a+1].Normal += EdgeCross;
-        Section.VertexBuffer[b+1].Normal += EdgeCross;
+        Section.TangentsZ[a  ] += EdgeCross;
+        Section.TangentsZ[b  ] += EdgeCross;
+        Section.TangentsZ[a+1] += EdgeCross;
+        Section.TangentsZ[b+1] += EdgeCross;
 #endif
     }
 
@@ -660,9 +657,17 @@ private:
         FVector Pos(PX, PY, Height);
         FPackedNormal TangentX(FVector(1,0,0));
         FPackedNormal TangentZ(FVector4(Normal,1));
+
         Section.Positions.Emplace(Pos);
+        Section.UVs.Emplace(PX, PY);
+        if (bGenerateExtrusion)
+        {
+            Section.TangentsX.Emplace(1,0,0);
+            Section.TangentsZ.Emplace(Normal);
+        }
         Section.Tangents.Emplace(TangentX.Vector.Packed);
         Section.Tangents.Emplace(TangentZ.Vector.Packed);
+
         Section.SectionLocalBox += Pos;
     }
 
