@@ -73,83 +73,8 @@ private:
 
 protected:
 
-    virtual void FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const override
-    {
-        FVector Segment0(xMin.position, 0.f);
-        FVector Segment1(xMax.position.X, Segment0.Y, 0.f);
-
-        FVector Intersection;
-        FVector2D Normal;
-
-        if (FindIntersection(Segment0, Segment1, Intersection, Normal))
-        {
-            if (xMin.state == fillType)
-            {
-                float x = Intersection.X;
-                if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < x)
-                {
-                    xMin.xEdge = x;
-                    xMin.xNormal = ComputeNormal(Normal, xMax); //fillType ? Normal : -Normal;
-                }
-                else
-                {
-					ValidateHorizontalNormal(xMin, xMax);
-                }
-            }
-            else if (xMax.state == fillType)
-            {
-                float x = Intersection.X;
-                if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > x)
-                {
-                    xMin.xEdge = x;
-                    xMin.xNormal = ComputeNormal(Normal, xMin); //fillType ? Normal : -Normal;
-                }
-                else
-                {
-					ValidateHorizontalNormal(xMin, xMax);
-                }
-            }
-        }
-    }
-
-    virtual void FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const override
-    {
-        FVector Segment0(yMin.position, 0.f);
-        FVector Segment1(Segment0.X, yMax.position.Y, 0.f);
-
-        FVector Intersection;
-        FVector2D Normal;
-
-        if (FindIntersection(Segment0, Segment1, Intersection, Normal))
-        {
-            if (yMin.state == fillType)
-            {
-                float y = Intersection.Y;
-                if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < y)
-                {
-                    yMin.yEdge = y;
-                    yMin.yNormal = ComputeNormal(Normal, yMax); //fillType ? Normal : -Normal;
-                }
-                else
-                {
-					ValidateVerticalNormal(yMin, yMax);
-                }
-            }
-            else if (yMax.state == fillType)
-            {
-                float y = Intersection.Y;
-                if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > y)
-                {
-                    yMin.yEdge = y;
-                    yMin.yNormal = ComputeNormal(Normal, yMin); //fillType ? Normal : -Normal;
-                }
-                else
-                {
-					ValidateVerticalNormal(yMin, yMax);
-                }
-            }
-        }
-    }
+    virtual void FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const override;
+    virtual void FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const override;
 
 public:
 

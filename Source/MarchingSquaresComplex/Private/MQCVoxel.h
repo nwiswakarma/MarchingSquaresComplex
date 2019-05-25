@@ -61,21 +61,19 @@ struct FMQCVoxel
 
     FORCEINLINE FVector2D GetXEdgePoint() const
     {
-        //return FVector2D(xEdge, position.Y);
         return FVector2D(position.X+FMath::Max(0.f, xEdge), position.Y);
     }
     
     FORCEINLINE FVector2D GetYEdgePoint() const
     {
-        //return FVector2D(position.X, yEdge);
         return FVector2D(position.X, position.Y+FMath::Max(0.f, yEdge));
     }
 
     FORCEINLINE void Reset()
     {
         state = 0;
-        xEdge = -1.f; //TNumericLimits<float>::Lowest();
-        yEdge = -1.f; //TNumericLimits<float>::Lowest();
+        xEdge = -1.f;
+        yEdge = -1.f;
     }
 
     FORCEINLINE void Set(int32 x, int32 y, float size)
@@ -83,8 +81,8 @@ struct FMQCVoxel
         position.X = (x + 0.5f) * size;
         position.Y = (y + 0.5f) * size;
 
-        xEdge = -1.f; //TNumericLimits<float>::Lowest();
-        yEdge = -1.f; //TNumericLimits<float>::Lowest();
+        xEdge = -1.f;
+        yEdge = -1.f;
 
         state = 0;
     }
@@ -94,7 +92,7 @@ struct FMQCVoxel
         state = voxel.state;
         position = voxel.position;
         position.X += offset;
-        xEdge = voxel.xEdge; // + offset;
+        xEdge = voxel.xEdge;
         yEdge = voxel.yEdge;
         yNormal = voxel.yNormal;
     }
@@ -105,7 +103,7 @@ struct FMQCVoxel
         position = voxel.position;
         position.Y += offset;
         xEdge = voxel.xEdge;
-        yEdge = voxel.yEdge; // + offset;
+        yEdge = voxel.yEdge;
         xNormal = voxel.xNormal;
     }
 
@@ -115,7 +113,7 @@ struct FMQCVoxel
         position = voxel.position;
         position.X += offset;
         position.Y += offset;
-        xEdge = voxel.xEdge; // + offset;
-        yEdge = voxel.yEdge; // + offset;
+        xEdge = voxel.xEdge;
+        yEdge = voxel.yEdge;
     }
 };

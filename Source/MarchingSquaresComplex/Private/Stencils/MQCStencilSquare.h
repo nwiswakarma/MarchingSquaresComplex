@@ -40,83 +40,8 @@ protected:
 
     float radius;
 
-    virtual void FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
-    {
-        if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
-        {
-            return;
-        }
-
-        if (xMin.state == fillType)
-        {
-            if (xMin.position.X <= GetXEnd() && xMax.position.X >= GetXEnd())
-            {
-                if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < GetXEnd())
-                {
-                    xMin.xEdge = GetXEnd();
-                    xMin.xNormal = FVector2D(fillType ? 1.f : -1.f, 0.f);
-                }
-                else
-                {
-                    ValidateHorizontalNormal(xMin, xMax);
-                }
-            }
-        }
-        else if (xMax.state == fillType)
-        {
-            if (xMin.position.X <= GetXStart() && xMax.position.X >= GetXStart())
-            {
-                if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > GetXStart())
-                {
-                    xMin.xEdge = GetXStart();
-                    xMin.xNormal = FVector2D(fillType ? -1.f : 1.f, 0.f);
-                }
-                else
-                {
-                    ValidateHorizontalNormal(xMin, xMax);
-                }
-            }
-        }
-    }
-    
-    virtual void FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
-    {
-        if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
-        {
-            return;
-        }
-
-        if (yMin.state == fillType)
-        {
-            if (yMin.position.Y <= GetYEnd() && yMax.position.Y >= GetYEnd())
-            {
-                if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < GetYEnd())
-                {
-                    yMin.yEdge = GetYEnd();
-                    yMin.yNormal = FVector2D(0.f, fillType ? 1.f : -1.f);
-                }
-                else
-                {
-                    ValidateVerticalNormal(yMin, yMax);
-                }
-            }
-        }
-        else if (yMax.state == fillType)
-        {
-            if (yMin.position.Y <= GetYStart() && yMax.position.Y >= GetYStart())
-            {
-                if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > GetYStart())
-                {
-                    yMin.yEdge = GetYStart();
-                    yMin.yNormal = FVector2D(0.f, fillType ? -1.f : 1.f);
-                }
-                else
-                {
-                    ValidateVerticalNormal(yMin, yMax);
-                }
-            }
-        }
-    }
+    virtual void FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel& xMax) const override;
+    virtual void FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& yMax) const override;
 
 public:
 
