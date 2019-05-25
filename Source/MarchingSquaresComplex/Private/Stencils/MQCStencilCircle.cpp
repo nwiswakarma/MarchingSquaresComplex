@@ -38,9 +38,9 @@ void FMQCStencilCircle::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel&
         if (x * x + y2 <= sqrRadius)
         {
             x = centerX + FMath::Sqrt(sqrRadius - y2);
-            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < x)
+            if (xMin.xEdge < 0.f || xMin.xEdge < x)
             {
-                xMin.xEdge = x;
+                xMin.xEdge = x-xMin.position.X;
                 xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMax);
             }
             else
@@ -55,9 +55,9 @@ void FMQCStencilCircle::FindHorizontalCrossing(FMQCVoxel& xMin, const FMQCVoxel&
         if (x * x + y2 <= sqrRadius)
         {
             x = centerX - FMath::Sqrt(sqrRadius - y2);
-            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > x)
+            if (xMin.xEdge < 0.f || xMin.xEdge > x)
             {
-                xMin.xEdge = x;
+                xMin.xEdge = 1.f - (xMax.position.X-x);
                 xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMin);
             }
             else
@@ -79,9 +79,9 @@ void FMQCStencilCircle::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& y
         if (y * y + x2 <= sqrRadius)
         {
             y = centerY + FMath::Sqrt(sqrRadius - x2);
-            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < y)
+            if (yMin.yEdge < 0.f || yMin.yEdge < y)
             {
-                yMin.yEdge = y;
+                yMin.yEdge = y-yMin.position.Y;
                 yMin.yNormal = ComputeNormal(yMin.position.X, y, yMax);
             }
             else
@@ -96,9 +96,9 @@ void FMQCStencilCircle::FindVerticalCrossing(FMQCVoxel& yMin, const FMQCVoxel& y
         if (y * y + x2 <= sqrRadius)
         {
             y = centerY - FMath::Sqrt(sqrRadius - x2);
-            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > y)
+            if (yMin.yEdge < 0.f || yMin.yEdge > y)
             {
-                yMin.yEdge = y;
+                yMin.yEdge = 1.f - (yMax.position.Y-y);
                 yMin.yNormal = ComputeNormal(yMin.position.X, y, yMin);
             }
             else
