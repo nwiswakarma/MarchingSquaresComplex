@@ -132,11 +132,7 @@ void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVe
     }
     else
     {
-#ifndef MQC_VOXEL_DEBUG_LEGACY
         xMin.xEdge = -1.f;
-#else
-        xMin.xEdge = TNumericLimits<float>::Lowest();
-#endif
     }
 }
 
@@ -148,11 +144,7 @@ void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVe
     }
     else
     {
-#ifndef MQC_VOXEL_DEBUG_LEGACY
         yMin.yEdge = -1.f;
-#else
-        yMin.yEdge = TNumericLimits<float>::Lowest();
-#endif
     }
 }
 

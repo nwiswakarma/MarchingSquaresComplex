@@ -29,16 +29,10 @@
 
 #include "CoreMinimal.h"
 
-enum class EPMUVoxelDT : uint8
-{
-	X,
-	Y,
-	XY
-};
-
 struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 {
     int32 state = 0;
+    int32 stateCenter = 0;
 
     float xEdge;
     float yEdge;
@@ -61,92 +55,73 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     FORCEINLINE FVector2D GetXEdgePoint() const
     {
-#ifndef MQC_VOXEL_DEBUG_LEGACY
         return FVector2D(position.X+FMath::Max(0.f, xEdge), position.Y);
-#else
-        return FVector2D(xEdge, position.Y);
-#endif
     }
     
     FORCEINLINE FVector2D GetYEdgePoint() const
     {
-#ifndef MQC_VOXEL_DEBUG_LEGACY
         return FVector2D(position.X, position.Y+FMath::Max(0.f, yEdge));
-#else
-        return FVector2D(position.X, yEdge);
-#endif
     }
 
     FORCEINLINE void Reset()
     {
         state = 0;
-#ifndef MQC_VOXEL_DEBUG_LEGACY
+        stateCenter = 0;
+
         xEdge = -1.f;
         yEdge = -1.f;
-#else
-        xEdge = TNumericLimits<float>::Lowest();
-        yEdge = TNumericLimits<float>::Lowest();
-#endif
     }
 
     FORCEINLINE void Set(int32 x, int32 y)
     {
+        state = 0;
+        stateCenter = 0;
+
         position.X = x + 0.5f;
         position.Y = y + 0.5f;
 
-#ifndef MQC_VOXEL_DEBUG_LEGACY
         xEdge = -1.f;
         yEdge = -1.f;
-#else
-        xEdge = TNumericLimits<float>::Lowest();
-        yEdge = TNumericLimits<float>::Lowest();
-#endif
-
-        state = 0;
     }
 
     FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& voxel, float offset)
     {
         state = voxel.state;
+        stateCenter = voxel.stateCenter;
+
         position = voxel.position;
         position.X += offset;
-#ifndef MQC_VOXEL_DEBUG_LEGACY
+
         xEdge = voxel.xEdge;
         yEdge = voxel.yEdge;
-#else
-        xEdge = voxel.xEdge + offset;
-        yEdge = voxel.yEdge;
-#endif
+
         yNormal = voxel.yNormal;
     }
     
     FORCEINLINE void BecomeYDummyOf(const FMQCVoxel& voxel, float offset)
     {
         state = voxel.state;
+        stateCenter = voxel.stateCenter;
+
         position = voxel.position;
         position.Y += offset;
-#ifndef MQC_VOXEL_DEBUG_LEGACY
+
         xEdge = voxel.xEdge;
         yEdge = voxel.yEdge;
-#else
-        xEdge = voxel.xEdge;
-        yEdge = voxel.yEdge + offset;
-#endif
+
         xNormal = voxel.xNormal;
     }
 
     FORCEINLINE void BecomeXYDummyOf(const FMQCVoxel& voxel, float offset)
     {
         state = voxel.state;
+        stateCenter = voxel.stateCenter;
+
         position = voxel.position;
         position.X += offset;
         position.Y += offset;
-#ifndef MQC_VOXEL_DEBUG_LEGACY
+
         xEdge = voxel.xEdge;
         yEdge = voxel.yEdge;
-#else
-        xEdge = voxel.xEdge + offset;
-        yEdge = voxel.yEdge + offset;
-#endif
     }
 };

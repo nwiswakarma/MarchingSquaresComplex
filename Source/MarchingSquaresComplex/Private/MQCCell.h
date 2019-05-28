@@ -158,8 +158,11 @@ public:
             }
             return IsBelowLine(fA.position, b.GetYEdgePoint(), c.GetXEdgePoint());
         }
-        return fD.exists &&
-            IsBelowLine(fD.position, a.GetYEdgePoint(), a.GetXEdgePoint());
+        if (fD.exists)
+        {
+            return IsBelowLine(fD.position, a.GetYEdgePoint(), a.GetXEdgePoint());
+        }
+        return (a.stateCenter == a.state) && (a.stateCenter == d.state);
     }
     
     bool HasConnectionBC(const FMQCFeaturePoint& fB, const FMQCFeaturePoint& fC)
@@ -192,8 +195,11 @@ public:
             }
             return IsBelowLine(fB.position, c.GetXEdgePoint(), a.GetYEdgePoint());
         }
-        return fC.exists &&
-            IsBelowLine(fC.position, a.GetXEdgePoint(), b.GetYEdgePoint());
+        if (fC.exists)
+        {
+            return IsBelowLine(fC.position, a.GetXEdgePoint(), b.GetYEdgePoint());
+        }
+        return (a.stateCenter == b.state) && (a.stateCenter == c.state);
     }
 
     FORCEINLINE bool IsInsideABD(const FVector2D& point)
@@ -228,7 +234,6 @@ private:
 
     FORCEINLINE static FVector2D GetIntersection(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2)
     {
-        
         FVector2D d2(-n2.Y, n2.X);
         float u2 = -FVector2D::DotProduct(n1, p2 - p1) / FVector2D::DotProduct(n1, d2);
         return p2 + d2 * u2;

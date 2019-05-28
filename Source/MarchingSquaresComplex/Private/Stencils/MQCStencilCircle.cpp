@@ -27,8 +27,6 @@
 
 #include "MQCStencilCircle.h"
 
-#ifndef MQC_VOXEL_DEBUG_LEGACY
-
 void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
     float ChunkCenterX = centerX - ChunkOffset.X;
@@ -136,89 +134,3 @@ void FMQCStencilCircle::ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffse
         voxel.state = fillType;
     }
 }
-
-#else // MQC_VOXEL_DEBUG_LEGACY
-
-void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
-{
-    float y2 = xMin.position.Y - centerY;
-    y2 *= y2;
-
-    if (xMin.state == fillType)
-    {
-        float x = xMin.position.X - centerX;
-        if (x * x + y2 <= sqrRadius)
-        {
-            x = centerX + FMath::Sqrt(sqrRadius - y2);
-            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < x)
-            {
-                xMin.xEdge = x;
-                xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMax);
-            }
-            else
-            {
-                ValidateNormalX(xMin, xMax);
-            }
-        }
-    }
-    else if (xMax.state == fillType)
-    {
-        float x = xMax.position.X - centerX;
-        if (x * x + y2 <= sqrRadius)
-        {
-            x = centerX - FMath::Sqrt(sqrRadius - y2);
-            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > x)
-            {
-                xMin.xEdge = x;
-                xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMin);
-            }
-            else
-            {
-                ValidateNormalX(xMin, xMax);
-            }
-        }
-    }
-}
-
-void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
-{
-    float x2 = yMin.position.X - centerX;
-    x2 *= x2;
-
-    if (yMin.state == fillType)
-    {
-        float y = yMin.position.Y - centerY;
-        if (y * y + x2 <= sqrRadius)
-        {
-            y = centerY + FMath::Sqrt(sqrRadius - x2);
-            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < y)
-            {
-                yMin.yEdge = y;
-                yMin.yNormal = ComputeNormal(yMin.position.X, y, yMax);
-            }
-            else
-            {
-                ValidateNormalY(yMin, yMax);
-            }
-        }
-    }
-    else if (yMax.state == fillType)
-    {
-        float y = yMax.position.Y - centerY;
-        if (y * y + x2 <= sqrRadius)
-        {
-            y = centerY - FMath::Sqrt(sqrRadius - x2);
-            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > y)
-            {
-                yMin.yEdge = y;
-                yMin.yNormal = ComputeNormal(yMin.position.X, y, yMin);
-            }
-            else
-            {
-                ValidateNormalY(yMin, yMax);
-            }
-        }
-    }
-}
-
-#endif
