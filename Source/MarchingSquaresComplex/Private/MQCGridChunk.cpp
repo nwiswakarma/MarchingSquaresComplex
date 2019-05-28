@@ -280,35 +280,35 @@ void FMQCGridChunk::CacheFirstCorner(const FMQCVoxel& voxel)
 {
     if (voxel.IsFilled())
     {
-        check(renderers.IsValidIndex(voxel.state));
-        renderers[voxel.state].CacheFirstCorner(voxel);
+        check(renderers.IsValidIndex(voxel.voxelState));
+        renderers[voxel.voxelState].CacheFirstCorner(voxel);
     }
 }
 
 void FMQCGridChunk::CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const FMQCVoxel& xMax)
 {
-    if (xMin.state != xMax.state)
+    if (xMin.voxelState != xMax.voxelState)
     {
         if (xMin.IsFilled())
         {
             if (xMax.IsFilled())
             {
-                renderers[xMin.state].CacheXEdge(i, xMin);
-                renderers[xMax.state].CacheXEdge(i, xMin);
+                renderers[xMin.voxelState].CacheXEdge(i, xMin);
+                renderers[xMax.voxelState].CacheXEdge(i, xMin);
             }
             else
             {
-                renderers[xMin.state].CacheXEdgeWithWall(i, xMin);
+                renderers[xMin.voxelState].CacheXEdgeWithWall(i, xMin);
             }
         }
         else
         {
-            renderers[xMax.state].CacheXEdgeWithWall(i, xMin);
+            renderers[xMax.voxelState].CacheXEdgeWithWall(i, xMin);
         }
     }
     if (xMax.IsFilled())
     {
-        renderers[xMax.state].CacheNextCorner(i, xMax);
+        renderers[xMax.voxelState].CacheNextCorner(i, xMax);
     }
 }
 
@@ -318,23 +318,23 @@ void FMQCGridChunk::CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& 
     {
         renderers[i].PrepareCacheForNextCell();
     }
-    if (yMin.state != yMax.state)
+    if (yMin.voxelState != yMax.voxelState)
     {
         if (yMin.IsFilled())
         {
             if (yMax.IsFilled())
             {
-                renderers[yMin.state].CacheYEdge(yMin);
-                renderers[yMax.state].CacheYEdge(yMin);
+                renderers[yMin.voxelState].CacheYEdge(yMin);
+                renderers[yMax.voxelState].CacheYEdge(yMin);
             }
             else
             {
-                renderers[yMin.state].CacheYEdgeWithWall(yMin);
+                renderers[yMin.voxelState].CacheYEdgeWithWall(yMin);
             }
         }
         else
         {
-            renderers[yMax.state].CacheYEdgeWithWall(yMin);
+            renderers[yMax.voxelState].CacheYEdgeWithWall(yMin);
         }
     }
 }
@@ -450,11 +450,11 @@ void FMQCGridChunk::TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel
     cell.c = c;
     cell.d = d;
 
-    if (a.state == b.state)
+    if (a.voxelState == b.voxelState)
     {
-        if (a.state == c.state)
+        if (a.voxelState == c.voxelState)
         {
-            if (a.state == d.state)
+            if (a.voxelState == d.voxelState)
             {
                 Triangulate0000();
             }
@@ -465,11 +465,11 @@ void FMQCGridChunk::TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel
         }
         else
         {
-            if (a.state == d.state)
+            if (a.voxelState == d.voxelState)
             {
                 Triangulate0010();
             }
-            else if (c.state == d.state)
+            else if (c.voxelState == d.voxelState)
             {
                 Triangulate0011();
             }
@@ -481,13 +481,13 @@ void FMQCGridChunk::TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel
     }
     else
     {
-        if (a.state == c.state)
+        if (a.voxelState == c.voxelState)
         {
-            if (a.state == d.state)
+            if (a.voxelState == d.voxelState)
             {
                 Triangulate0100();
             }
-            else if (b.state == d.state)
+            else if (b.voxelState == d.voxelState)
             {
                 Triangulate0101();
             }
@@ -496,13 +496,13 @@ void FMQCGridChunk::TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel
                 Triangulate0102();
             }
         }
-        else if (b.state == c.state)
+        else if (b.voxelState == c.voxelState)
         {
-            if (a.state == d.state)
+            if (a.voxelState == d.voxelState)
             {
                 Triangulate0110();
             }
-            else if (b.state == d.state)
+            else if (b.voxelState == d.voxelState)
             {
                 Triangulate0111();
             }
@@ -513,15 +513,15 @@ void FMQCGridChunk::TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel
         }
         else
         {
-            if (a.state == d.state)
+            if (a.voxelState == d.voxelState)
             {
                 Triangulate0120();
             }
-            else if (b.state == d.state)
+            else if (b.voxelState == d.voxelState)
             {
                 Triangulate0121();
             }
-            else if (c.state == d.state)
+            else if (c.voxelState == d.voxelState)
             {
                 Triangulate0122();
             }

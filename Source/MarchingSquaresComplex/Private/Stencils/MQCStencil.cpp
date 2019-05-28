@@ -31,7 +31,7 @@
 
 void FMQCStencil::ValidateNormalX(FMQCVoxel& xMin, const FMQCVoxel& xMax)
 {
-    if (xMin.state < xMax.state)
+    if (xMin.voxelState < xMax.voxelState)
     {
         if (xMin.xNormal.X > 0.f)
         {
@@ -46,7 +46,7 @@ void FMQCStencil::ValidateNormalX(FMQCVoxel& xMin, const FMQCVoxel& xMax)
 
 void FMQCStencil::ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax)
 {
-    if (yMin.state < yMax.state)
+    if (yMin.voxelState < yMax.voxelState)
     {
         if (yMin.yNormal.Y > 0.f)
         {
@@ -126,7 +126,7 @@ void FMQCStencil::GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, cons
 
 void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
-    if (xMin.state != xMax.state)
+    if (xMin.voxelState != xMax.voxelState)
     {
         FindCrossingX(xMin, xMax, ChunkOffset);
     }
@@ -138,7 +138,7 @@ void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVe
 
 void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
 {
-    if (yMin.state != yMax.state)
+    if (yMin.voxelState != yMax.voxelState)
     {
         FindCrossingY(yMin, yMax, ChunkOffset);
     }
@@ -276,7 +276,7 @@ void FMQCStencil::ApplyVoxel(FMQCVoxel& voxel) const
 
     if (p.X >= GetXStart() && p.X <= GetXEnd() && p.Y >= GetYStart() && p.Y <= GetYEnd())
     {
-        voxel.state = fillType;
+        voxel.voxelState = fillType;
     }
 }
 
@@ -289,6 +289,6 @@ void FMQCStencil::ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffset) con
 
     if (p.X >= X0 && p.X <= X1 && p.Y >= Y0 && p.Y <= Y1)
     {
-        voxel.state = fillType;
+        voxel.voxelState = fillType;
     }
 }

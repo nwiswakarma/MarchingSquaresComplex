@@ -31,8 +31,8 @@
 
 struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 {
-    int32 state = 0;
-    int32 stateCenter = 0;
+    int32 voxelState = 0;
+    int32 pointState = 0;
 
     float xEdge;
     float yEdge;
@@ -50,7 +50,7 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     FORCEINLINE bool IsFilled() const
     {
-        return state > 0;
+        return voxelState > 0;
     }
 
     FORCEINLINE FVector2D GetXEdgePoint() const
@@ -65,8 +65,8 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     FORCEINLINE void Reset()
     {
-        state = 0;
-        stateCenter = 0;
+        voxelState = 0;
+        pointState = 0;
 
         xEdge = -1.f;
         yEdge = -1.f;
@@ -74,8 +74,8 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     FORCEINLINE void Set(int32 x, int32 y)
     {
-        state = 0;
-        stateCenter = 0;
+        voxelState = 0;
+        pointState = 0;
 
         position.X = x + 0.5f;
         position.Y = y + 0.5f;
@@ -86,8 +86,8 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& voxel, float offset)
     {
-        state = voxel.state;
-        stateCenter = voxel.stateCenter;
+        voxelState = voxel.voxelState;
+        pointState = voxel.pointState;
 
         position = voxel.position;
         position.X += offset;
@@ -100,8 +100,8 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     
     FORCEINLINE void BecomeYDummyOf(const FMQCVoxel& voxel, float offset)
     {
-        state = voxel.state;
-        stateCenter = voxel.stateCenter;
+        voxelState = voxel.voxelState;
+        pointState = voxel.pointState;
 
         position = voxel.position;
         position.Y += offset;
@@ -114,8 +114,8 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     FORCEINLINE void BecomeXYDummyOf(const FMQCVoxel& voxel, float offset)
     {
-        state = voxel.state;
-        stateCenter = voxel.stateCenter;
+        voxelState = voxel.voxelState;
+        pointState = voxel.pointState;
 
         position = voxel.position;
         position.X += offset;

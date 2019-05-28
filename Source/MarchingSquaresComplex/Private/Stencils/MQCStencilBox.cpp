@@ -36,7 +36,7 @@ void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
         return;
     }
 
-    if (xMin.state == fillType)
+    if (xMin.voxelState == fillType)
     {
         const float x = GetXEnd();
         if (xMin.position.X <= x && xMax.position.X >= x)
@@ -54,7 +54,7 @@ void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
         }
     }
     else
-    if (xMax.state == fillType)
+    if (xMax.voxelState == fillType)
     {
         const float x = GetXStart();
         if (xMin.position.X <= x && xMax.position.X >= x)
@@ -80,7 +80,7 @@ void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
         return;
     }
 
-    if (yMin.state == fillType)
+    if (yMin.voxelState == fillType)
     {
         const float y = GetYEnd();
         if (yMin.position.Y <= y && yMax.position.Y >= y)
@@ -98,7 +98,7 @@ void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
         }
     }
     else
-    if (yMax.state == fillType)
+    if (yMax.voxelState == fillType)
     {
         const float y = GetYStart();
         if (yMin.position.Y <= y && yMax.position.Y >= y)
@@ -126,7 +126,7 @@ void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
         return;
     }
 
-    if (xMin.state == fillType)
+    if (xMin.voxelState == fillType)
     {
         if (xMin.position.X <= GetXEnd() && xMax.position.X >= GetXEnd())
         {
@@ -141,7 +141,7 @@ void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
             }
         }
     }
-    else if (xMax.state == fillType)
+    else if (xMax.voxelState == fillType)
     {
         if (xMin.position.X <= GetXStart() && xMax.position.X >= GetXStart())
         {
@@ -165,7 +165,7 @@ void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
         return;
     }
 
-    if (yMin.state == fillType)
+    if (yMin.voxelState == fillType)
     {
         if (yMin.position.Y <= GetYEnd() && yMax.position.Y >= GetYEnd())
         {
@@ -180,7 +180,7 @@ void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
             }
         }
     }
-    else if (yMax.state == fillType)
+    else if (yMax.voxelState == fillType)
     {
         if (yMin.position.Y <= GetYStart() && yMax.position.Y >= GetYStart())
         {

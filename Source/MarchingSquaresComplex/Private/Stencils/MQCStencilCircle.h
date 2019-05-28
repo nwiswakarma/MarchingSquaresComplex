@@ -39,7 +39,7 @@ private:
 
 	FVector2D ComputeNormal(float x, float y, const FMQCVoxel& other) const
     {
-		if (fillType > other.state)
+		if (fillType > other.voxelState)
         {
 			return FVector2D(x - centerX, y - centerY).GetSafeNormal();
 		}

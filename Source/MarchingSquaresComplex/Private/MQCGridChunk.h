@@ -124,7 +124,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillA(cell, f);
+            renderers[cell.a.voxelState].FillA(cell, f);
         }
     }
 
@@ -132,7 +132,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.state].FillB(cell, f);
+            renderers[cell.b.voxelState].FillB(cell, f);
         }
     }
     
@@ -140,7 +140,7 @@ private:
     {
         if (cell.c.IsFilled())
         {
-            renderers[cell.c.state].FillC(cell, f);
+            renderers[cell.c.voxelState].FillC(cell, f);
         }
     }
     
@@ -148,7 +148,7 @@ private:
     {
         if (cell.d.IsFilled())
         {
-            renderers[cell.d.state].FillD(cell, f);
+            renderers[cell.d.voxelState].FillD(cell, f);
         }
     }
 
@@ -156,7 +156,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillABC(cell, f);
+            renderers[cell.a.voxelState].FillABC(cell, f);
         }
     }
     
@@ -164,7 +164,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillABD(cell, f);
+            renderers[cell.a.voxelState].FillABD(cell, f);
         }
     }
     
@@ -172,7 +172,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillACD(cell, f);
+            renderers[cell.a.voxelState].FillACD(cell, f);
         }
     }
     
@@ -180,7 +180,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.state].FillBCD(cell, f);
+            renderers[cell.b.voxelState].FillBCD(cell, f);
         }
     }
 
@@ -188,7 +188,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillAB(cell, f);
+            renderers[cell.a.voxelState].FillAB(cell, f);
         }
     }
     
@@ -196,7 +196,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillAC(cell, f);
+            renderers[cell.a.voxelState].FillAC(cell, f);
         }
     }
     
@@ -204,7 +204,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.state].FillBD(cell, f);
+            renderers[cell.b.voxelState].FillBD(cell, f);
         }
     }
     
@@ -212,7 +212,7 @@ private:
     {
         if (cell.c.IsFilled())
         {
-            renderers[cell.c.state].FillCD(cell, f);
+            renderers[cell.c.voxelState].FillCD(cell, f);
         }
     }
 
@@ -220,7 +220,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillADToB(cell, f);
+            renderers[cell.a.voxelState].FillADToB(cell, f);
         }
     }
     
@@ -228,7 +228,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillADToC(cell, f);
+            renderers[cell.a.voxelState].FillADToC(cell, f);
         }
     }
     
@@ -236,7 +236,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.state].FillBCToA(cell, f);
+            renderers[cell.b.voxelState].FillBCToA(cell, f);
         }
     }
     
@@ -244,7 +244,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.state].FillBCToD(cell, f);
+            renderers[cell.b.voxelState].FillBCToD(cell, f);
         }
     }
 
@@ -252,7 +252,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.state].FillABCD(cell);
+            renderers[cell.a.voxelState].FillABCD(cell);
         }
     }
 

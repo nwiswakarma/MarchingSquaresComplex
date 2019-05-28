@@ -40,7 +40,7 @@ void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
     if (FindIntersection(Segment0, Segment1, Intersection, Normal))
     {
         const float x = Intersection.X;
-        if (xMin.state == fillType)
+        if (xMin.voxelState == fillType)
         {
             const float xEdge = x-xMin.position.X;
             if (xMin.xEdge < 0.f || xMin.xEdge < xEdge)
@@ -54,7 +54,7 @@ void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
             }
         }
         else
-        if (xMax.state == fillType)
+        if (xMax.voxelState == fillType)
         {
             const float xEdge = 1.f - (xMax.position.X-x);
             if (xMin.xEdge < 0.f || xMin.xEdge > xEdge)
@@ -81,7 +81,7 @@ void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
     if (FindIntersection(Segment0, Segment1, Intersection, Normal))
     {
         const float y = Intersection.Y;
-        if (yMin.state == fillType)
+        if (yMin.voxelState == fillType)
         {
             const float yEdge = y-yMin.position.Y;
             if (yMin.yEdge < 0.f || yMin.yEdge < yEdge)
@@ -95,7 +95,7 @@ void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
             }
         }
         else
-        if (yMax.state == fillType)
+        if (yMax.voxelState == fillType)
         {
             const float yEdge = 1.f - (yMax.position.Y-y);
             if (yMin.yEdge < 0.f || yMin.yEdge > yEdge)
@@ -123,7 +123,7 @@ void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
 
     if (FindIntersection(Segment0, Segment1, Intersection, Normal))
     {
-        if (xMin.state == fillType)
+        if (xMin.voxelState == fillType)
         {
             float x = Intersection.X;
             if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < x)
@@ -136,7 +136,7 @@ void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
                 ValidateNormalX(xMin, xMax);
             }
         }
-        else if (xMax.state == fillType)
+        else if (xMax.voxelState == fillType)
         {
             float x = Intersection.X;
             if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > x)
@@ -162,7 +162,7 @@ void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
 
     if (FindIntersection(Segment0, Segment1, Intersection, Normal))
     {
-        if (yMin.state == fillType)
+        if (yMin.voxelState == fillType)
         {
             float y = Intersection.Y;
             if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < y)
@@ -175,7 +175,7 @@ void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
                 ValidateNormalY(yMin, yMax);
             }
         }
-        else if (yMax.state == fillType)
+        else if (yMax.voxelState == fillType)
         {
             float y = Intersection.Y;
             if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > y)

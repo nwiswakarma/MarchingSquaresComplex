@@ -35,7 +35,7 @@ void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
     float y2 = xMin.position.Y - ChunkCenterY;
     y2 *= y2;
 
-    if (xMin.state == fillType)
+    if (xMin.voxelState == fillType)
     {
         float x = xMin.position.X - ChunkCenterX;
         if (x * x + y2 <= sqrRadius)
@@ -54,7 +54,7 @@ void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
         }
     }
     else
-    if (xMax.state == fillType)
+    if (xMax.voxelState == fillType)
     {
         float x = xMax.position.X - ChunkCenterX;
         if (x * x + y2 <= sqrRadius)
@@ -82,7 +82,7 @@ void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
     float x2 = yMin.position.X - ChunkCenterX;
     x2 *= x2;
 
-    if (yMin.state == fillType)
+    if (yMin.voxelState == fillType)
     {
         float y = yMin.position.Y - ChunkCenterY;
         if (y * y + x2 <= sqrRadius)
@@ -101,7 +101,7 @@ void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
         }
     }
     else
-    if (yMax.state == fillType)
+    if (yMax.voxelState == fillType)
     {
         float y = yMax.position.Y - ChunkCenterY;
         if (y * y + x2 <= sqrRadius)
@@ -131,6 +131,6 @@ void FMQCStencilCircle::ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffse
 
     if (x * x + y * y <= sqrRadius)
     {
-        voxel.state = fillType;
+        voxel.voxelState = fillType;
     }
 }

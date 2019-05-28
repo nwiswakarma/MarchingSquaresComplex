@@ -68,7 +68,7 @@ private:
 
 	FORCEINLINE FVector2D ComputeNormal(const FVector2D& Normal, const FMQCVoxel& other) const
     {
-        return (fillType > other.state) ? -Normal : Normal;
+        return (fillType > other.voxelState) ? -Normal : Normal;
 	}
 
 protected:
@@ -151,7 +151,7 @@ public:
     {
         if (UGULPolyUtilityLibrary::IsPointOnTri(FVector(voxel.position, 0.f), Pos[0], Pos[1], Pos[2]))
         {
-            voxel.state = fillType;
+            voxel.voxelState = fillType;
         }
     }
 

@@ -131,7 +131,7 @@ public:
 
     bool HasConnectionAD(const FMQCFeaturePoint& fA, const FMQCFeaturePoint& fD)
     {
-        bool flip = (a.state < b.state) == (a.state < c.state);
+        bool flip = (a.voxelState < b.voxelState) == (a.voxelState < c.voxelState);
         if (IsParallel(a.xNormal, a.yNormal, flip) ||
             IsParallel(c.xNormal, b.yNormal, flip))
         {
@@ -162,12 +162,12 @@ public:
         {
             return IsBelowLine(fD.position, a.GetYEdgePoint(), a.GetXEdgePoint());
         }
-        return (a.stateCenter == a.state) && (a.stateCenter == d.state);
+        return (a.pointState == a.voxelState) && (a.pointState == d.voxelState);
     }
     
     bool HasConnectionBC(const FMQCFeaturePoint& fB, const FMQCFeaturePoint& fC)
     {
-        bool flip = (b.state < a.state) == (b.state < d.state);
+        bool flip = (b.voxelState < a.voxelState) == (b.voxelState < d.voxelState);
         if (
             IsParallel(a.xNormal, b.yNormal, flip) ||
             IsParallel(c.xNormal, a.yNormal, flip))
@@ -199,7 +199,7 @@ public:
         {
             return IsBelowLine(fC.position, a.GetXEdgePoint(), b.GetYEdgePoint());
         }
-        return (a.stateCenter == b.state) && (a.stateCenter == c.state);
+        return (a.pointState == b.voxelState) && (a.pointState == c.voxelState);
     }
 
     FORCEINLINE bool IsInsideABD(const FVector2D& point)
@@ -241,37 +241,37 @@ private:
 
     FORCEINLINE FMQCFeaturePoint GetCheckedFeatureSW() const
     {
-        FVector2D n2 = (a.state < b.state) == (a.state < c.state) ?  a.yNormal : -a.yNormal;
+        FVector2D n2 = (a.voxelState < b.voxelState) == (a.voxelState < c.voxelState) ?  a.yNormal : -a.yNormal;
         return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, a.GetYEdgePoint(), n2);
     }
     
     FORCEINLINE FMQCFeaturePoint GetCheckedFeatureSE() const
     {
-        FVector2D n2 = (b.state < a.state) == (b.state < c.state) ?  b.yNormal : -b.yNormal;
+        FVector2D n2 = (b.voxelState < a.voxelState) == (b.voxelState < c.voxelState) ?  b.yNormal : -b.yNormal;
         return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, b.GetYEdgePoint(), n2);
     }
     
     FORCEINLINE FMQCFeaturePoint GetCheckedFeatureNW() const
     {
-        FVector2D n2 = (c.state < a.state) == (c.state < d.state) ?  c.xNormal : -c.xNormal;
+        FVector2D n2 = (c.voxelState < a.voxelState) == (c.voxelState < d.voxelState) ?  c.xNormal : -c.xNormal;
         return GetSharpFeature(a.GetYEdgePoint(), a.yNormal, c.GetXEdgePoint(), n2);
     }
     
     FORCEINLINE FMQCFeaturePoint GetCheckedFeatureNE() const
     {
-        FVector2D n2 = (d.state < b.state) == (d.state < c.state) ?  b.yNormal : -b.yNormal;
+        FVector2D n2 = (d.voxelState < b.voxelState) == (d.voxelState < c.voxelState) ?  b.yNormal : -b.yNormal;
         return GetSharpFeature(c.GetXEdgePoint(), c.xNormal, b.GetYEdgePoint(), n2);
     }
     
     FORCEINLINE FMQCFeaturePoint GetCheckedFeatureNS() const
     {
-        FVector2D n2 = (a.state < b.state) == (c.state < d.state) ?  c.xNormal : -c.xNormal;
+        FVector2D n2 = (a.voxelState < b.voxelState) == (c.voxelState < d.voxelState) ?  c.xNormal : -c.xNormal;
         return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, c.GetXEdgePoint(), n2);
     }
     
     FORCEINLINE FMQCFeaturePoint GetCheckedFeatureEW() const
     {
-        FVector2D n2 = (a.state < c.state) == (b.state < d.state) ?  b.yNormal : -b.yNormal;
+        FVector2D n2 = (a.voxelState < c.voxelState) == (b.voxelState < d.voxelState) ?  b.yNormal : -b.yNormal;
         return GetSharpFeature(a.GetYEdgePoint(), a.yNormal, b.GetYEdgePoint(), n2);
     }
 
