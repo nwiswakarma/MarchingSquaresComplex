@@ -48,8 +48,6 @@ private:
     TArray<FMQCGridRenderer> renderers;
     TArray<FMQCVoxel> voxels;
 
-    float gridSize;
-    float voxelSize;
     int32 voxelResolution;
 
     FMQCVoxel dummyX;
@@ -88,6 +86,11 @@ public:
     void Initialize(const FMQCGridConfig& Config);
     void CopyFrom(const FMQCGridChunk& Chunk);
 
+    FORCEINLINE FIntPoint GetOffsetId() const
+    {
+        return FIntPoint(position.X+.5f, position.Y+.5f);
+    }
+
     FORCEINLINE bool HasRenderer(int32 RendererIndex) const
     {
         return renderers.IsValidIndex(RendererIndex);
@@ -114,7 +117,7 @@ private:
 
     FORCEINLINE void CreateVoxel(int32 i, int32 x, int32 y)
     {
-        voxels[i].Set(x, y, voxelSize);
+        voxels[i].Set(x, y);
     }
     
     FORCEINLINE void FillA(const FMQCFeaturePoint& f)

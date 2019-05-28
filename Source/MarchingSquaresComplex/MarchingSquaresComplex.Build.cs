@@ -41,13 +41,12 @@ namespace UnrealBuildTool.Rules
                     "CoreUObject",
                     "Engine",
                     "GenericWorkerThread",
-                    "EarcutPlugin"
+                    "ProceduralMeshUtility"
                 } );
 
             PrivateDependencyModuleNames.AddRange(
                 new string[] {
-                    "GeometryUtilityLibrary",
-                    "ProceduralMeshUtility"
+                    "GeometryUtilityLibrary"
                 } );
         }
     }

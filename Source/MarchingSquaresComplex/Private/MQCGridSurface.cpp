@@ -32,13 +32,8 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
     // Position & dimension configuration
 
     position = Config.Position;
-    gridSize = Config.ChunkSize;
-    mapSize  = Config.MapSize;
     voxelResolution = Config.VoxelResolution;
     voxelCount      = voxelResolution * voxelResolution;
-    voxelSize       = gridSize / voxelResolution;
-    voxelSizeHalf   = voxelSize / 2.f;
-    voxelSizeInv    = 1.f / voxelSize;
 
     // Extrusion configuration
 
@@ -80,14 +75,9 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 void FMQCGridSurface::CopyFrom(const FMQCGridSurface& Surface)
 {
     position = Surface.position;
-    gridSize = Surface.gridSize;
-    mapSize  = Surface.mapSize;
 
     voxelResolution = Surface.voxelResolution;
     voxelCount      = Surface.voxelCount;
-    voxelSize       = Surface.voxelSize;
-    voxelSizeHalf   = Surface.voxelSizeHalf;
-    voxelSizeInv    = Surface.voxelSizeInv;
 
     // Extrusion configuration
 

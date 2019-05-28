@@ -51,8 +51,8 @@ private:
 
 protected:
 
-    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const override;
-    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const override;
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
 
 public:
 	
@@ -62,16 +62,7 @@ public:
 		sqrRadius = radius * radius;
 	}
 	
-    FORCEINLINE virtual void ApplyVoxel(FMQCVoxel& voxel) const override
-    {
-		float x = voxel.position.X - centerX;
-		float y = voxel.position.Y - centerY;
-
-		if (x * x + y * y <= sqrRadius)
-        {
-			voxel.state = fillType;
-		}
-	}
+    virtual void ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffset) const override;
 };
 
 UCLASS(BlueprintType)

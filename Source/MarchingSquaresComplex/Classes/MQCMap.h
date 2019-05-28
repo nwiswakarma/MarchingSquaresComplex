@@ -37,7 +37,7 @@
 
 class FMQCGridChunk;
 
-class FMQCMap
+class MARCHINGSQUARESCOMPLEX_API FMQCMap
 {
 private:
 
@@ -58,10 +58,6 @@ private:
 
     TSharedPtr<FGWTAsyncThreadPool> ThreadPool = nullptr;
 
-	float chunkSize;
-    float voxelSize;
-    bool bHasGridData = false;
-
     void InitializeSettings();
     void InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCGridConfig& ChunkConfig);
     void InitializeChunk(int32 i, const FMQCGridConfig& ChunkConfig);
@@ -81,7 +77,6 @@ public:
 	float maxFeatureAngle = 135.f;
 	float maxParallelAngle = 8.f;
 
-	float mapSize = 2.f;
 	int32 voxelResolution = 8;
 	int32 chunkResolution = 2;
 	float extrusionHeight = -1.f;
@@ -95,16 +90,6 @@ public:
     void Clear();
 
     TSharedPtr<FGWTAsyncThreadPool> GetThreadPool();
-
-    FORCEINLINE float GetChunkSize() const
-    {
-        return chunkSize;
-    }
-
-    FORCEINLINE float GetVoxelSize() const
-    {
-        return voxelSize;
-    }
 
     FORCEINLINE float GetVoxelCount() const
     {
@@ -146,9 +131,6 @@ class UMQCMapRef : public UObject
     void ApplyMapSettings();
 
 public:
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
-    float MapSize = 2.f;
 
     UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
 	int32 VoxelResolution = 8;
@@ -236,6 +218,8 @@ public:
         return VoxelMap.RefreshAllChunksAsync(TaskRef);
     }
 
+#if 0
+
     UFUNCTION(BlueprintCallable)
     void EditMapAsync(UPARAM(ref) FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils);
 
@@ -244,6 +228,8 @@ public:
 
     UFUNCTION(BlueprintCallable)
     void EditCrossingsAsync(UPARAM(ref) FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils);
+
+#endif
 
     UFUNCTION(BlueprintCallable)
     UMQCMapRef* Copy(UObject* Outer) const;
@@ -257,32 +243,22 @@ public:
     UFUNCTION(BlueprintCallable)
     float GetMapSize() const
     {
-        return VoxelMap.mapSize;
+        return VoxelMap.voxelResolution * VoxelMap.chunkResolution;
     }
 
-    UFUNCTION(BlueprintCallable)
-    float GetChunkSize() const
-    {
-        return VoxelMap.GetChunkSize();
-    }
-
-    UFUNCTION(BlueprintCallable)
-    float GetVoxelSize() const
-    {
-        return VoxelMap.GetVoxelSize();
-    }
 
     UFUNCTION(BlueprintCallable)
     FVector2D GetCenter() const
     {
-        float Center = (GetMapSize() - GetVoxelSize()) * .5f;
+        float Center = (GetMapSize() - 1.f) * .5f;
         return FVector2D(Center, Center);
     }
 
     UFUNCTION(BlueprintCallable)
     FVector2D GetMapDimension() const
     {
-        return FVector2D(VoxelMap.mapSize, VoxelMap.mapSize);
+        const float MapSize = GetMapSize();
+        return FVector2D(MapSize, MapSize);
     }
 
 	UFUNCTION(BlueprintCallable)
@@ -310,7 +286,7 @@ public:
 	FVector GetChunkPosition(int32 ChunkIndex) const;
 
 	UFUNCTION(BlueprintCallable)
-	FPMUMeshSection GetSection(int32 ChunkIndex, int32 StateIndex) const;
+	void GetSection(FPMUMeshSection& Section, int32 ChunkIndex, int32 StateIndex) const;
 
     // PREFAB FUNCTIONS
 
@@ -327,9 +303,6 @@ class AMQCMap : public AActor
     GENERATED_BODY()
 
 public:
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
-    float MapSize = 2.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
 	int32 VoxelResolution = 8;
@@ -357,7 +330,6 @@ public:
     {
         if (IsValid(MapRef))
         {
-            MapRef->MapSize = MapSize;
             MapRef->VoxelResolution = VoxelResolution;
             MapRef->ChunkResolution = ChunkResolution;
             MapRef->SurfaceStates = SurfaceStates;

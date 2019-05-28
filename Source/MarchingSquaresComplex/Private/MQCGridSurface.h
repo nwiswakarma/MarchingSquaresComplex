@@ -43,12 +43,6 @@ private:
 	const FName SURFACE_HEIGHT_MAP_NAME = TEXT("PMU_VOXEL_SURFACE_HEIGHT_MAP");
 	const FName EXTRUDE_HEIGHT_MAP_NAME = TEXT("PMU_VOXEL_EXTRUDE_HEIGHT_MAP");
 
-	float voxelSize;
-	float voxelSizeInv;
-	float voxelSizeHalf;
-	float gridSize;
-    float mapSize;
-
     bool bGenerateExtrusion;
     bool bExtrusionSurface;
 	float extrusionHeight;
@@ -636,8 +630,8 @@ private:
 
     FORCEINLINE void AddVertex(float X, float Y, bool bIsExtrusion)
     {
-        const float PX = (position.X + X) - voxelSizeHalf;
-        const float PY = (position.Y + Y) - voxelSizeHalf;
+        const float PX = (position.X + X) - .5f;
+        const float PY = (position.Y + Y) - .5f;
 
         float Height;
         FVector Normal;

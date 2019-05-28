@@ -29,16 +29,19 @@
 
 #ifndef MQC_VOXEL_DEBUG_LEGACY
 
-void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
-    if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
+    float X0, X1, Y0, Y1;
+    GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
+
+    if (xMin.position.Y < Y0 || xMin.position.Y > Y1)
     {
         return;
     }
 
     if (xMin.state == fillType)
     {
-        const float x = GetXEnd();
+        const float x = X1;
         if (xMin.position.X <= x && xMax.position.X >= x)
         {
             const float xEdge = x-xMin.position.X;
@@ -56,7 +59,7 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) co
     else
     if (xMax.state == fillType)
     {
-        const float x = GetXStart();
+        const float x = X0;
         if (xMin.position.X <= x && xMax.position.X >= x)
         {
             const float xEdge = 1.f - (xMax.position.X-x);
@@ -73,16 +76,19 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) co
     }
 }
 
-void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
 {
-    if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
+    float X0, X1, Y0, Y1;
+    GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
+
+    if (yMin.position.X < X0 || yMin.position.X > X1)
     {
         return;
     }
 
     if (yMin.state == fillType)
     {
-        const float y = GetYEnd();
+        const float y = Y1;
         if (yMin.position.Y <= y && yMax.position.Y >= y)
         {
             const float yEdge = y-yMin.position.Y;
@@ -100,7 +106,7 @@ void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) co
     else
     if (yMax.state == fillType)
     {
-        const float y = GetYStart();
+        const float y = Y0;
         if (yMin.position.Y <= y && yMax.position.Y >= y)
         {
             const float yEdge = 1.f - (yMax.position.Y-y);

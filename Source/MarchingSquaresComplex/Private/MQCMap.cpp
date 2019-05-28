@@ -116,21 +116,15 @@ TSharedPtr<FGWTAsyncThreadPool> FMQCMap::GetThreadPool()
 void FMQCMap::InitializeSettings()
 {
     // Invalid resolution, abort
-    if (mapSize < 1 || chunkResolution < 1 || voxelResolution < 1)
+    if (chunkResolution < 1 || voxelResolution < 1)
     {
         return;
     }
 
     // Initialize map settings
 
-    check(mapSize > 0);
     check(chunkResolution > 0);
     check(voxelResolution > 0);
-
-    chunkSize = mapSize / chunkResolution;
-    voxelSize = chunkSize / voxelResolution;
-
-    bHasGridData = false;
 
     // Create uninitialized chunks
 
@@ -150,20 +144,14 @@ void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCGridConfig&
 
     // Initialize chunk
 
-    FVector2D chunkPosition(x * chunkSize, y * chunkSize);
+    FVector2D chunkPosition(x * voxelResolution, y * voxelResolution);
 
     ChunkConfig.States = surfaceStates;
     ChunkConfig.Position = chunkPosition;
-    ChunkConfig.ChunkSize = chunkSize;
     ChunkConfig.VoxelResolution = voxelResolution;
-    ChunkConfig.MapSize = mapSize;
     ChunkConfig.MaxFeatureAngle = maxFeatureAngle;
     ChunkConfig.MaxParallelAngle = maxParallelAngle;
     ChunkConfig.ExtrusionHeight = extrusionHeight;
-
-    UE_LOG(LogTemp,Warning, TEXT("chunkPosition: %s"), *chunkPosition.ToString());
-    UE_LOG(LogTemp,Warning, TEXT("chunkSize: %f"), chunkSize);
-    UE_LOG(LogTemp,Warning, TEXT("voxelSize: %f"), voxelSize);
 
     // Link chunk neighbours
 
@@ -248,10 +236,6 @@ void FMQCMap::InitializeAsync(FGWTAsyncTaskRef& TaskRef)
 
 void FMQCMap::CopyFrom(const FMQCMap& VoxelMap)
 {
-    chunkSize = VoxelMap.chunkSize;
-    voxelSize = VoxelMap.voxelSize;
-    bHasGridData = VoxelMap.bHasGridData;
-
     // Create uninitialized chunks
 
     Clear();
@@ -439,7 +423,6 @@ TArray<FBox2D> FMQCMap::GetPrefabBounds(int32 PrefabIndex) const
 
 void UMQCMapRef::ApplyMapSettings()
 {
-    VoxelMap.mapSize = MapSize;
     VoxelMap.voxelResolution = VoxelResolution;
     VoxelMap.chunkResolution = ChunkResolution;
     VoxelMap.extrusionHeight = ExtrusionHeight;
@@ -452,6 +435,8 @@ void UMQCMapRef::ApplyMapSettings()
 }
 
 // TRIANGULATION FUNCTIONS
+
+#if 0
 
 void UMQCMapRef::EditMapAsync(FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils)
 {
@@ -549,11 +534,12 @@ void UMQCMapRef::EditCrossingsAsync(FGWTAsyncTaskRef& TaskRef, const TArray<UMQC
     }
 }
 
+#endif
+
 UMQCMapRef* UMQCMapRef::Copy(UObject* Outer) const
 {
     UMQCMapRef* MapCopy = NewObject<UMQCMapRef>(Outer);
 
-    MapCopy->MapSize = MapSize;
 	MapCopy->VoxelResolution = VoxelResolution;
 	MapCopy->ChunkResolution = ChunkResolution;
     MapCopy->SurfaceStates = SurfaceStates;
@@ -596,15 +582,17 @@ FVector UMQCMapRef::GetChunkPosition(int32 ChunkIndex) const
         : FVector();
 }
 
-FPMUMeshSection UMQCMapRef::GetSection(int32 ChunkIndex, int32 StateIndex) const
+void UMQCMapRef::GetSection(FPMUMeshSection& Section, int32 ChunkIndex, int32 StateIndex) const
 {
     if (HasChunk(ChunkIndex))
     {
-        const FPMUMeshSection* Section = VoxelMap.GetChunk(ChunkIndex).GetSection(StateIndex);
-        return Section ? *Section : FPMUMeshSection();
-    }
+        const FPMUMeshSection* ChunkSection = VoxelMap.GetChunk(ChunkIndex).GetSection(StateIndex);
 
-    return FPMUMeshSection();
+        if (ChunkSection)
+        {
+            Section = *ChunkSection;
+        }
+    }
 }
 
 // PREFAB FUNCTIONS

@@ -31,9 +31,7 @@
 void FMQCGridChunk::Initialize(const FMQCGridConfig& Config)
 {
     position = Config.Position;
-    gridSize = Config.ChunkSize;
     voxelResolution = Config.VoxelResolution;
-    voxelSize       = gridSize / voxelResolution;
 
     cell.sharpFeatureLimit = FMath::Cos(FMath::DegreesToRadians(Config.MaxFeatureAngle));
     cell.parallelLimit     = FMath::Cos(FMath::DegreesToRadians(Config.MaxParallelAngle));
@@ -52,9 +50,7 @@ void FMQCGridChunk::Initialize(const FMQCGridConfig& Config)
 void FMQCGridChunk::CopyFrom(const FMQCGridChunk& Chunk)
 {
     position        = Chunk.position;
-    gridSize        = Chunk.gridSize;
     voxelResolution = Chunk.voxelResolution;
-    voxelSize       = Chunk.voxelSize;
 
     cell            = Chunk.cell;
     voxels          = Chunk.voxels;
@@ -81,8 +77,6 @@ void FMQCGridChunk::CreateRenderers(const FMQCGridConfig& GridConfig)
         FMQCSurfaceConfig Config;
         Config.Position        = position;
         Config.VoxelResolution = voxelResolution;
-        Config.ChunkSize       = gridSize;
-        Config.MapSize         = GridConfig.MapSize;
         Config.ExtrusionHeight = GridConfig.ExtrusionHeight;
 
         if (i > 0)
@@ -151,7 +145,7 @@ void FMQCGridChunk::SetStates(const FMQCStencil& stencil, int32 xStart, int32 xE
 
         for (int32 x=xStart; x<=xEnd; x++, i++)
         {
-            stencil.ApplyVoxel(voxels[i]);
+            stencil.ApplyVoxel(voxels[i], position);
         }
     }
 }
@@ -203,11 +197,11 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
         {
             a = b;
             b = &voxels[i + 1];
-            stencil.SetCrossingX(*a, *b);
-            stencil.SetCrossingY(*a, voxels[i + voxelResolution]);
+            stencil.SetCrossingX(*a, *b, position);
+            stencil.SetCrossingY(*a, voxels[i + voxelResolution], position);
         }
 
-        stencil.SetCrossingY(*b, voxels[i + voxelResolution]);
+        stencil.SetCrossingY(*b, voxels[i + voxelResolution], position);
 
         if (bCrossGapX)
         {
@@ -215,8 +209,8 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
             const int32 neighborIndex = y * voxelResolution;
             if (xNeighbor->voxels.IsValidIndex(neighborIndex))
             {
-                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], gridSize);
-                stencil.SetCrossingX(*b, dummyX);
+                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], voxelResolution);
+                stencil.SetCrossingX(*b, dummyX, position);
             }
         }
     }
@@ -230,14 +224,14 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
         {
             a = b;
             b = &voxels[i + 1];
-            stencil.SetCrossingX(*a, *b);
+            stencil.SetCrossingX(*a, *b, position);
 
             if (bCrossGapY)
             {
                 check(yNeighbor);
                 check(yNeighbor->voxels.IsValidIndex(x));
-                dummyY.BecomeYDummyOf(yNeighbor->voxels[x], gridSize);
-                stencil.SetCrossingY(*a, dummyY);
+                dummyY.BecomeYDummyOf(yNeighbor->voxels[x], voxelResolution);
+                stencil.SetCrossingY(*a, dummyY, position);
             }
         }
 
@@ -247,8 +241,8 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
             const int32 neighborIndex = xEnd + 1;
             if (yNeighbor->voxels.IsValidIndex(neighborIndex))
             {
-                dummyY.BecomeYDummyOf(yNeighbor->voxels[neighborIndex], gridSize);
-                stencil.SetCrossingY(*b, dummyY);
+                dummyY.BecomeYDummyOf(yNeighbor->voxels[neighborIndex], voxelResolution);
+                stencil.SetCrossingY(*b, dummyY, position);
             }
         }
 
@@ -258,8 +252,8 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
             const int32 neighborIndex = voxels.Num() - voxelResolution;
             if (xNeighbor->voxels.IsValidIndex(neighborIndex))
             {
-                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], gridSize);
-                stencil.SetCrossingX(*b, dummyX);
+                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], voxelResolution);
+                stencil.SetCrossingX(*b, dummyX, position);
             }
         }
     }
@@ -277,7 +271,7 @@ void FMQCGridChunk::FillFirstRowCache()
 
     if (xNeighbor)
     {
-        dummyX.BecomeXDummyOf(xNeighbor->voxels[0], gridSize);
+        dummyX.BecomeXDummyOf(xNeighbor->voxels[0], voxelResolution);
         CacheNextEdgeAndCorner(i, voxels[i], dummyX);
     }
 }
@@ -385,7 +379,7 @@ void FMQCGridChunk::TriangulateGapRow()
 {
     check(yNeighbor != nullptr);
 
-    dummyY.BecomeYDummyOf(yNeighbor->voxels[0], gridSize);
+    dummyY.BecomeYDummyOf(yNeighbor->voxels[0], voxelResolution);
     int32 cells = voxelResolution - 1;
     int32 offset = cells * voxelResolution;
     SwapRowCaches();
@@ -395,7 +389,7 @@ void FMQCGridChunk::TriangulateGapRow()
     for (int32 x = 0; x < cells; x++)
     {
         Swap(dummyT, dummyY);
-        dummyY.BecomeYDummyOf(yNeighbor->voxels[x + 1], gridSize);
+        dummyY.BecomeYDummyOf(yNeighbor->voxels[x + 1], voxelResolution);
 
         CacheNextEdgeAndCorner(x, dummyT, dummyY);
         CacheNextMiddleEdge(voxels[x + offset + 1], dummyY);
@@ -412,7 +406,7 @@ void FMQCGridChunk::TriangulateGapRow()
     {
         check(xyNeighbor != nullptr);
 
-        dummyT.BecomeXYDummyOf(xyNeighbor->voxels[0], gridSize);
+        dummyT.BecomeXYDummyOf(xyNeighbor->voxels[0], voxelResolution);
 
         CacheNextEdgeAndCorner(cells, dummyY, dummyT);
         CacheNextMiddleEdge(dummyX, dummyT);
@@ -431,7 +425,7 @@ void FMQCGridChunk::TriangulateGapCell(int32 i)
     check(xNeighbor != nullptr);
 
     Swap(dummyT, dummyX);
-    dummyX.BecomeXDummyOf(xNeighbor->voxels[i + 1], gridSize);
+    dummyX.BecomeXDummyOf(xNeighbor->voxels[i + 1], voxelResolution);
 
     int32 cacheIndex = voxelResolution - 1;
     CacheNextEdgeAndCorner(cacheIndex, voxels[i + voxelResolution], dummyX);

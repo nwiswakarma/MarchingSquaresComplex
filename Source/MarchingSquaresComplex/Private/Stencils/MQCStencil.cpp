@@ -59,11 +59,76 @@ void FMQCStencil::ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax)
     }
 }
 
-void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
+void FMQCStencil::GetOffsetBounds(float& X0, float& X1, float& Y0, float& Y1, const FVector2D& Offset) const
+{
+    X0 = GetXStart() - Offset.X;
+    X1 = GetXEnd()   - Offset.X;
+    Y0 = GetYStart() - Offset.Y;
+    Y1 = GetYEnd()   - Offset.Y;
+}
+
+void FMQCStencil::GetMapRange(int32& x0, int32& x1, int32& y0, int32& y1, const int32 voxelResolution, const int32 chunkResolution) const
+{
+    x0 = (int32)(GetXStart()) / voxelResolution;
+    if (x0 < 0)
+    {
+        x0 = 0;
+    }
+
+    x1 = (int32)(GetXEnd()) / voxelResolution;
+    if (x1 >= chunkResolution)
+    {
+        x1 = chunkResolution - 1;
+    }
+
+    y0 = (int32)(GetYStart()) / voxelResolution;
+    if (y0 < 0)
+    {
+        y0 = 0;
+    }
+
+    y1 = (int32)(GetYEnd()) / voxelResolution;
+    if (y1 >= chunkResolution)
+    {
+        y1 = chunkResolution - 1;
+    }
+}
+
+void FMQCStencil::GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const FMQCGridChunk& Chunk) const
+{
+    const int32 resolution = Chunk.voxelResolution;
+    const FIntPoint Offset = Chunk.GetOffsetId();
+
+    x0 = (int32)(GetXStart()) - Offset.X;
+    if (x0 < 0)
+    {
+        x0 = 0;
+    }
+
+    x1 = (int32)(GetXEnd()) - Offset.X;
+    if (x1 >= resolution)
+    {
+        x1 = resolution - 1;
+    }
+
+    y0 = (int32)(GetYStart()) - Offset.Y;
+    if (y0 < 0)
+    {
+        y0 = 0;
+    }
+
+    y1 = (int32)(GetYEnd()) - Offset.Y;
+    if (y1 >= resolution)
+    {
+        y1 = resolution - 1;
+    }
+}
+
+void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
     if (xMin.state != xMax.state)
     {
-        FindCrossingX(xMin, xMax);
+        FindCrossingX(xMin, xMax, ChunkOffset);
     }
     else
     {
@@ -75,11 +140,11 @@ void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
     }
 }
 
-void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
+void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
 {
     if (yMin.state != yMax.state)
     {
-        FindCrossingY(yMin, yMax);
+        FindCrossingY(yMin, yMax, ChunkOffset);
     }
     else
     {
@@ -93,14 +158,13 @@ void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
 
 void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 {
-    const float voxelSize = Map.voxelSize;
-    const float chunkSize = Map.chunkSize;
+    const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
     int32 xStart, xEnd, yStart, yEnd;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(xStart, xEnd, yStart, yEnd, voxelSize, chunkSize, chunkResolution);
+    GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
 
     for (int32 y=yEnd; y>=yStart; y--)
     {
@@ -108,9 +172,6 @@ void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 
         for (int32 x=xEnd; x>=xStart; x--, i--)
         {
-            const float ChunkCenterX = center.X - x * chunkSize;
-            const float ChunkCenterY = center.Y - y * chunkSize;
-            SetCenter(ChunkCenterX, ChunkCenterY);
             SetVoxels(*Map.chunks[i]);
         }
     }
@@ -121,26 +182,20 @@ void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 
         for (int32 x=xEnd; x>=xStart; x--, i--)
         {
-            const float ChunkCenterX = center.X - x * chunkSize;
-            const float ChunkCenterY = center.Y - y * chunkSize;
-            FMQCGridChunk& Chunk(*Map.chunks[i]);
-
-            SetCenter(ChunkCenterX, ChunkCenterY);
-            SetCrossings(Chunk);
+            SetCrossings(*Map.chunks[i]);
         }
     }
 }
 
 void FMQCStencil::EditStates(FMQCMap& Map, const FVector2D& center)
 {
-    const float voxelSize = Map.voxelSize;
-    const float chunkSize = Map.chunkSize;
+    const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
     int32 xStart, xEnd, yStart, yEnd;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(xStart, xEnd, yStart, yEnd, voxelSize, chunkSize, chunkResolution);
+    GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
 
     for (int32 y=yEnd; y>=yStart; y--)
     {
@@ -148,9 +203,6 @@ void FMQCStencil::EditStates(FMQCMap& Map, const FVector2D& center)
 
         for (int32 x=xEnd; x>=xStart; x--, i--)
         {
-            const float ChunkCenterX = center.X - x * chunkSize;
-            const float ChunkCenterY = center.Y - y * chunkSize;
-            SetCenter(ChunkCenterX, ChunkCenterY);
             SetVoxels(*Map.chunks[i]);
         }
     }
@@ -158,14 +210,13 @@ void FMQCStencil::EditStates(FMQCMap& Map, const FVector2D& center)
 
 void FMQCStencil::EditCrossings(FMQCMap& Map, const FVector2D& center)
 {
-    const float voxelSize = Map.voxelSize;
-    const float chunkSize = Map.chunkSize;
+    const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
     int32 xStart, xEnd, yStart, yEnd;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(xStart, xEnd, yStart, yEnd, voxelSize, chunkSize, chunkResolution);
+    GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
 
     for (int32 y=yEnd; y>=yStart; y--)
     {
@@ -173,10 +224,6 @@ void FMQCStencil::EditCrossings(FMQCMap& Map, const FVector2D& center)
 
         for (int32 x=xEnd; x>=xStart; x--, i--)
         {
-            const float ChunkCenterX = center.X - x * chunkSize;
-            const float ChunkCenterY = center.Y - y * chunkSize;
-
-            SetCenter(ChunkCenterX, ChunkCenterY);
             SetCrossings(*Map.chunks[i]);
         }
     }
@@ -184,14 +231,13 @@ void FMQCStencil::EditCrossings(FMQCMap& Map, const FVector2D& center)
 
 void FMQCStencil::GetChunkIndices(FMQCMap& Map, const FVector2D& center, TArray<int32>& OutIndices)
 {
-    const float voxelSize = Map.voxelSize;
-    const float chunkSize = Map.chunkSize;
+    const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
     int32 xStart, xEnd, yStart, yEnd;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(xStart, xEnd, yStart, yEnd, voxelSize, chunkSize, chunkResolution);
+    GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
 
     OutIndices.Reset(chunkResolution * chunkResolution);
 
@@ -211,15 +257,25 @@ void FMQCStencil::GetChunkIndices(FMQCMap& Map, const FVector2D& center, TArray<
 void FMQCStencil::SetVoxels(FMQCGridChunk& Chunk)
 {
     int32 xStart, xEnd, yStart, yEnd;
-    GetChunkRange(xStart, xEnd, yStart, yEnd, Chunk.voxelSize, Chunk.voxelResolution);
+    GetChunkRange(xStart, xEnd, yStart, yEnd, Chunk);
     ApplyVoxels(Chunk, xStart, xEnd, yStart, yEnd);
 }
 
 void FMQCStencil::SetCrossings(FMQCGridChunk& Chunk)
 {
     int32 xStart, xEnd, yStart, yEnd;
-    GetChunkRange(xStart, xEnd, yStart, yEnd, Chunk.voxelSize, Chunk.voxelResolution);
+    GetChunkRange(xStart, xEnd, yStart, yEnd, Chunk);
     ApplyCrossings(Chunk, xStart, xEnd, yStart, yEnd);
+}
+
+void FMQCStencil::ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1)
+{
+    Chunk.SetStates(*this, x0, x1, y0, y1);
+}
+
+void FMQCStencil::ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1)
+{
+    Chunk.SetCrossings(*this, x0, x1, y0, y1);
 }
 
 void FMQCStencil::ApplyVoxel(FMQCVoxel& voxel) const
@@ -232,12 +288,15 @@ void FMQCStencil::ApplyVoxel(FMQCVoxel& voxel) const
     }
 }
 
-void FMQCStencil::ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1)
+void FMQCStencil::ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffset) const
 {
-    Chunk.SetStates(*this, x0, x1, y0, y1);
-}
+    const FVector2D& p(voxel.position);
 
-void FMQCStencil::ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1)
-{
-    Chunk.SetCrossings(*this, x0, x1, y0, y1);
+    float X0, X1, Y0, Y1;
+    GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
+
+    if (p.X >= X0 && p.X <= X1 && p.Y >= Y0 && p.Y <= Y1)
+    {
+        voxel.state = fillType;
+    }
 }

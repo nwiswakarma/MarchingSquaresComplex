@@ -28,13 +28,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MQCMap.h"
+#include "MQCVoxel.h"
 #include "MQCStencil.generated.h"
 
 class FMQCGridChunk;
-struct FMQCVoxel;
+class FMQCMap;
 
-class FMQCStencil
+class MARCHINGSQUARESCOMPLEX_API FMQCStencil
 {
 protected:
 
@@ -45,69 +45,26 @@ protected:
 	static void ValidateNormalX(FMQCVoxel& xMin, const FMQCVoxel& xMax);
 	static void ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax);
 
-    void GetMapRange(int32& x0, int32& x1, int32& y0, int32& y1, const float voxelSize, const float chunkSize, const int32 chunkResolution) const
+    void GetMapRange(int32& x0, int32& x1, int32& y0, int32& y1, const int32 voxelResolution, const int32 chunkResolution) const;
+    void GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const FMQCGridChunk& Chunk) const;
+
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const {};
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const {};
+
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
     {
-        x0 = (int32)((GetXStart() - voxelSize) / chunkSize);
-        if (x0 < 0)
-        {
-            x0 = 0;
-        }
-
-        x1 = (int32)((GetXEnd() + voxelSize) / chunkSize);
-        if (x1 >= chunkResolution)
-        {
-            x1 = chunkResolution - 1;
-        }
-
-        y0 = (int32)((GetYStart() - voxelSize) / chunkSize);
-        if (y0 < 0)
-        {
-            y0 = 0;
-        }
-
-        y1 = (int32)((GetYEnd() + voxelSize) / chunkSize);
-        if (y1 >= chunkResolution)
-        {
-            y1 = chunkResolution - 1;
-        }
+        FindCrossingX(xMin, xMax);
     }
 
-    void GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const float voxelSize, const int32 resolution) const
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
     {
-        x0 = (int32)(GetXStart() / voxelSize);
-        if (x0 < 0)
-        {
-            x0 = 0;
-        }
-
-        x1 = (int32)(GetXEnd() / voxelSize);
-        if (x1 >= resolution)
-        {
-            x1 = resolution - 1;
-        }
-
-        y0 = (int32)(GetYStart() / voxelSize);
-        if (y0 < 0)
-        {
-            y0 = 0;
-        }
-
-        y1 = (int32)(GetYEnd() / voxelSize);
-        if (y1 >= resolution)
-        {
-            y1 = resolution - 1;
-        }
+        FindCrossingY(yMin, yMax);
     }
-
-    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const = 0;
-    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const = 0;
 
     virtual void SetVoxels(FMQCGridChunk& Chunk);
-
     virtual void SetCrossings(FMQCGridChunk& Chunk);
 
     virtual void ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1);
-
     virtual void ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1);
 
 public:
@@ -121,6 +78,8 @@ public:
     virtual float GetXEnd() const   = 0;
     virtual float GetYStart() const = 0;
     virtual float GetYEnd() const   = 0;
+
+    void GetOffsetBounds(float& X0, float& X1, float& Y0, float& Y1, const FVector2D& Offset) const;
 
     FORCEINLINE int32 GetFillType() const
     {
@@ -143,22 +102,20 @@ public:
         centerY = y;
     }
 
-    void SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const;
-    void SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const;
+    void SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const;
+    void SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const;
 
     virtual void EditMap(FMQCMap& Map, const FVector2D& center);
-
     virtual void EditStates(FMQCMap& Map, const FVector2D& center);
-
     virtual void EditCrossings(FMQCMap& Map, const FVector2D& center);
-
     virtual void GetChunkIndices(FMQCMap& Map, const FVector2D& center, TArray<int32>& OutIndices);
 
     virtual void ApplyVoxel(FMQCVoxel& voxel) const;
+    virtual void ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffset) const;
 };
 
 UCLASS(BlueprintType, Blueprintable)
-class UMQCStencilRef : public UObject
+class MARCHINGSQUARESCOMPLEX_API UMQCStencilRef : public UObject
 {
     GENERATED_BODY()
 
@@ -192,6 +149,8 @@ public:
     {
     }
 
+#if 0
+
     virtual void EditStates(FMQCMap& Map)
     {
     }
@@ -215,4 +174,6 @@ public:
     virtual void EditMapAt(FMQCMap& Map, const FVector2D& Center)
     {
     }
+
+#endif
 };

@@ -36,7 +36,7 @@ enum class EPMUVoxelDT : uint8
 	XY
 };
 
-struct FMQCVoxel
+struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 {
     int32 state = 0;
 
@@ -49,9 +49,9 @@ struct FMQCVoxel
 
     FMQCVoxel() = default;
 
-    FMQCVoxel(int32 x, int32 y, float size)
+    FMQCVoxel(int32 x, int32 y)
     {
-        Set(x, y, size);
+        Set(x, y);
     }
 
     FORCEINLINE bool IsFilled() const
@@ -89,10 +89,10 @@ struct FMQCVoxel
 #endif
     }
 
-    FORCEINLINE void Set(int32 x, int32 y, float size)
+    FORCEINLINE void Set(int32 x, int32 y)
     {
-        position.X = (x + 0.5f) * size;
-        position.Y = (y + 0.5f) * size;
+        position.X = x + 0.5f;
+        position.Y = y + 0.5f;
 
 #ifndef MQC_VOXEL_DEBUG_LEGACY
         xEdge = -1.f;
