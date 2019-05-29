@@ -47,31 +47,19 @@ const FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex) const
     return *chunks[ChunkIndex];
 }
 
-void FMQCMap::RefreshAllChunks()
+void FMQCMap::Triangulate()
 {
     for (FMQCGridChunk* Chunk : chunks)
     {
-        Chunk->Refresh();
+        Chunk->Triangulate();
     }
 }
 
-void FMQCMap::RefreshAllChunksAsync(FGWTAsyncTaskRef& TaskRef)
+void FMQCMap::TriangulateAsync()
 {
-    if (! TaskRef.IsValid())
+    for (FMQCGridChunk* Chunk : chunks)
     {
-        //FGWTAsyncTaskRef::Init(
-        //    TaskRef,
-        //    IProceduralMeshUtility::Get().GetThreadPool());
-    }
-
-    check(TaskRef.IsValid());
-
-    FPSGWTAsyncTask& Task(TaskRef.Task);
-
-    for (int32 i=0; i<chunks.Num(); ++i)
-    {
-        FMQCGridChunk& Chunk(*chunks[i]);
-        Task->AddTask([&, i](){ Chunk.Refresh(); });
+        Chunk->TriangulateAsync();
     }
 }
 
@@ -104,13 +92,12 @@ void FMQCMap::Clear()
     chunks.Empty();
 }
 
-TSharedPtr<FGWTAsyncThreadPool> FMQCMap::GetThreadPool()
+void FMQCMap::WaitForAsyncTask()
 {
-    if (! ThreadPool.IsValid())
+    for (FMQCGridChunk* Chunk : chunks)
     {
-        //ThreadPool = IProceduralMeshUtility::Get().GetThreadPool();
+        Chunk->WaitForAsyncTask();
     }
-    return ThreadPool;
 }
 
 void FMQCMap::InitializeSettings()
@@ -179,14 +166,6 @@ void FMQCMap::InitializeChunk(int32 i, const FMQCGridConfig& ChunkConfig)
     chunks[i]->Initialize(ChunkConfig);
 }
 
-void FMQCMap::InitializeChunkAsync(int32 i, const FMQCGridConfig& ChunkConfig, FGWTAsyncTaskRef& TaskRef)
-{
-    check(chunks.IsValidIndex(i));
-
-    FMQCGridChunk& chunk(*chunks[i]);
-    TaskRef.AddTask([&chunk, ChunkConfig](){ chunk.Initialize(ChunkConfig); });
-}
-
 void FMQCMap::InitializeChunks()
 {
     check(chunks.Num() == (chunkResolution * chunkResolution));
@@ -200,38 +179,10 @@ void FMQCMap::InitializeChunks()
     }
 }
 
-void FMQCMap::InitializeChunksAsync(FGWTAsyncTaskRef& TaskRef)
-{
-    check(chunks.Num() == (chunkResolution * chunkResolution));
-
-    for (int32 y=0, i=0; y<chunkResolution; y++)
-    for (int32 x=0     ; x<chunkResolution; x++, i++)
-    {
-        FMQCGridConfig ChunkConfig;
-        InitializeChunkSettings(i, x, y, ChunkConfig);
-        InitializeChunkAsync(i, ChunkConfig, TaskRef);
-    }
-}
-
 void FMQCMap::Initialize()
 {
     InitializeSettings();
     InitializeChunks();
-}
-
-void FMQCMap::InitializeAsync(FGWTAsyncTaskRef& TaskRef)
-{
-    if (! TaskRef.IsValid())
-    {
-        //FGWTAsyncTaskRef::Init(
-        //    TaskRef,
-        //    IProceduralMeshUtility::Get().GetThreadPool());
-    }
-
-    check(TaskRef.IsValid());
-
-    InitializeSettings();
-    InitializeChunksAsync(TaskRef);
 }
 
 void FMQCMap::CopyFrom(const FMQCMap& VoxelMap)
@@ -436,105 +387,6 @@ void UMQCMapRef::ApplyMapSettings()
 
 // TRIANGULATION FUNCTIONS
 
-#if 0
-
-void UMQCMapRef::EditMapAsync(FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils)
-{
-    if (! TaskRef.IsValid())
-    {
-        //FGWTAsyncTaskRef::Init(
-        //    TaskRef,
-        //    IProceduralMeshUtility::Get().GetThreadPool());
-    }
-
-    check(TaskRef.IsValid());
-
-    FPSGWTAsyncTask& Task(TaskRef.Task);
-
-    TArray<UMQCStencilRef*> ValidStencils(
-        Stencils.FilterByPredicate(
-            [&](UMQCStencilRef* const & Stencil) { return IsValid(Stencil); }
-        ) );
-
-    for (int32 i=0; i<ValidStencils.Num(); ++i)
-    {
-        UMQCStencilRef* Stencil(ValidStencils[i]);
-
-        check(IsValid(Stencil));
-
-        Stencil->EditMapAsync(Task, VoxelMap);
-    }
-}
-
-void UMQCMapRef::EditStatesAsync(FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils)
-{
-    if (! TaskRef.IsValid())
-    {
-        //FGWTAsyncTaskRef::Init(
-        //    TaskRef,
-        //    IProceduralMeshUtility::Get().GetThreadPool());
-    }
-
-    check(TaskRef.IsValid());
-
-    FPSGWTAsyncTask& Task(TaskRef.Task);
-
-    TArray<UMQCStencilRef*> ValidStencils(
-        Stencils.FilterByPredicate(
-            [&](UMQCStencilRef* const & Stencil) { return IsValid(Stencil); }
-        ) );
-
-    for (int32 i=0; i<ValidStencils.Num(); ++i)
-    {
-        UMQCStencilRef* Stencil(ValidStencils[i]);
-
-        check(IsValid(Stencil));
-
-        //Stencil->EditStatesAsync(Task, VoxelMap);
-
-        Task->AddTask(
-            [this, Stencil]()
-            {
-                Stencil->EditStates(VoxelMap);
-            } );
-    }
-}
-
-void UMQCMapRef::EditCrossingsAsync(FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils)
-{
-    if (! TaskRef.IsValid())
-    {
-        //FGWTAsyncTaskRef::Init(
-        //    TaskRef,
-        //    IProceduralMeshUtility::Get().GetThreadPool());
-    }
-
-    check(TaskRef.IsValid());
-
-    FPSGWTAsyncTask& Task(TaskRef.Task);
-
-    TArray<UMQCStencilRef*> ValidStencils(
-        Stencils.FilterByPredicate(
-            [&](UMQCStencilRef* const & Stencil) { return IsValid(Stencil); }
-        ) );
-
-    for (int32 i=0; i<ValidStencils.Num(); ++i)
-    {
-        UMQCStencilRef* Stencil(ValidStencils[i]);
-
-        check(IsValid(Stencil));
-
-        //Stencil->EditCrossingsAsync(Task, VoxelMap);
-
-        Task->AddTask(
-            [this, Stencil]()
-            {
-                Stencil->EditCrossings(VoxelMap);
-            } );
-    }
-}
-
-#endif
 
 UMQCMapRef* UMQCMapRef::Copy(UObject* Outer) const
 {

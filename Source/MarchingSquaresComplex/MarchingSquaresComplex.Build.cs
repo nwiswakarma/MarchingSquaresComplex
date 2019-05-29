@@ -40,12 +40,12 @@ namespace UnrealBuildTool.Rules
                     "Core",
                     "CoreUObject",
                     "Engine",
-                    "GenericWorkerThread",
                     "ProceduralMeshUtility"
                 } );
 
             PrivateDependencyModuleNames.AddRange(
                 new string[] {
+                    "GenericWorkerThread",
                     "GeometryUtilityLibrary"
                 } );
         }

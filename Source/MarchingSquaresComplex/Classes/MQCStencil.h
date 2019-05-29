@@ -64,12 +64,13 @@ protected:
     virtual void SetVoxels(FMQCGridChunk& Chunk);
     virtual void SetCrossings(FMQCGridChunk& Chunk);
 
-    virtual void ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1);
-    virtual void ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1);
+    virtual void ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1) const;
+    virtual void ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1) const;
 
 public:
 
     int32 FillTypeSetting = 0;
+    bool bEnableAsync = false;
 
     FMQCStencil() = default;
     virtual ~FMQCStencil() = default;
@@ -120,6 +121,9 @@ class MARCHINGSQUARESCOMPLEX_API UMQCStencilRef : public UObject
     GENERATED_BODY()
 
 public:
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool bEnableAsync = false;
 
     UFUNCTION(BlueprintCallable)
     virtual void Clear()

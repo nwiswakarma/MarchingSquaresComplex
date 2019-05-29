@@ -29,7 +29,6 @@
 
 #include "CoreMinimal.h"
 
-#include "GWTAsyncThreadPool.h"
 #include "Mesh/PMUMeshTypes.h"
 
 #include "MQCVoxelTypes.h"
@@ -56,14 +55,10 @@ private:
     TArray<FPrefabData> AppliedPrefabs;
 	TArray<FMQCGridChunk*> chunks;
 
-    TSharedPtr<FGWTAsyncThreadPool> ThreadPool = nullptr;
-
     void InitializeSettings();
     void InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCGridConfig& ChunkConfig);
     void InitializeChunk(int32 i, const FMQCGridConfig& ChunkConfig);
-    void InitializeChunkAsync(int32 i, const FMQCGridConfig& ChunkConfig, FGWTAsyncTaskRef& TaskRef);
     void InitializeChunks();
-    void InitializeChunksAsync(FGWTAsyncTaskRef& TaskRef);
 
 public:
 
@@ -85,11 +80,8 @@ public:
     TArray<class UStaticMesh*> meshPrefabs;
 
     void Initialize();
-    void InitializeAsync(FGWTAsyncTaskRef& TaskRef);
     void CopyFrom(const FMQCMap& VoxelMap);
     void Clear();
-
-    TSharedPtr<FGWTAsyncThreadPool> GetThreadPool();
 
     FORCEINLINE float GetVoxelCount() const
     {
@@ -101,10 +93,11 @@ public:
     bool HasChunk(int32 ChunkIndex) const;
     int32 GetChunkCount() const;
     const FMQCGridChunk& GetChunk(int32 ChunkIndex) const;
-    void RefreshAllChunks();
-    void RefreshAllChunksAsync(FGWTAsyncTaskRef& TaskRef);
+    void Triangulate();
+    void TriangulateAsync();
     void ResetChunkStates(const TArray<int32>& ChunkIndices);
     void ResetAllChunkStates();
+    void WaitForAsyncTask();
 
     // PREFAB FUNCTIONS
 
@@ -153,21 +146,6 @@ public:
     UPROPERTY(BlueprintReadWrite, Category="Prefabs")
     TArray<class UStaticMesh*> MeshPrefabs;
 
-    UPROPERTY(BlueprintReadWrite, Category="GPU Settings")
-    bool bUseGPUProgram = false;
-
-    UPROPERTY(BlueprintReadWrite, Category="GPU Settings")
-    FName GPUProgramName;
-
-    UPROPERTY(BlueprintReadWrite, Category="GPU Settings")
-    FString GPUProgramKernelName;
-
-    UPROPERTY(BlueprintReadWrite, Category="GPU Settings")
-    TArray<FString> GPUProgramSourcePaths;
-
-    UPROPERTY(BlueprintReadWrite, Category="GPU Settings")
-    TArray<FString> GPUProgramBuildOptions;
-
     UFUNCTION(BlueprintCallable)
     bool IsInitialized() const
     {
@@ -193,14 +171,6 @@ public:
     }
 
     UFUNCTION(BlueprintCallable)
-    void InitializeVoxelMapAsync(UPARAM(ref) FGWTAsyncTaskRef& TaskRef)
-    {
-        ApplyMapSettings();
-
-        VoxelMap.InitializeAsync(TaskRef);
-    }
-
-    UFUNCTION(BlueprintCallable)
     void ClearVoxelMap()
     {
         VoxelMap.Clear();
@@ -209,27 +179,20 @@ public:
     UFUNCTION(BlueprintCallable)
     void Triangulate()
     {
-        VoxelMap.RefreshAllChunks();
+        VoxelMap.Triangulate();
     }
 
     UFUNCTION(BlueprintCallable)
-    void TriangulateAsync(UPARAM(ref) FGWTAsyncTaskRef& TaskRef)
+    void TriangulateAsync()
     {
-        return VoxelMap.RefreshAllChunksAsync(TaskRef);
+        VoxelMap.TriangulateAsync();
     }
 
-#if 0
-
     UFUNCTION(BlueprintCallable)
-    void EditMapAsync(UPARAM(ref) FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils);
-
-    UFUNCTION(BlueprintCallable)
-    void EditStatesAsync(UPARAM(ref) FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils);
-
-    UFUNCTION(BlueprintCallable)
-    void EditCrossingsAsync(UPARAM(ref) FGWTAsyncTaskRef& TaskRef, const TArray<UMQCStencilRef*>& Stencils);
-
-#endif
+    void WaitForAsyncTask()
+    {
+        VoxelMap.WaitForAsyncTask();
+    }
 
     UFUNCTION(BlueprintCallable)
     UMQCMapRef* Copy(UObject* Outer) const;
@@ -245,7 +208,6 @@ public:
     {
         return VoxelMap.voxelResolution * VoxelMap.chunkResolution;
     }
-
 
     UFUNCTION(BlueprintCallable)
     FVector2D GetCenter() const

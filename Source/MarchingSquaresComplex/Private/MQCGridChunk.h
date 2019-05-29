@@ -43,6 +43,39 @@ private:
     friend class FMQCMap;
     friend class FMQCStencil;
 
+    typedef TSharedRef<TPromise<void>, ESPMode::ThreadSafe> FPRAsyncTaskPromise;
+
+    class FAsyncTask
+    {
+        TFunction<void()> Task;
+        FPRAsyncTaskPromise Promise;
+    public:
+        FAsyncTask(const TFunction<void()>& InTask, FPRAsyncTaskPromise& InPromise)
+            : Task(InTask)
+            , Promise(InPromise)
+        {
+        }
+        static FORCEINLINE TStatId GetStatId()
+        {
+            RETURN_QUICK_DECLARE_CYCLE_STAT(FMQCGridChunk_AsyncTask, STATGROUP_TaskGraphTasks);
+        }
+        static FORCEINLINE ENamedThreads::Type GetDesiredThread()
+        {
+            return ENamedThreads::AnyHiPriThreadHiPriTask;
+        }
+        static FORCEINLINE ESubsequentsMode::Type GetSubsequentsMode() 
+        { 
+            return ESubsequentsMode::FireAndForget; 
+        }
+        void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+        {
+            Task();
+            Promise->SetValue();
+        }
+    };
+
+    TFuture<void> OutstandingTask;
+
     FMQCCell cell;
 
     TArray<FMQCGridRenderer> renderers;
@@ -54,12 +87,15 @@ private:
     FMQCVoxel dummyY;
     FMQCVoxel dummyT;
 
+    void EnqueueTask(const TFunction<void()>& Task);
+
     void CreateRenderers(const FMQCGridConfig& Config);
-    void ResetVoxels();
-    void Refresh();
-    void Triangulate();
-    void SetStates(const FMQCStencil& stencil, int32 xStart, int32 xEnd, int32 yStart, int32 yEnd);
-    void SetCrossings(const FMQCStencil& stencil, int32 xStart, int32 xEnd, int32 yStart, int32 yEnd);
+
+    void TriangulateInternal();
+    void SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+
+    // Triangulation Functions
 
     void FillFirstRowCache();
     void CacheFirstCorner(const FMQCVoxel& voxel);
@@ -71,11 +107,12 @@ private:
     void TriangulateGapRow();
     void TriangulateGapCell(int32 i);
 
-    // Triangulation Functions
-
     void TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel& b, const FMQCVoxel& c, const FMQCVoxel& d);
 
 public:
+
+    FMQCGridChunk();
+    ~FMQCGridChunk();
 
     FVector2D position;
 
@@ -85,6 +122,16 @@ public:
 
     void Initialize(const FMQCGridConfig& Config);
     void CopyFrom(const FMQCGridChunk& Chunk);
+
+    void ResetVoxels();
+
+    void Triangulate();
+    void SetStates(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetCrossings(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+
+    void TriangulateAsync();
+    void SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
 
     FORCEINLINE FIntPoint GetOffsetId() const
     {
@@ -111,6 +158,14 @@ public:
         }
 
         return nullptr;
+    }
+
+    FORCEINLINE void WaitForAsyncTask()
+    {
+        if (OutstandingTask.IsValid())
+        {
+            OutstandingTask.Wait();
+        }
     }
 
 private:

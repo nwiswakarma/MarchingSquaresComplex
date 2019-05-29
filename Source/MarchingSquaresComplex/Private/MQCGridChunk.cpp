@@ -28,6 +28,31 @@
 #include "MQCGridChunk.h"
 #include "MQCStencil.h"
 
+FMQCGridChunk::FMQCGridChunk()
+{
+}
+
+FMQCGridChunk::~FMQCGridChunk()
+{
+    WaitForAsyncTask();
+}
+
+void FMQCGridChunk::EnqueueTask(const TFunction<void()>& Task)
+{
+    // Wait for any outstanding async task
+    WaitForAsyncTask();
+
+    // Create task promise
+    FPRAsyncTaskPromise TaskPromise(new TPromise<void>);
+    OutstandingTask = TaskPromise->GetFuture();
+
+    // Dispatch task when ready
+    TGraphTask<FAsyncTask>::CreateTask().ConstructAndDispatchWhenReady(
+        Task,
+        TaskPromise
+        );
+}
+
 void FMQCGridChunk::Initialize(const FMQCGridConfig& Config)
 {
     position = Config.Position;
@@ -99,18 +124,15 @@ void FMQCGridChunk::CreateRenderers(const FMQCGridConfig& GridConfig)
 
 void FMQCGridChunk::ResetVoxels()
 {
+    WaitForAsyncTask();
+
     for (FMQCVoxel& voxel : voxels)
     {
         voxel.Reset();
     }
 }
 
-void FMQCGridChunk::Refresh()
-{
-    Triangulate();
-}
-
-void FMQCGridChunk::Triangulate()
+void FMQCGridChunk::TriangulateInternal()
 {
     for (int32 i=1; i<renderers.Num(); i++)
     {
@@ -131,29 +153,29 @@ void FMQCGridChunk::Triangulate()
     }
 }
 
-void FMQCGridChunk::SetStates(const FMQCStencil& stencil, int32 xStart, int32 xEnd, int32 yStart, int32 yEnd)
+void FMQCGridChunk::SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
 {
     // Invalid stencil fill type, abort
-    if (! HasRenderer(stencil.GetFillType()))
+    if (! HasRenderer(Stencil.GetFillType()))
     {
         return;
     }
 
-    for (int32 y=yStart; y<=yEnd; y++)
+    for (int32 y=Y0; y<=Y1; y++)
     {
-        int32 i = y*voxelResolution + xStart;
+        int32 i = y*voxelResolution + X0;
 
-        for (int32 x=xStart; x<=xEnd; x++, i++)
+        for (int32 x=X0; x<=X1; x++, i++)
         {
-            stencil.ApplyVoxel(voxels[i], position);
+            Stencil.ApplyVoxel(voxels[i], position);
         }
     }
 }
 
-void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32 xEnd, int32 yStart, int32 yEnd)
+void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
 {
     // Invalid stencil fill type, abort
-    if (! HasRenderer(stencil.GetFillType()))
+    if (! HasRenderer(Stencil.GetFillType()))
     {
         return;
     }
@@ -162,25 +184,25 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
     bool bCrossGapX = false;
     bool bCrossGapY = false;
     
-    if (xStart > 0)
+    if (X0 > 0)
     {
-        xStart -= 1;
+        X0 -= 1;
     }
 
-    if (xEnd == voxelResolution - 1)
+    if (X1 == voxelResolution - 1)
     {
-        xEnd -= 1;
+        X1 -= 1;
         bCrossGapX = xNeighbor != nullptr;
     }
 
-    if (yStart > 0)
+    if (Y0 > 0)
     {
-        yStart -= 1;
+        Y0 -= 1;
     }
 
-    if (yEnd == voxelResolution - 1)
+    if (Y1 == voxelResolution - 1)
     {
-        yEnd -= 1;
+        Y1 -= 1;
         bIncludeLastRowY = true;
         bCrossGapY = yNeighbor != nullptr;
     }
@@ -188,20 +210,20 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
     FMQCVoxel* a;
     FMQCVoxel* b;
 
-    for (int32 y = yStart; y <= yEnd; y++)
+    for (int32 y = Y0; y <= Y1; y++)
     {
-        int32 i = y * voxelResolution + xStart;
+        int32 i = y * voxelResolution + X0;
         b = &voxels[i];
 
-        for (int32 x = xStart; x <= xEnd; x++, i++)
+        for (int32 x = X0; x <= X1; x++, i++)
         {
             a = b;
             b = &voxels[i + 1];
-            stencil.SetCrossingX(*a, *b, position);
-            stencil.SetCrossingY(*a, voxels[i + voxelResolution], position);
+            Stencil.SetCrossingX(*a, *b, position);
+            Stencil.SetCrossingY(*a, voxels[i + voxelResolution], position);
         }
 
-        stencil.SetCrossingY(*b, voxels[i + voxelResolution], position);
+        Stencil.SetCrossingY(*b, voxels[i + voxelResolution], position);
 
         if (bCrossGapX)
         {
@@ -210,39 +232,39 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
             if (xNeighbor->voxels.IsValidIndex(neighborIndex))
             {
                 dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], voxelResolution);
-                stencil.SetCrossingX(*b, dummyX, position);
+                Stencil.SetCrossingX(*b, dummyX, position);
             }
         }
     }
 
     if (bIncludeLastRowY)
     {
-        int32 i = voxels.Num() - voxelResolution + xStart;
+        int32 i = voxels.Num() - voxelResolution + X0;
         b = &voxels[i];
 
-        for (int32 x = xStart; x <= xEnd; x++, i++)
+        for (int32 x = X0; x <= X1; x++, i++)
         {
             a = b;
             b = &voxels[i + 1];
-            stencil.SetCrossingX(*a, *b, position);
+            Stencil.SetCrossingX(*a, *b, position);
 
             if (bCrossGapY)
             {
                 check(yNeighbor);
                 check(yNeighbor->voxels.IsValidIndex(x));
                 dummyY.BecomeYDummyOf(yNeighbor->voxels[x], voxelResolution);
-                stencil.SetCrossingY(*a, dummyY, position);
+                Stencil.SetCrossingY(*a, dummyY, position);
             }
         }
 
         if (bCrossGapY)
         {
             check(yNeighbor);
-            const int32 neighborIndex = xEnd + 1;
+            const int32 neighborIndex = X1 + 1;
             if (yNeighbor->voxels.IsValidIndex(neighborIndex))
             {
                 dummyY.BecomeYDummyOf(yNeighbor->voxels[neighborIndex], voxelResolution);
-                stencil.SetCrossingY(*b, dummyY, position);
+                Stencil.SetCrossingY(*b, dummyY, position);
             }
         }
 
@@ -253,10 +275,83 @@ void FMQCGridChunk::SetCrossings(const FMQCStencil& stencil, int32 xStart, int32
             if (xNeighbor->voxels.IsValidIndex(neighborIndex))
             {
                 dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], voxelResolution);
-                stencil.SetCrossingX(*b, dummyX, position);
+                Stencil.SetCrossingX(*b, dummyX, position);
             }
         }
     }
+}
+
+void FMQCGridChunk::Triangulate()
+{
+    WaitForAsyncTask();
+    TriangulateInternal();
+}
+
+void FMQCGridChunk::SetStates(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    WaitForAsyncTask();
+    SetStatesInternal(Stencil, X0, X1, Y0, Y1);
+}
+
+void FMQCGridChunk::SetCrossings(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    WaitForAsyncTask();
+    SetCrossingsInternal(Stencil, X0, X1, Y0, Y1);
+}
+
+void FMQCGridChunk::TriangulateAsync()
+{
+    EnqueueTask([this](){ TriangulateInternal(); });
+}
+
+void FMQCGridChunk::SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    // Invalid stencil fill type, abort
+    if (! HasRenderer(Stencil.GetFillType()))
+    {
+        return;
+    }
+
+    struct FTaskParam
+    {
+        const FMQCStencil* Stencil;
+        int32 X0;
+        int32 X1;
+        int32 Y0;
+        int32 Y1;
+    };
+    FTaskParam Param = { &Stencil, X0, X1, Y0, Y1 };
+
+    EnqueueTask(
+        [this, Param]()
+        {
+            SetStatesInternal(*Param.Stencil, Param.X0, Param.X1, Param.Y0, Param.Y1);
+        } );
+}
+
+void FMQCGridChunk::SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    // Invalid stencil fill type, abort
+    if (! HasRenderer(Stencil.GetFillType()))
+    {
+        return;
+    }
+
+    struct FTaskParam
+    {
+        const FMQCStencil* Stencil;
+        int32 X0;
+        int32 X1;
+        int32 Y0;
+        int32 Y1;
+    };
+    FTaskParam Param = { &Stencil, X0, X1, Y0, Y1 };
+
+    EnqueueTask(
+        [this, Param]()
+        {
+            SetCrossingsInternal(*Param.Stencil, Param.X0, Param.X1, Param.Y0, Param.Y1);
+        } );
 }
 
 void FMQCGridChunk::FillFirstRowCache()

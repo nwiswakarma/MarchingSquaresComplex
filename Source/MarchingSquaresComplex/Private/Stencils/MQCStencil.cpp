@@ -158,6 +158,7 @@ void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
     SetCenter(center.X, center.Y);
     GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
 
+    // Set voxel states
     for (int32 y=yEnd; y>=yStart; y--)
     {
         int32 i = y * chunkResolution + xEnd;
@@ -168,6 +169,21 @@ void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
         }
     }
 
+    // Wait for chunks to synchronize voxel states if async is enabled
+    if (bEnableAsync)
+    {
+        for (int32 y=yEnd; y>=yStart; y--)
+        {
+            int32 i = y * chunkResolution + xEnd;
+
+            for (int32 x=xEnd; x>=xStart; x--, i--)
+            {
+                Map.chunks[i]->WaitForAsyncTask();
+            }
+        }
+    }
+
+    // Set voxel edge values
     for (int32 y=yEnd; y>=yStart; y--)
     {
         int32 i = y * chunkResolution + xEnd;
@@ -260,14 +276,28 @@ void FMQCStencil::SetCrossings(FMQCGridChunk& Chunk)
     ApplyCrossings(Chunk, xStart, xEnd, yStart, yEnd);
 }
 
-void FMQCStencil::ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1)
+void FMQCStencil::ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1) const
 {
-    Chunk.SetStates(*this, x0, x1, y0, y1);
+    if (bEnableAsync)
+    {
+        Chunk.SetStatesAsync(*this, x0, x1, y0, y1);
+    }
+    else
+    {
+        Chunk.SetStates(*this, x0, x1, y0, y1);
+    }
 }
 
-void FMQCStencil::ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1)
+void FMQCStencil::ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1) const
 {
-    Chunk.SetCrossings(*this, x0, x1, y0, y1);
+    if (bEnableAsync)
+    {
+        Chunk.SetCrossingsAsync(*this, x0, x1, y0, y1);
+    }
+    else
+    {
+        Chunk.SetCrossings(*this, x0, x1, y0, y1);
+    }
 }
 
 void FMQCStencil::ApplyVoxel(FMQCVoxel& voxel) const
