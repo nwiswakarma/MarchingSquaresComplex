@@ -43,14 +43,12 @@ private:
     friend class FMQCMap;
     friend class FMQCStencil;
 
-    typedef TSharedRef<TPromise<void>, ESPMode::ThreadSafe> FPRAsyncTaskPromise;
-
     class FAsyncTask
     {
         TFunction<void()> Task;
-        FPRAsyncTaskPromise Promise;
+        TPromise<void>& Promise;
     public:
-        FAsyncTask(const TFunction<void()>& InTask, FPRAsyncTaskPromise& InPromise)
+        FAsyncTask(const TFunction<void()>& InTask, TPromise<void>& InPromise)
             : Task(InTask)
             , Promise(InPromise)
         {
@@ -70,7 +68,7 @@ private:
         void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
         {
             Task();
-            Promise->SetValue();
+            Promise.SetValue();
         }
     };
 
@@ -78,9 +76,10 @@ private:
 
     FMQCCell cell;
 
-    TArray<FMQCGridRenderer> renderers;
+    TArray<FMQCGridRenderer> Renderers;
     TArray<FMQCVoxel> voxels;
 
+    int32 mapSize;
     int32 voxelResolution;
 
     FMQCVoxel dummyX;
@@ -89,7 +88,7 @@ private:
 
     void EnqueueTask(const TFunction<void()>& Task);
 
-    void CreateRenderers(const FMQCGridConfig& Config);
+    void CreateRenderers(const FMQCChunkConfig& Config);
 
     void TriangulateInternal();
     void SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
@@ -120,7 +119,7 @@ public:
     FMQCGridChunk* yNeighbor = nullptr;
     FMQCGridChunk* xyNeighbor = nullptr;
 
-    void Initialize(const FMQCGridConfig& Config);
+    void Initialize(const FMQCChunkConfig& Config);
     void CopyFrom(const FMQCGridChunk& Chunk);
 
     void ResetVoxels();
@@ -140,24 +139,28 @@ public:
 
     FORCEINLINE bool HasRenderer(int32 RendererIndex) const
     {
-        return renderers.IsValidIndex(RendererIndex);
+        return Renderers.IsValidIndex(RendererIndex);
     }
 
-    FORCEINLINE int32 GetVertexCount(int32 StateIndex) const
+    FORCEINLINE FPMUMeshSection* GetSurfaceSection(int32 StateIndex)
     {
         return HasRenderer(StateIndex)
-            ? renderers[StateIndex].GetSurface().GetVertexCount()
-            : 0;
+            ? &Renderers[StateIndex].GetSurface().GetSurfaceSection()
+            : nullptr;
     }
 
-    FORCEINLINE const FPMUMeshSection* GetSection(int32 StateIndex) const
+    FORCEINLINE FPMUMeshSection* GetExtrudeSection(int32 StateIndex)
     {
-        if (HasRenderer(StateIndex))
-        {
-            return &renderers[StateIndex].GetSurface().Section;
-        }
+        return HasRenderer(StateIndex)
+            ? &Renderers[StateIndex].GetSurface().GetExtrudeSection()
+            : nullptr;
+    }
 
-        return nullptr;
+    FORCEINLINE FPMUMeshSection* GetEdgeSection(int32 StateIndex)
+    {
+        return HasRenderer(StateIndex)
+            ? &Renderers[StateIndex].GetSurface().GetEdgeSection()
+            : nullptr;
     }
 
     FORCEINLINE void WaitForAsyncTask()
@@ -179,7 +182,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillA(cell, f);
+            Renderers[cell.a.voxelState].FillA(cell, f);
         }
     }
 
@@ -187,7 +190,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.voxelState].FillB(cell, f);
+            Renderers[cell.b.voxelState].FillB(cell, f);
         }
     }
     
@@ -195,7 +198,7 @@ private:
     {
         if (cell.c.IsFilled())
         {
-            renderers[cell.c.voxelState].FillC(cell, f);
+            Renderers[cell.c.voxelState].FillC(cell, f);
         }
     }
     
@@ -203,7 +206,7 @@ private:
     {
         if (cell.d.IsFilled())
         {
-            renderers[cell.d.voxelState].FillD(cell, f);
+            Renderers[cell.d.voxelState].FillD(cell, f);
         }
     }
 
@@ -211,7 +214,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillABC(cell, f);
+            Renderers[cell.a.voxelState].FillABC(cell, f);
         }
     }
     
@@ -219,7 +222,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillABD(cell, f);
+            Renderers[cell.a.voxelState].FillABD(cell, f);
         }
     }
     
@@ -227,7 +230,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillACD(cell, f);
+            Renderers[cell.a.voxelState].FillACD(cell, f);
         }
     }
     
@@ -235,7 +238,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.voxelState].FillBCD(cell, f);
+            Renderers[cell.b.voxelState].FillBCD(cell, f);
         }
     }
 
@@ -243,7 +246,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillAB(cell, f);
+            Renderers[cell.a.voxelState].FillAB(cell, f);
         }
     }
     
@@ -251,7 +254,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillAC(cell, f);
+            Renderers[cell.a.voxelState].FillAC(cell, f);
         }
     }
     
@@ -259,7 +262,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.voxelState].FillBD(cell, f);
+            Renderers[cell.b.voxelState].FillBD(cell, f);
         }
     }
     
@@ -267,7 +270,7 @@ private:
     {
         if (cell.c.IsFilled())
         {
-            renderers[cell.c.voxelState].FillCD(cell, f);
+            Renderers[cell.c.voxelState].FillCD(cell, f);
         }
     }
 
@@ -275,7 +278,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillADToB(cell, f);
+            Renderers[cell.a.voxelState].FillADToB(cell, f);
         }
     }
     
@@ -283,7 +286,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillADToC(cell, f);
+            Renderers[cell.a.voxelState].FillADToC(cell, f);
         }
     }
     
@@ -291,7 +294,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.voxelState].FillBCToA(cell, f);
+            Renderers[cell.b.voxelState].FillBCToA(cell, f);
         }
     }
     
@@ -299,7 +302,7 @@ private:
     {
         if (cell.b.IsFilled())
         {
-            renderers[cell.b.voxelState].FillBCToD(cell, f);
+            Renderers[cell.b.voxelState].FillBCToD(cell, f);
         }
     }
 
@@ -307,7 +310,7 @@ private:
     {
         if (cell.a.IsFilled())
         {
-            renderers[cell.a.voxelState].FillABCD(cell);
+            Renderers[cell.a.voxelState].FillABCD(cell);
         }
     }
 

@@ -47,6 +47,11 @@ const FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex) const
     return *chunks[ChunkIndex];
 }
 
+FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex)
+{
+    return *chunks[ChunkIndex];
+}
+
 void FMQCMap::Triangulate()
 {
     for (FMQCGridChunk* Chunk : chunks)
@@ -125,7 +130,7 @@ void FMQCMap::InitializeSettings()
     }
 }
 
-void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCGridConfig& ChunkConfig)
+void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCChunkConfig& ChunkConfig)
 {
     check(chunks.IsValidIndex(i));
 
@@ -133,11 +138,12 @@ void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCGridConfig&
 
     FVector2D chunkPosition(x * voxelResolution, y * voxelResolution);
 
-    ChunkConfig.States = surfaceStates;
+    ChunkConfig.States = SurfaceStates;
     ChunkConfig.Position = chunkPosition;
+    ChunkConfig.MapSize = GetVoxelCount();
     ChunkConfig.VoxelResolution = voxelResolution;
-    ChunkConfig.MaxFeatureAngle = maxFeatureAngle;
-    ChunkConfig.MaxParallelAngle = maxParallelAngle;
+    ChunkConfig.MaxFeatureAngle = MaxFeatureAngle;
+    ChunkConfig.MaxParallelAngle = MaxParallelAngle;
     ChunkConfig.ExtrusionHeight = extrusionHeight;
 
     // Link chunk neighbours
@@ -160,7 +166,7 @@ void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCGridConfig&
     }
 }
 
-void FMQCMap::InitializeChunk(int32 i, const FMQCGridConfig& ChunkConfig)
+void FMQCMap::InitializeChunk(int32 i, const FMQCChunkConfig& ChunkConfig)
 {
     check(chunks.IsValidIndex(i));
     chunks[i]->Initialize(ChunkConfig);
@@ -173,7 +179,7 @@ void FMQCMap::InitializeChunks()
     for (int32 y=0, i=0; y<chunkResolution; y++)
     for (int32 x=0     ; x<chunkResolution; x++, i++)
     {
-        FMQCGridConfig ChunkConfig;
+        FMQCChunkConfig ChunkConfig;
         InitializeChunkSettings(i, x, y, ChunkConfig);
         InitializeChunk(i, ChunkConfig);
     }
@@ -378,10 +384,10 @@ void UMQCMapRef::ApplyMapSettings()
     VoxelMap.chunkResolution = ChunkResolution;
     VoxelMap.extrusionHeight = ExtrusionHeight;
 
-    VoxelMap.maxFeatureAngle = MaxFeatureAngle;
-    VoxelMap.maxParallelAngle = MaxParallelAngle;
+    VoxelMap.MaxFeatureAngle = MaxFeatureAngle;
+    VoxelMap.MaxParallelAngle = MaxParallelAngle;
 
-    VoxelMap.surfaceStates = SurfaceStates;
+    VoxelMap.SurfaceStates = SurfaceStates;
     VoxelMap.meshPrefabs = MeshPrefabs;
 }
 
@@ -434,16 +440,42 @@ FVector UMQCMapRef::GetChunkPosition(int32 ChunkIndex) const
         : FVector();
 }
 
-void UMQCMapRef::GetSection(FPMUMeshSection& Section, int32 ChunkIndex, int32 StateIndex) const
+FPMUMeshSectionRef UMQCMapRef::GetSurfaceSection(int32 ChunkIndex, int32 StateIndex)
 {
     if (HasChunk(ChunkIndex))
     {
-        const FPMUMeshSection* ChunkSection = VoxelMap.GetChunk(ChunkIndex).GetSection(StateIndex);
+        FMQCGridChunk& Chunk(VoxelMap.GetChunk(ChunkIndex));
+        return FPMUMeshSectionRef(*Chunk.GetSurfaceSection(StateIndex));
+    }
+    else
+    {
+        return FPMUMeshSectionRef();
+    }
+}
 
-        if (ChunkSection)
-        {
-            Section = *ChunkSection;
-        }
+FPMUMeshSectionRef UMQCMapRef::GetExtrudeSection(int32 ChunkIndex, int32 StateIndex)
+{
+    if (HasChunk(ChunkIndex))
+    {
+        FMQCGridChunk& Chunk(VoxelMap.GetChunk(ChunkIndex));
+        return FPMUMeshSectionRef(*Chunk.GetExtrudeSection(StateIndex));
+    }
+    else
+    {
+        return FPMUMeshSectionRef();
+    }
+}
+
+FPMUMeshSectionRef UMQCMapRef::GetEdgeSection(int32 ChunkIndex, int32 StateIndex)
+{
+    if (HasChunk(ChunkIndex))
+    {
+        FMQCGridChunk& Chunk(VoxelMap.GetChunk(ChunkIndex));
+        return FPMUMeshSectionRef(*Chunk.GetEdgeSection(StateIndex));
+    }
+    else
+    {
+        return FPMUMeshSectionRef();
     }
 }
 

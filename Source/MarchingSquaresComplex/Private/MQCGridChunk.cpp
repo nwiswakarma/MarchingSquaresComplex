@@ -43,19 +43,23 @@ void FMQCGridChunk::EnqueueTask(const TFunction<void()>& Task)
     WaitForAsyncTask();
 
     // Create task promise
-    FPRAsyncTaskPromise TaskPromise(new TPromise<void>);
+    TPromise<void>* TaskPromise;
+    TaskPromise = new TPromise<void>([TaskPromise](){ delete TaskPromise; });
+
+    // Assign task future
     OutstandingTask = TaskPromise->GetFuture();
 
     // Dispatch task when ready
     TGraphTask<FAsyncTask>::CreateTask().ConstructAndDispatchWhenReady(
         Task,
-        TaskPromise
+        *TaskPromise
         );
 }
 
-void FMQCGridChunk::Initialize(const FMQCGridConfig& Config)
+void FMQCGridChunk::Initialize(const FMQCChunkConfig& Config)
 {
     position = Config.Position;
+    mapSize = Config.MapSize;
     voxelResolution = Config.VoxelResolution;
 
     cell.sharpFeatureLimit = FMath::Cos(FMath::DegreesToRadians(Config.MaxFeatureAngle));
@@ -82,25 +86,26 @@ void FMQCGridChunk::CopyFrom(const FMQCGridChunk& Chunk)
 
     // Construct & copy renderers
 
-    renderers.SetNum(Chunk.renderers.Num());
+    Renderers.SetNum(Chunk.Renderers.Num());
 
-    for (int32 i=0; i<renderers.Num(); ++i)
+    for (int32 i=0; i<Renderers.Num(); ++i)
     {
-        renderers[i].CopyFrom(Chunk.renderers[i]);
+        Renderers[i].CopyFrom(Chunk.Renderers[i]);
     }
 }
 
-void FMQCGridChunk::CreateRenderers(const FMQCGridConfig& GridConfig)
+void FMQCGridChunk::CreateRenderers(const FMQCChunkConfig& GridConfig)
 {
     // Construct renderer count
 
-    const int32 rendererCount = 1 + GridConfig.States.Num();
-    renderers.Reserve(rendererCount);
+    const int32 RendererCount = 1 + GridConfig.States.Num();
+    Renderers.Reserve(RendererCount);
 
-    for (int32 i=0; i<rendererCount; ++i)
+    for (int32 i=0; i<RendererCount; ++i)
     {
         FMQCSurfaceConfig Config;
         Config.Position        = position;
+        Config.MapSize         = mapSize;
         Config.VoxelResolution = voxelResolution;
         Config.ExtrusionHeight = GridConfig.ExtrusionHeight;
 
@@ -118,7 +123,7 @@ void FMQCGridChunk::CreateRenderers(const FMQCGridConfig& GridConfig)
             Config.bExtrusionSurface  = false;
         }
 
-        renderers.Emplace(Config);
+        Renderers.Emplace(Config);
     }
 }
 
@@ -134,9 +139,9 @@ void FMQCGridChunk::ResetVoxels()
 
 void FMQCGridChunk::TriangulateInternal()
 {
-    for (int32 i=1; i<renderers.Num(); i++)
+    for (int32 i=1; i<Renderers.Num(); i++)
     {
-        renderers[i].Clear();
+        Renderers[i].Clear();
     }
 
     FillFirstRowCache();
@@ -147,9 +152,9 @@ void FMQCGridChunk::TriangulateInternal()
         TriangulateGapRow();
     }
 
-    for (int32 i=1; i<renderers.Num(); i++)
+    for (int32 i=1; i<Renderers.Num(); i++)
     {
-        renderers[i].Apply();
+        Renderers[i].Finalize();
     }
 }
 
@@ -375,8 +380,8 @@ void FMQCGridChunk::CacheFirstCorner(const FMQCVoxel& voxel)
 {
     if (voxel.IsFilled())
     {
-        check(renderers.IsValidIndex(voxel.voxelState));
-        renderers[voxel.voxelState].CacheFirstCorner(voxel);
+        check(Renderers.IsValidIndex(voxel.voxelState));
+        Renderers[voxel.voxelState].CacheFirstCorner(voxel);
     }
 }
 
@@ -388,30 +393,30 @@ void FMQCGridChunk::CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const
         {
             if (xMax.IsFilled())
             {
-                renderers[xMin.voxelState].CacheXEdge(i, xMin);
-                renderers[xMax.voxelState].CacheXEdge(i, xMin);
+                Renderers[xMin.voxelState].CacheXEdge(i, xMin);
+                Renderers[xMax.voxelState].CacheXEdge(i, xMin);
             }
             else
             {
-                renderers[xMin.voxelState].CacheXEdgeWithWall(i, xMin);
+                Renderers[xMin.voxelState].CacheXEdgeWithWall(i, xMin);
             }
         }
         else
         {
-            renderers[xMax.voxelState].CacheXEdgeWithWall(i, xMin);
+            Renderers[xMax.voxelState].CacheXEdgeWithWall(i, xMin);
         }
     }
     if (xMax.IsFilled())
     {
-        renderers[xMax.voxelState].CacheNextCorner(i, xMax);
+        Renderers[xMax.voxelState].CacheNextCorner(i, xMax);
     }
 }
 
 void FMQCGridChunk::CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& yMax)
 {
-    for (int32 i=1; i<renderers.Num(); i++)
+    for (int32 i=1; i<Renderers.Num(); i++)
     {
-        renderers[i].PrepareCacheForNextCell();
+        Renderers[i].PrepareCacheForNextCell();
     }
     if (yMin.voxelState != yMax.voxelState)
     {
@@ -419,26 +424,26 @@ void FMQCGridChunk::CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& 
         {
             if (yMax.IsFilled())
             {
-                renderers[yMin.voxelState].CacheYEdge(yMin);
-                renderers[yMax.voxelState].CacheYEdge(yMin);
+                Renderers[yMin.voxelState].CacheYEdge(yMin);
+                Renderers[yMax.voxelState].CacheYEdge(yMin);
             }
             else
             {
-                renderers[yMin.voxelState].CacheYEdgeWithWall(yMin);
+                Renderers[yMin.voxelState].CacheYEdgeWithWall(yMin);
             }
         }
         else
         {
-            renderers[yMax.voxelState].CacheYEdgeWithWall(yMin);
+            Renderers[yMax.voxelState].CacheYEdgeWithWall(yMin);
         }
     }
 }
 
 void FMQCGridChunk::SwapRowCaches()
 {
-    for (int32 i=1; i<renderers.Num(); i++)
+    for (int32 i=1; i<Renderers.Num(); i++)
     {
-        renderers[i].PrepareCacheForNextRow();
+        Renderers[i].PrepareCacheForNextRow();
     }
 }
 

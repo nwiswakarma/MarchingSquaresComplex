@@ -45,10 +45,12 @@ private:
 
     bool bGenerateExtrusion;
     bool bExtrusionSurface;
-	float extrusionHeight;
+	float ExtrusionHeight;
 
-	int32 voxelResolution;
-    int32 voxelCount;
+	int32 VoxelResolution;
+    int32 VoxelCount;
+    float MapSize;
+    float MapSizeInv;
     FVector2D position;
 
 	TArray<int32> cornersMin;
@@ -61,50 +63,51 @@ private:
 	int32 yEdgeMax;
 
     TSet<int32> EdgeIndexSet;
+    TMap<int32, int32> EdgeIndexMap;
     TArray<TPair<int32, int32>> EdgePairs;
 
-    FPMUMeshSection Section;
+    FPMUMeshSection SurfaceSection;
+    FPMUMeshSection ExtrudeSection;
+    FPMUMeshSection EdgeSection;
 
-    // Height map grid data
+    void ReserveGeometry();
+    void CompactGeometry();
 
-    FVector2D GridRangeMin;
-    FVector2D GridRangeMax;
+    void ReserveGeometry(FPMUMeshSection& Section);
+    void CompactGeometry(FPMUMeshSection& Section);
 
-    bool bHasHeightMap = false;
-    uint8 HeightMapType = 0;
-    int32 ShapeHeightMapId = -1;
-    int32 SurfaceHeightMapId = -1;
-    int32 ExtrudeHeightMapId = -1;
+    void GenerateEdgeGeometry();
 
 public:
 
     void Initialize(const FMQCSurfaceConfig& Config);
     void CopyFrom(const FMQCGridSurface& Surface);
-
-	void Clear()
-    {
-        Section.Reset();
-        EdgeIndexSet.Empty();
-        EdgePairs.Empty();
-	}
-
-	void Apply()
-    {
-        ApplyVertex();
-
-        // Compact geometry containers
-        Section.Positions.Shrink();
-        Section.UVs.Shrink();
-        Section.TangentsX.Reset();
-        Section.TangentsZ.Reset();
-        Section.Tangents.Shrink();
-        Section.Indices.Shrink();
-	}
+	void Finalize();
+	void Clear();
 
     FORCEINLINE int32 GetVertexCount() const
     {
-        return Section.Positions.Num();
+        return !bExtrusionSurface
+            ? SurfaceSection.Positions.Num()
+            : ExtrudeSection.Positions.Num();
     }
+
+    FORCEINLINE FPMUMeshSection& GetSurfaceSection()
+    {
+        return SurfaceSection;
+    }
+
+    FORCEINLINE FPMUMeshSection& GetExtrudeSection()
+    {
+        return ExtrudeSection;
+    }
+
+    FORCEINLINE FPMUMeshSection& GetEdgeSection()
+    {
+        return EdgeSection;
+    }
+
+    // Corner and Edge Caching
 
 	FORCEINLINE void CacheFirstCorner(const FMQCVoxel& voxel)
     {
@@ -139,8 +142,9 @@ public:
         Swap(xEdgesMin, xEdgesMax);
 	}
 
-// Voxel Triangulation Functions
 public:
+
+    // Triangulation Functions
 
 	FORCEINLINE void AddQuadABCD(int32 i)
     {
@@ -395,210 +399,20 @@ public:
 		if (bWall0) AddSection(yEdgeMin, xEdgesMax[i], ExtraVertexIndex);
 	}
 
-// Geometry Generation Functions
 private:
 
-	FORCEINLINE void AddTriangle(int32 a, int32 b, int32 c)
-    {
-        TArray<uint32>& IndexBuffer(Section.Indices);
+    // Geometry Generation Functions
 
-        if (bExtrusionSurface)
-        {
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(a);
-        }
-        else
-        {
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(c);
-        }
+	void AddTriangle(int32 a, int32 b, int32 c);
+	void AddQuad(int32 a, int32 b, int32 c, int32 d);
+	void AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e);
+	void AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, int32 f);
 
-        if (bGenerateExtrusion)
-        {
-            IndexBuffer.Emplace(c+1);
-            IndexBuffer.Emplace(b+1);
-            IndexBuffer.Emplace(a+1);
-        }
-	}
-	
-	FORCEINLINE void AddQuad(int32 a, int32 b, int32 c, int32 d)
-    {
-        TArray<uint32>& IndexBuffer(Section.Indices);
+    void AddVertex(float X, float Y, bool bIsExtrusion);
+    void AddSection(int32 a, int32 b);
 
-        if (bExtrusionSurface)
-        {
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-        }
-        else
-        {
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(d);
-        }
-
-        if (bGenerateExtrusion)
-        {
-            IndexBuffer.Emplace(c+1);
-            IndexBuffer.Emplace(b+1);
-            IndexBuffer.Emplace(a+1);
-            IndexBuffer.Emplace(d+1);
-            IndexBuffer.Emplace(c+1);
-            IndexBuffer.Emplace(a+1);
-        }
-	}
-	
-	FORCEINLINE void AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e)
-    {
-        TArray<uint32>& IndexBuffer(Section.Indices);
-
-        if (bExtrusionSurface)
-        {
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(a);
-        }
-        else
-        {
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(e);
-        }
-
-        if (bGenerateExtrusion)
-        {
-            IndexBuffer.Emplace(c+1);
-            IndexBuffer.Emplace(b+1);
-            IndexBuffer.Emplace(a+1);
-            IndexBuffer.Emplace(d+1);
-            IndexBuffer.Emplace(c+1);
-            IndexBuffer.Emplace(a+1);
-            IndexBuffer.Emplace(e+1);
-            IndexBuffer.Emplace(d+1);
-            IndexBuffer.Emplace(a+1);
-        }
-	}
-	
-	FORCEINLINE void AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, int32 f)
-    {
-        TArray<uint32>& IndexBuffer(Section.Indices);
-
-        if (bExtrusionSurface)
-        {
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(f);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(a);
-        }
-        else
-        {
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(f);
-        }
-
-        if (bGenerateExtrusion)
-        {
-            IndexBuffer.Emplace(c+1);
-            IndexBuffer.Emplace(b+1);
-            IndexBuffer.Emplace(a+1);
-            IndexBuffer.Emplace(d+1);
-            IndexBuffer.Emplace(c+1);
-            IndexBuffer.Emplace(a+1);
-            IndexBuffer.Emplace(e+1);
-            IndexBuffer.Emplace(d+1);
-            IndexBuffer.Emplace(a+1);
-            IndexBuffer.Emplace(f+1);
-            IndexBuffer.Emplace(e+1);
-            IndexBuffer.Emplace(a+1);
-        }
-	}
-
-    void AddSection(int32 a, int32 b)
-    {
-        // Surface does not require edge section, abort
-        if (! bGenerateExtrusion)
-        {
-            return;
-        }
-
-        int32 ea0 = a;
-        int32 eb0 = b;
-        int32 ea1 = a+1;
-        int32 eb1 = b+1;
-
-        TArray<uint32>& IndexBuffer(Section.Indices);
-        IndexBuffer.Emplace(eb1);
-        IndexBuffer.Emplace(eb0);
-        IndexBuffer.Emplace(ea0);
-        IndexBuffer.Emplace(ea1);
-        IndexBuffer.Emplace(eb1);
-        IndexBuffer.Emplace(ea0);
-
-        EdgeIndexSet.Emplace(a);
-        EdgeIndexSet.Emplace(b);
-        EdgePairs.Emplace(a, b);
-
-#if 0
-        const FVector& v0(Section.Positions[a]);
-        const FVector& v1(Section.Positions[b]);
-
-        const FVector EdgeDirection = (v0-v1).GetSafeNormal();
-        const FVector EdgeCross = EdgeDirection ^ FVector::UpVector;
-
-        Section.TangentsZ[a  ] += EdgeCross;
-        Section.TangentsZ[b  ] += EdgeCross;
-        Section.TangentsZ[a+1] += EdgeCross;
-        Section.TangentsZ[b+1] += EdgeCross;
-#endif
-    }
-
-    FORCEINLINE void AddSection(int32 a, int32 b, int32 c)
-    {
-        if (bGenerateExtrusion)
-        {
-            AddSection(a, c);
-            AddSection(c, b);
-        }
-    }
+    int32 DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMeshSection& SrcSection, int32 VertexIndex);
+    int32 FindOrAddEdgeVertex(int32 VertexIndex);
 
     FORCEINLINE int32 AddVertex2(const FVector2D& Vertex)
     {
@@ -614,7 +428,7 @@ private:
         return Index;
     }
 
-    int32 AddVertex4(const FVector2D& Vertex)
+    FORCEINLINE int32 AddVertex4(const FVector2D& Vertex)
     {
         const int32 Index = GetVertexCount();
 
@@ -628,43 +442,12 @@ private:
         return Index;
     }
 
-    FORCEINLINE void AddVertex(float X, float Y, bool bIsExtrusion)
+    FORCEINLINE void AddSection(int32 a, int32 b, int32 c)
     {
-        const float PX = (position.X + X) - .5f;
-        const float PY = (position.Y + Y) - .5f;
-
-        float Height;
-        FVector Normal;
-        FColor Color(ForceInitToZero);
-
-        if (bIsExtrusion)
-        {
-            Height = extrusionHeight;
-            Normal.Set(0.f, 0.f, -1.f);
-        }
-        else
-        {
-            Height = 0.f;
-            Normal.Set(0.f, 0.f, 1.f);
-        }
-
-        FVector Pos(PX, PY, Height);
-        FPackedNormal TangentX(FVector(1,0,0));
-        FPackedNormal TangentZ(FVector4(Normal,1));
-
-        Section.Positions.Emplace(Pos);
-        Section.UVs.Emplace(PX, PY);
         if (bGenerateExtrusion)
         {
-            Section.TangentsX.Emplace(1,0,0);
-            Section.TangentsZ.Emplace(Normal);
+            AddSection(a, c);
+            AddSection(c, b);
         }
-        Section.Tangents.Emplace(TangentX.Vector.Packed);
-        Section.Tangents.Emplace(TangentZ.Vector.Packed);
-
-        Section.SectionLocalBox += Pos;
     }
-
-    void GenerateEdgeNormals();
-    void ApplyVertex();
 };

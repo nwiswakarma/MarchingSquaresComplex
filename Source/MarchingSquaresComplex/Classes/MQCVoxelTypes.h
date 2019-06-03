@@ -45,18 +45,20 @@ struct FMQCSurfaceState
 struct FMQCSurfaceConfig
 {
     FVector2D Position;
+    int32 MapSize;
     int32 VoxelResolution;
     float ExtrusionHeight;
     bool bGenerateExtrusion;
     bool bExtrusionSurface;
 };
 
-struct FMQCGridConfig
+struct FMQCChunkConfig
 {
     FVector2D Position;
-    TArray<FMQCSurfaceState> States;
+    int32 MapSize;
     int32 VoxelResolution;
     float MaxFeatureAngle;
     float MaxParallelAngle;
     float ExtrusionHeight;
+    TArray<FMQCSurfaceState> States;
 };

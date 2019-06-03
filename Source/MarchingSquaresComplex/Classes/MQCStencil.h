@@ -46,7 +46,9 @@ protected:
 	static void ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax);
 
     void GetMapRange(int32& x0, int32& x1, int32& y0, int32& y1, const int32 voxelResolution, const int32 chunkResolution) const;
+    void GetMapRange(TArray<int32>& ChunkIndices, const int32 voxelResolution, const int32 chunkResolution) const;
     void GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const FMQCGridChunk& Chunk) const;
+    void GetChunks(TArray<FMQCGridChunk*>& Chunks, FMQCMap& Map, const TArray<int32>& ChunkIndices) const;
 
     virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const {};
     virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const {};
@@ -62,10 +64,9 @@ protected:
     }
 
     virtual void SetVoxels(FMQCGridChunk& Chunk);
+    virtual void SetVoxels(const TArray<FMQCGridChunk*>& Chunks);
     virtual void SetCrossings(FMQCGridChunk& Chunk);
-
-    virtual void ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1) const;
-    virtual void ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1) const;
+    virtual void SetCrossings(const TArray<FMQCGridChunk*>& Chunks);
 
 public:
 

@@ -56,8 +56,8 @@ private:
 	TArray<FMQCGridChunk*> chunks;
 
     void InitializeSettings();
-    void InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCGridConfig& ChunkConfig);
-    void InitializeChunk(int32 i, const FMQCGridConfig& ChunkConfig);
+    void InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCChunkConfig& ChunkConfig);
+    void InitializeChunk(int32 i, const FMQCChunkConfig& ChunkConfig);
     void InitializeChunks();
 
 public:
@@ -69,23 +69,23 @@ public:
         Clear();
     }
 
-	float maxFeatureAngle = 135.f;
-	float maxParallelAngle = 8.f;
+	float MaxFeatureAngle = 135.f;
+	float MaxParallelAngle = 8.f;
 
 	int32 voxelResolution = 8;
 	int32 chunkResolution = 2;
 	float extrusionHeight = -1.f;
 
-    TArray<FMQCSurfaceState> surfaceStates;
+    TArray<FMQCSurfaceState> SurfaceStates;
     TArray<class UStaticMesh*> meshPrefabs;
 
     void Initialize();
     void CopyFrom(const FMQCMap& VoxelMap);
     void Clear();
 
-    FORCEINLINE float GetVoxelCount() const
+	FORCEINLINE int32 GetVoxelCount() const
     {
-        return (voxelResolution*chunkResolution) * (voxelResolution*chunkResolution);
+        return chunkResolution * voxelResolution;
     }
 
     // CHUNK FUNCTIONS
@@ -93,6 +93,7 @@ public:
     bool HasChunk(int32 ChunkIndex) const;
     int32 GetChunkCount() const;
     const FMQCGridChunk& GetChunk(int32 ChunkIndex) const;
+    FMQCGridChunk& GetChunk(int32 ChunkIndex);
     void Triangulate();
     void TriangulateAsync();
     void ResetChunkStates(const TArray<int32>& ChunkIndices);
@@ -224,6 +225,40 @@ public:
     }
 
 	UFUNCTION(BlueprintCallable)
+	int32 GetVoxelCount() const
+    {
+        return VoxelMap.GetVoxelCount();
+    }
+
+	UFUNCTION(BlueprintCallable)
+	FIntPoint GetVoxelDimension() const
+    {
+        return FIntPoint(
+            VoxelMap.voxelResolution * VoxelMap.chunkResolution,
+            VoxelMap.voxelResolution * VoxelMap.chunkResolution
+            );
+    }
+
+	UFUNCTION(BlueprintCallable)
+	FVector2D GetMeshInverseScale() const
+    {
+        FIntPoint VoxelDimension = GetVoxelDimension();
+        FVector2D ScaleVector = FVector2D::UnitVector;
+
+        if (VoxelDimension.X > 1)
+        {
+            ScaleVector.X = 1.f/VoxelDimension.X;
+        }
+
+        if (VoxelDimension.Y > 1)
+        {
+            ScaleVector.Y = 1.f/VoxelDimension.Y;
+        }
+
+        return ScaleVector;
+    }
+
+	UFUNCTION(BlueprintCallable)
 	bool HasChunk(int32 ChunkIndex) const
     {
         return VoxelMap.HasChunk(ChunkIndex);
@@ -236,19 +271,16 @@ public:
     }
 
 	UFUNCTION(BlueprintCallable)
-	FIntPoint GetVoxelDimension() const
-    {
-        return FIntPoint(
-            VoxelResolution * ChunkResolution,
-            VoxelResolution * ChunkResolution
-            );
-    }
-
-	UFUNCTION(BlueprintCallable)
 	FVector GetChunkPosition(int32 ChunkIndex) const;
 
 	UFUNCTION(BlueprintCallable)
-	void GetSection(FPMUMeshSection& Section, int32 ChunkIndex, int32 StateIndex) const;
+	FPMUMeshSectionRef GetSurfaceSection(int32 ChunkIndex, int32 StateIndex);
+
+	UFUNCTION(BlueprintCallable)
+	FPMUMeshSectionRef GetExtrudeSection(int32 ChunkIndex, int32 StateIndex);
+
+	UFUNCTION(BlueprintCallable)
+	FPMUMeshSectionRef GetEdgeSection(int32 ChunkIndex, int32 StateIndex);
 
     // PREFAB FUNCTIONS
 

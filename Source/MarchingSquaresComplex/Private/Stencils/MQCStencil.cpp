@@ -94,6 +94,22 @@ void FMQCStencil::GetMapRange(int32& x0, int32& x1, int32& y0, int32& y1, const 
     }
 }
 
+void FMQCStencil::GetMapRange(TArray<int32>& ChunkIndices, const int32 voxelResolution, const int32 chunkResolution) const
+{
+    int32 X0, X1, Y0, Y1;
+    GetMapRange(X0, X1, Y0, Y1, voxelResolution, chunkResolution);
+
+    for (int32 y=Y1; y>=Y0; y--)
+    {
+        int32 i = y * chunkResolution + X1;
+
+        for (int32 x=X1; x>=X0; x--, i--)
+        {
+            ChunkIndices.Emplace(i);
+        }
+    }
+}
+
 void FMQCStencil::GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const FMQCGridChunk& Chunk) const
 {
     const int32 resolution = Chunk.voxelResolution;
@@ -121,6 +137,16 @@ void FMQCStencil::GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, cons
     if (y1 >= resolution)
     {
         y1 = resolution - 1;
+    }
+}
+
+void FMQCStencil::GetChunks(TArray<FMQCGridChunk*>& Chunks, FMQCMap& Map, const TArray<int32>& ChunkIndices) const
+{
+    Chunks.Reset(ChunkIndices.Num());
+
+    for (int32 i : ChunkIndices)
+    {
+        Chunks.Emplace(Map.chunks[i]);
     }
 }
 
@@ -152,108 +178,84 @@ void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 {
     const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
-    int32 xStart, xEnd, yStart, yEnd;
+
+    TArray<int32> ChunkIndices;
+    TArray<FMQCGridChunk*> Chunks;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
+    GetMapRange(ChunkIndices, voxelResolution, chunkResolution);
+    GetChunks(Chunks, Map, ChunkIndices);
 
-    // Set voxel states
-    for (int32 y=yEnd; y>=yStart; y--)
-    {
-        int32 i = y * chunkResolution + xEnd;
-
-        for (int32 x=xEnd; x>=xStart; x--, i--)
-        {
-            SetVoxels(*Map.chunks[i]);
-        }
-    }
-
-    // Wait for chunks to synchronize voxel states if async is enabled
-    if (bEnableAsync)
-    {
-        for (int32 y=yEnd; y>=yStart; y--)
-        {
-            int32 i = y * chunkResolution + xEnd;
-
-            for (int32 x=xEnd; x>=xStart; x--, i--)
-            {
-                Map.chunks[i]->WaitForAsyncTask();
-            }
-        }
-    }
-
-    // Set voxel edge values
-    for (int32 y=yEnd; y>=yStart; y--)
-    {
-        int32 i = y * chunkResolution + xEnd;
-
-        for (int32 x=xEnd; x>=xStart; x--, i--)
-        {
-            SetCrossings(*Map.chunks[i]);
-        }
-    }
+    SetVoxels(Chunks);
+    SetCrossings(Chunks);
 }
 
 void FMQCStencil::EditStates(FMQCMap& Map, const FVector2D& center)
 {
+    check(0);
+#if 0
     const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
-    int32 xStart, xEnd, yStart, yEnd;
+    int32 X0, X1, Y0, Y1;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
+    GetMapRange(X0, X1, Y0, Y1, voxelResolution, chunkResolution);
 
-    for (int32 y=yEnd; y>=yStart; y--)
+    for (int32 y=Y1; y>=Y0; y--)
     {
-        int32 i = y * chunkResolution + xEnd;
+        int32 i = y * chunkResolution + X1;
 
-        for (int32 x=xEnd; x>=xStart; x--, i--)
+        for (int32 x=X1; x>=X0; x--, i--)
         {
             SetVoxels(*Map.chunks[i]);
         }
     }
+#endif
 }
 
 void FMQCStencil::EditCrossings(FMQCMap& Map, const FVector2D& center)
 {
+    check(0);
+#if 0
     const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
-    int32 xStart, xEnd, yStart, yEnd;
+    int32 X0, X1, Y0, Y1;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
+    GetMapRange(X0, X1, Y0, Y1, voxelResolution, chunkResolution);
 
-    for (int32 y=yEnd; y>=yStart; y--)
+    for (int32 y=Y1; y>=Y0; y--)
     {
-        int32 i = y * chunkResolution + xEnd;
+        int32 i = y * chunkResolution + X1;
 
-        for (int32 x=xEnd; x>=xStart; x--, i--)
+        for (int32 x=X1; x>=X0; x--, i--)
         {
             SetCrossings(*Map.chunks[i]);
         }
     }
+#endif
 }
 
 void FMQCStencil::GetChunkIndices(FMQCMap& Map, const FVector2D& center, TArray<int32>& OutIndices)
 {
     const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
-    int32 xStart, xEnd, yStart, yEnd;
+    int32 X0, X1, Y0, Y1;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(xStart, xEnd, yStart, yEnd, voxelResolution, chunkResolution);
+    GetMapRange(X0, X1, Y0, Y1, voxelResolution, chunkResolution);
 
     OutIndices.Reset(chunkResolution * chunkResolution);
 
-    for (int32 y=yEnd; y>=yStart; y--)
+    for (int32 y=Y1; y>=Y0; y--)
     {
-        int32 i = y * chunkResolution + xEnd;
+        int32 i = y * chunkResolution + X1;
 
-        for (int32 x=xEnd; x>=xStart; x--, i--)
+        for (int32 x=X1; x>=X0; x--, i--)
         {
             OutIndices.Emplace(i);
         }
@@ -264,39 +266,61 @@ void FMQCStencil::GetChunkIndices(FMQCMap& Map, const FVector2D& center, TArray<
 
 void FMQCStencil::SetVoxels(FMQCGridChunk& Chunk)
 {
-    int32 xStart, xEnd, yStart, yEnd;
-    GetChunkRange(xStart, xEnd, yStart, yEnd, Chunk);
-    ApplyVoxels(Chunk, xStart, xEnd, yStart, yEnd);
+    int32 X0, X1, Y0, Y1;
+    GetChunkRange(X0, X1, Y0, Y1, Chunk);
+    Chunk.SetStates(*this, X0, X1, Y0, Y1);
+}
+
+void FMQCStencil::SetVoxels(const TArray<FMQCGridChunk*>& Chunks)
+{
+    if (bEnableAsync)
+    {
+        FMQCStencil* Stencil(this);
+        // ParallelFor() is used instead of SetStatesAsync() because
+        // most other stencil operations rely on synchronized states result
+        ParallelFor(
+            Chunks.Num(),
+            [Stencil, &Chunks](int32 ThreadIndex)
+            {
+                FMQCGridChunk* Chunk(Chunks[ThreadIndex]);
+                int32 X0, X1, Y0, Y1;
+                Stencil->GetChunkRange(X0, X1, Y0, Y1, *Chunk);
+                Chunk->SetStates(*Stencil, X0, X1, Y0, Y1);
+            } );
+    }
+    else
+    {
+        for (FMQCGridChunk* Chunk : Chunks)
+        {
+            int32 X0, X1, Y0, Y1;
+            GetChunkRange(X0, X1, Y0, Y1, *Chunk);
+            Chunk->SetStates(*this, X0, X1, Y0, Y1);
+        }
+    }
 }
 
 void FMQCStencil::SetCrossings(FMQCGridChunk& Chunk)
 {
-    int32 xStart, xEnd, yStart, yEnd;
-    GetChunkRange(xStart, xEnd, yStart, yEnd, Chunk);
-    ApplyCrossings(Chunk, xStart, xEnd, yStart, yEnd);
+    int32 X0, X1, Y0, Y1;
+    GetChunkRange(X0, X1, Y0, Y1, Chunk);
+    Chunk.SetCrossings(*this, X0, X1, Y0, Y1);
 }
 
-void FMQCStencil::ApplyVoxels(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1) const
+void FMQCStencil::SetCrossings(const TArray<FMQCGridChunk*>& Chunks)
 {
-    if (bEnableAsync)
+    for (FMQCGridChunk* Chunk : Chunks)
     {
-        Chunk.SetStatesAsync(*this, x0, x1, y0, y1);
-    }
-    else
-    {
-        Chunk.SetStates(*this, x0, x1, y0, y1);
-    }
-}
+        int32 X0, X1, Y0, Y1;
+        GetChunkRange(X0, X1, Y0, Y1, *Chunk);
 
-void FMQCStencil::ApplyCrossings(FMQCGridChunk& Chunk, const int32 x0, const int32 x1, const int32 y0, const int32 y1) const
-{
-    if (bEnableAsync)
-    {
-        Chunk.SetCrossingsAsync(*this, x0, x1, y0, y1);
-    }
-    else
-    {
-        Chunk.SetCrossings(*this, x0, x1, y0, y1);
+        if (bEnableAsync)
+        {
+            Chunk->SetCrossingsAsync(*this, X0, X1, Y0, Y1);
+        }
+        else
+        {
+            Chunk->SetCrossings(*this, X0, X1, Y0, Y1);
+        }
     }
 }
 

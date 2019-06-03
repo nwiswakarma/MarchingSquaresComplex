@@ -34,10 +34,6 @@
 
 class FMQCGridRenderer
 {
-private:
-
-    friend class FMQCGridChunk;
-
 	FMQCGridSurface surface;
 
 public:
@@ -64,9 +60,9 @@ public:
 		surface.Clear();
 	}
 	
-	void Apply()
+	void Finalize()
     {
-		surface.Apply();
+		surface.Finalize();
 	}
 
     FORCEINLINE FMQCGridSurface& GetSurface()
