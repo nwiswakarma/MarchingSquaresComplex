@@ -156,7 +156,7 @@ void FMQCGridSurface::AddVertex(float X, float Y, bool bIsExtrusion)
     const float PX = (position.X + X) - .5f;
     const float PY = (position.Y + Y) - .5f;
     FVector2D XY(PX, PY);
-    FVector2D UV(XY * MapSizeInv);
+    FVector2D UV(XY*MapSizeInv - MapSizeInv*.5f);
 
     float Height;
     float FaceSign;
@@ -244,6 +244,7 @@ int32 FMQCGridSurface::DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMe
     }
     DstSection.Tangents.Emplace(SrcSection.Tangents[(VertexIndex*2)  ]);
     DstSection.Tangents.Emplace(SrcSection.Tangents[(VertexIndex*2)+1]);
+    DstSection.SectionLocalBox += SrcSection.Positions[VertexIndex];
 
     return OutIndex;
 }
