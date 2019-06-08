@@ -95,9 +95,6 @@ private:
 	int32 yEdgeMin;
 	int32 yEdgeMax;
 
-    TMap<int32, int32> EdgeIndexMap;
-    TArray<FEdgePair> EdgePairs;
-
     TArray<FEdgeListData> EdgeLists;
     TArray<FEdgeSyncData> EdgeSyncList;
 
@@ -456,7 +453,6 @@ private:
     void AddSection(int32 a, int32 b);
 
     int32 DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMeshSection& SrcSection, int32 VertexIndex);
-    int32 FindOrAddEdgeVertex(int32 VertexIndex);
 
     FORCEINLINE int32 AddVertex2(const FVector2D& Vertex)
     {

@@ -146,8 +146,6 @@ void FMQCGridSurface::Clear()
 {
     SurfaceSection.Reset();
     ExtrudeSection.Reset();
-    EdgeIndexMap.Empty();
-    EdgePairs.Empty();
 }
 
 void FMQCGridSurface::AddVertex(float X, float Y, bool bIsExtrusion)
@@ -205,9 +203,6 @@ void FMQCGridSurface::AddSection(int32 a, int32 b)
         return;
     }
 
-#if 0
-    EdgePairs.Emplace(a, b);
-#else
     int32 ConnectionIndex = -1;
 
     for (int32 i=0; i<EdgeLists.Num(); ++i)
@@ -332,7 +327,6 @@ void FMQCGridSurface::AddSection(int32 a, int32 b)
             ++It;
         }
     }
-#endif
 }
 
 int32 FMQCGridSurface::DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMeshSection& SrcSection, int32 VertexIndex)
@@ -356,32 +350,6 @@ int32 FMQCGridSurface::DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMe
     return OutIndex;
 }
 
-int32 FMQCGridSurface::FindOrAddEdgeVertex(int32 VertexIndex)
-{
-    // Only allow call if generating an extrusion and is a valid surface vertex
-    check(bGenerateExtrusion);
-    check(SurfaceSection.Positions.IsValidIndex(VertexIndex));
-
-    int32* MappedIndex = EdgeIndexMap.Find(VertexIndex);
-
-    // Vertex index found, return mapped index
-    if (MappedIndex)
-    {
-        return *MappedIndex;
-    }
-    // Vertex index not found, create and map a vertex duplicate
-    // and return the mapped index
-    else
-    {
-        int32 i = DuplicateVertex(EdgeSection, SurfaceSection, VertexIndex);
-        DuplicateVertex(EdgeSection, ExtrudeSection, VertexIndex);
-
-        EdgeIndexMap.Emplace(VertexIndex, i);
-
-        return i;
-    }
-}
-
 void FMQCGridSurface::GenerateEdgeGeometry()
 {
     // Only generate edge geometry on surface that generate extrusion
@@ -391,143 +359,6 @@ void FMQCGridSurface::GenerateEdgeGeometry()
     }
 
     TArray<uint32>& IndexBuffer(EdgeSection.Indices);
-
-#if 0
-    // Generate edge tangents and faces
-
-    for (const FEdgePair& EdgePair : EdgePairs)
-    {
-        const int32& a(EdgePair.Get<0>());
-        const int32& b(EdgePair.Get<1>());
-
-        // Find or add edge vertices
-
-        int32 ea0 = FindOrAddEdgeVertex(a);
-        int32 eb0 = FindOrAddEdgeVertex(b);
-        int32 ea1 = ea0 + 1;
-        int32 eb1 = eb0 + 1;
-
-        // Add edge section face
-
-        IndexBuffer.Emplace(eb1);
-        IndexBuffer.Emplace(eb0);
-        IndexBuffer.Emplace(ea0);
-        IndexBuffer.Emplace(ea1);
-        IndexBuffer.Emplace(eb1);
-        IndexBuffer.Emplace(ea0);
-
-        // Assign edge tangents
-
-        const FVector& v0(EdgeSection.Positions[ea0]);
-        const FVector& v1(EdgeSection.Positions[eb0]);
-
-        const FVector EdgeTangent = (v1-v0).GetSafeNormal();
-        const FVector EdgeNormal(-EdgeTangent.Y, EdgeTangent.X, 0.f);
-
-        EdgeSection.TangentsX[ea0] += EdgeTangent;
-        EdgeSection.TangentsX[eb0] += EdgeTangent;
-
-        EdgeSection.TangentsZ[ea0] += EdgeNormal;
-        EdgeSection.TangentsZ[eb0] += EdgeNormal;
-    }
-
-    // Generate packed tangent data
-
-    for (const auto& MappedIndex : EdgeIndexMap)
-    {
-        int32 i0 = MappedIndex.Value;
-        int32 i1 = i0+1;
-
-        int32 it0 = i0*2;
-        int32 it1 = i1*2;
-
-        FVector& TangentX(EdgeSection.TangentsX[i0]);
-        FVector& TangentZ(EdgeSection.TangentsZ[i0]);
-
-        // Normalize tangents
-
-        TangentX.Normalize();
-        TangentZ.Normalize();
-
-        // Use Gram-Schmidt orthogonalization to make sure X is orth with Z
-
-        TangentX -= TangentZ * (TangentZ | TangentX);
-        TangentX.Normalize();
-
-        // Assign packed tangents
-
-        FPackedNormal TX(TangentX);
-        FPackedNormal TZ(FVector4(TangentZ, 1));
-
-        EdgeSection.Tangents[it0  ] = TX.Vector.Packed;
-        EdgeSection.Tangents[it0+1] = TZ.Vector.Packed;
-
-        EdgeSection.Tangents[it1  ] = TX.Vector.Packed;
-        EdgeSection.Tangents[it1+1] = TZ.Vector.Packed;
-    }
-#else
-
-#if 0
-    TArray<FEdgePair> EdgePairsCopy(EdgePairs);
-
-    while (EdgePairsCopy.Num() > 0)
-    {
-        EdgeLists.SetNum(EdgeLists.Num()+1);
-        FEdgeList& EdgeList(EdgeLists.Last().EdgeList);
-
-        EdgeList.AddTail(EdgePairsCopy[0].Get<0>());
-        EdgeList.AddTail(EdgePairsCopy[0].Get<1>());
-
-        EdgePairsCopy.RemoveAtSwap(0, 1, false);
-
-        int32 i = 0;
-
-        while (i < EdgePairsCopy.Num())
-        {
-            int32 HeadIndex = EdgeList.GetHead()->GetValue();
-            int32 TailIndex = EdgeList.GetTail()->GetValue();
-
-            const FEdgePair& EdgePair(EdgePairsCopy[i]);
-            int32 a = EdgePair.Get<0>();
-            int32 b = EdgePair.Get<1>();
-
-            bool bHasConnection = false;
-
-            if (a == HeadIndex)
-            {
-                EdgeList.AddHead(b);
-                bHasConnection = true;
-            }
-            else
-            if (a == TailIndex)
-            {
-                EdgeList.AddTail(b);
-                bHasConnection = true;
-            }
-            else
-            if (b == HeadIndex)
-            {
-                EdgeList.AddHead(a);
-                bHasConnection = true;
-            }
-            else
-            if (b == TailIndex)
-            {
-                EdgeList.AddTail(a);
-                bHasConnection = true;
-            }
-
-            if (bHasConnection)
-            {
-                EdgePairsCopy.RemoveAtSwap(i, 1, false);
-                i = 0;
-                continue;
-            }
-
-            ++i;
-        }
-    }
-#endif
 
     for (int32 ListId=0; ListId<EdgeLists.Num(); ++ListId)
     {
@@ -669,7 +500,6 @@ void FMQCGridSurface::GenerateEdgeGeometry()
         SyncData.TailIndex = evi1 / 2;
         SyncData.Length = EdgeLength;
     }
-#endif
 }
 
 void FMQCGridSurface::RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd)
