@@ -163,6 +163,28 @@ public:
             : nullptr;
     }
 
+    FORCEINLINE int32 AppendEdgeSyncData(int32 StateIndex, TArray<FEdgeSyncData>& OutSyncData) const
+    {
+        if (HasRenderer(StateIndex))
+        {
+            int32 StartIndex = OutSyncData.Num();
+            Renderers[StateIndex].GetSurface().AppendEdgeSyncData(OutSyncData);
+            return StartIndex;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+
+    FORCEINLINE void RemapEdgeUVs(int32 StateIndex, int32 EdgeListId, float UVStart, float UVEnd)
+    {
+        if (HasRenderer(StateIndex))
+        {
+            Renderers[StateIndex].GetSurface().RemapEdgeUVs(EdgeListId, UVStart, UVEnd);
+        }
+    }
+
     FORCEINLINE void WaitForAsyncTask()
     {
         if (OutstandingTask.IsValid())

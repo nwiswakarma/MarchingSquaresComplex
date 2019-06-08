@@ -32,12 +32,45 @@
 #include "MQCVoxel.h"
 #include "MQCVoxelTypes.h"
 
+struct FEdgeSyncData
+{
+    int32 ChunkIndex;
+    int32 EdgeListIndex;
+    FVector2D HeadPos;
+    FVector2D TailPos;
+    int32 HeadIndex;
+    int32 TailIndex;
+    float Length;
+
+    FORCEINLINE FString ToString() const
+    {
+        return FString::Printf(TEXT("(ChunkIndex: %d, EdgeListIndex: %d, HeadPos: %s, TailPos: %s, HeadIndex: %d, TailIndex: %d, Length: %f)"),
+            ChunkIndex,
+            EdgeListIndex,
+            *HeadPos.ToString(),
+            *TailPos.ToString(),
+            HeadIndex,
+            TailIndex,
+            Length
+            );
+    }
+};
+
 class FMQCGridSurface
 {
 private:
 
     friend class FMQCGridChunk;
     friend class FMQCGridRenderer;
+
+    typedef TPair<int32, int32> FEdgePair;
+    typedef TDoubleLinkedList<int32> FEdgeList;
+
+    struct FEdgeListData
+    {
+        FEdgeList EdgeList;
+        bool bIsCircular = false;
+    };
 
 	const FName SHAPE_HEIGHT_MAP_NAME   = TEXT("PMU_VOXEL_SHAPE_HEIGHT_MAP");
 	const FName SURFACE_HEIGHT_MAP_NAME = TEXT("PMU_VOXEL_SURFACE_HEIGHT_MAP");
@@ -64,7 +97,10 @@ private:
 
     TSet<int32> EdgeIndexSet;
     TMap<int32, int32> EdgeIndexMap;
-    TArray<TPair<int32, int32>> EdgePairs;
+    TArray<FEdgePair> EdgePairs;
+
+    TArray<FEdgeListData> EdgeLists;
+    TArray<FEdgeSyncData> EdgeSyncList;
 
     FPMUMeshSection SurfaceSection;
     FPMUMeshSection ExtrudeSection;
@@ -106,6 +142,15 @@ public:
     {
         return EdgeSection;
     }
+
+    FORCEINLINE int32 AppendEdgeSyncData(TArray<FEdgeSyncData>& OutSyncData) const
+    {
+        int32 StartIndex = OutSyncData.Num();
+        OutSyncData.Append(EdgeSyncList);
+        return StartIndex;
+    }
+
+    void RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd);
 
     // Corner and Edge Caching
 

@@ -59,6 +59,8 @@ private:
     void InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCChunkConfig& ChunkConfig);
     void InitializeChunk(int32 i, const FMQCChunkConfig& ChunkConfig);
     void InitializeChunks();
+    void ResolveChunkEdgeData();
+    void ResolveChunkEdgeData(int32 StateIndex);
 
 public:
 

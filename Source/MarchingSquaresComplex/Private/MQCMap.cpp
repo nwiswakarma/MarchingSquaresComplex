@@ -58,6 +58,8 @@ void FMQCMap::Triangulate()
     {
         Chunk->Triangulate();
     }
+
+    ResolveChunkEdgeData();
 }
 
 void FMQCMap::TriangulateAsync()
@@ -65,6 +67,141 @@ void FMQCMap::TriangulateAsync()
     for (FMQCGridChunk* Chunk : chunks)
     {
         Chunk->TriangulateAsync();
+    }
+}
+
+void FMQCMap::ResolveChunkEdgeData()
+{
+    for (int32 i=0; i<SurfaceStates.Num(); ++i)
+    {
+        ResolveChunkEdgeData(i+1);
+    }
+}
+
+void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
+{
+    //UE_LOG(LogTemp,Warning, TEXT("StateIndex: %d"), StateIndex);
+
+    TArray<FEdgeSyncData> ChunkSyncList;
+    TArray<TDoubleLinkedList<FEdgeSyncData>> SyncLists;
+
+    for (int32 ChunkIndex=0; ChunkIndex<chunks.Num(); ++ChunkIndex)
+    {
+        FMQCGridChunk& Chunk(*chunks[ChunkIndex]);
+
+        int32 SyncOffetIndex = Chunk.AppendEdgeSyncData(StateIndex, ChunkSyncList);
+
+        for (int32 i=SyncOffetIndex; i<ChunkSyncList.Num(); ++i)
+        {
+            FEdgeSyncData& SyncData(ChunkSyncList[i]);
+            SyncData.ChunkIndex = ChunkIndex;
+
+            //UE_LOG(LogTemp,Warning, TEXT("SyncData[%d]: %s"),
+            //    i, *SyncData.ToString());
+        }
+    }
+
+    while (ChunkSyncList.Num() > 0)
+    {
+        SyncLists.SetNum(SyncLists.Num()+1);
+        TDoubleLinkedList<FEdgeSyncData>& SyncList(SyncLists.Last());
+
+        SyncList.AddTail(ChunkSyncList[0]);
+
+        ChunkSyncList.RemoveAtSwap(0, 1, false);
+
+        int32 i = 0;
+
+        while (i < ChunkSyncList.Num())
+        {
+            const FEdgeSyncData& HeadSyncData(SyncList.GetHead()->GetValue());
+            const FEdgeSyncData& TailSyncData(SyncList.GetTail()->GetValue());
+            FVector2D HeadPos = HeadSyncData.HeadPos;
+            FVector2D TailPos = TailSyncData.TailPos;
+
+            const FEdgeSyncData& SyncData(ChunkSyncList[i]);
+            FVector2D a = SyncData.HeadPos;
+            FVector2D b = SyncData.TailPos;
+
+            bool bHasConnection = false;
+
+            if (a.Equals(HeadPos, .001f))
+            {
+                SyncList.AddHead(SyncData);
+                bHasConnection = true;
+            }
+            else
+            if (a.Equals(TailPos, .001f))
+            {
+                SyncList.AddTail(SyncData);
+                bHasConnection = true;
+            }
+            else
+            if (b.Equals(HeadPos, .001f))
+            {
+                SyncList.AddHead(SyncData);
+                bHasConnection = true;
+            }
+            else
+            if (b.Equals(TailPos, .001f))
+            {
+                SyncList.AddTail(SyncData);
+                bHasConnection = true;
+            }
+
+            if (bHasConnection)
+            {
+                ChunkSyncList.RemoveAtSwap(i, 1, false);
+                i = 0;
+                continue;
+            }
+
+            ++i;
+        }
+    }
+
+    //UE_LOG(LogTemp,Warning, TEXT("SyncLists.Num(): %d"), SyncLists.Num());
+
+    for (int32 ListIndex=0; ListIndex<SyncLists.Num(); ++ListIndex)
+    {
+        const TDoubleLinkedList<FEdgeSyncData>& SyncList(SyncLists[ListIndex]);
+
+        // Skip edge list that does not have any connection
+        if (SyncList.Num() < 2)
+        {
+            continue;
+        }
+
+        int32 j=0;
+        float Length = 0.f;
+        float LengthInv = 0.f;
+
+        for (const FEdgeSyncData& SyncData : SyncList)
+        {
+            //UE_LOG(LogTemp,Warning, TEXT("SyncLists[%d] SyncData[%d]: %s"),
+            //    ListIndex, j++, *SyncData.ToString());
+            Length += SyncData.Length;
+        }
+
+        if (Length > 0.f)
+        {
+            LengthInv = 1.f/Length;
+        }
+
+        //UE_LOG(LogTemp,Warning, TEXT("SyncLists[%d] Total Length: %f (%f)"),
+        //    ListIndex, Length, LengthInv);
+
+        float UV0 = 0.f;
+        float UV1 = 0.f;
+
+        for (const FEdgeSyncData& SyncData : SyncList)
+        {
+            UV0 = UV1;
+            UV1 = UV0 + SyncData.Length * LengthInv;
+
+            FMQCGridChunk& Chunk(*chunks[SyncData.ChunkIndex]);
+            Chunk.RemapEdgeUVs(StateIndex, SyncData.EdgeListIndex, UV0, UV1);
+        }
     }
 }
 
