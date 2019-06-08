@@ -146,7 +146,6 @@ void FMQCGridSurface::Clear()
 {
     SurfaceSection.Reset();
     ExtrudeSection.Reset();
-    EdgeIndexSet.Empty();
     EdgeIndexMap.Empty();
     EdgePairs.Empty();
 }
@@ -201,102 +200,139 @@ void FMQCGridSurface::AddVertex(float X, float Y, bool bIsExtrusion)
 
 void FMQCGridSurface::AddSection(int32 a, int32 b)
 {
-    if (bGenerateExtrusion)
+    if (! bGenerateExtrusion)
     {
-        EdgePairs.Emplace(a, b);
+        return;
+    }
 
 #if 0
-        int32 TailIndex = -1;
-        int32 HeadIndex = -1;
+    EdgePairs.Emplace(a, b);
+#else
+    int32 ConnectionIndex = -1;
 
-        for (int32 i=0; i<EdgeLists.Num(); ++i)
+    for (int32 i=0; i<EdgeLists.Num(); ++i)
+    {
+        FEdgeList& EdgeList(EdgeLists[i].EdgeList);
+        int32 HeadIndex = EdgeList.GetHead()->GetValue();
+        int32 TailIndex = EdgeList.GetTail()->GetValue();
+
+        bool bHasConnection = false;
+
+        if (a == HeadIndex)
         {
-            FEdgeListData& EdgeListData(EdgeLists[i]);
-            FEdgeList& EdgeList(EdgeListData.EdgeList);
-
-            if (EdgeListData.bIsCircular)
-            {
-                continue;
-            }
-
-            const int32& Head(EdgeList.GetHead()->GetValue());
-            const int32& Tail(EdgeList.GetTail()->GetValue());
-
-            // If list tail equals point 0, add point 1 as list tail
-            if (TailIndex < 0 && a == Tail)
-            {
-                EdgeList.AddTail(b);
-                TailIndex = i;
-            }
-
-            // If list head equals point 1, add point 0 as list head
-            if (HeadIndex < 0 && b == Head)
-            {
-                EdgeList.AddHead(a);
-                HeadIndex = i;
-            }
-
-            // Both edge pair points have connection, stop iteration
-            if (TailIndex >= 0 && HeadIndex >= 0)
-            {
-                break;
-            }
+            EdgeList.AddHead(b);
+            bHasConnection = true;
+        }
+        else
+        if (a == TailIndex)
+        {
+            EdgeList.AddTail(b);
+            bHasConnection = true;
+        }
+        else
+        if (b == HeadIndex)
+        {
+            EdgeList.AddHead(a);
+            bHasConnection = true;
+        }
+        else
+        if (b == TailIndex)
+        {
+            EdgeList.AddTail(a);
+            bHasConnection = true;
         }
 
-        bool bLinkedTail = (TailIndex >= 0);
-        bool bLinkedHead = (HeadIndex >= 0);
-
-        // Connected list, add head list to tail list
-        if (bLinkedTail && bLinkedHead)
+        if (bHasConnection)
         {
-            check(! EdgeLists[TailIndex].bIsCircular);
-            check(! EdgeLists[HeadIndex].bIsCircular);
+            ConnectionIndex = i;
+            break;
+        }
+    }
 
-            if (TailIndex != HeadIndex)
+    if (ConnectionIndex < 0)
+    {
+        EdgeLists.SetNum(EdgeLists.Num()+1);
+        FEdgeListData& EdgeListData(EdgeLists.Last());
+        EdgeListData.Id = FGuid::NewGuid();
+        EdgeListData.EdgeList.AddTail(a);
+        EdgeListData.EdgeList.AddTail(b);
+    }
+    else
+    if (EdgeLists.Num() > 1)
+    {
+        FEdgeListData& ResolveData(EdgeLists[ConnectionIndex]);
+        FEdgeList& ResolveList(ResolveData.EdgeList);
+        int32 HeadIndex = ResolveList.GetHead()->GetValue();
+        int32 TailIndex = ResolveList.GetTail()->GetValue();
+        int32 It = 0;
+
+        while (It < EdgeLists.Num())
+        {
+            if (ResolveData.Id != EdgeLists[It].Id)
             {
-                FEdgeList& TailList(EdgeLists[TailIndex].EdgeList);
-                FEdgeList& HeadList(EdgeLists[HeadIndex].EdgeList);
+                const FEdgeList& EdgeList(EdgeLists[It].EdgeList);
+                auto* h = EdgeList.GetHead();
+                auto* t = EdgeList.GetTail();
+                int32 hv = h->GetValue();
+                int32 tv = t->GetValue();
+                bool bHasConnection = false;
 
-                auto* HeadNode = HeadList.GetHead();
-
-                for (int32 SafeIt=0; (HeadNode && SafeIt<50); ++SafeIt)
+                if (hv == HeadIndex)
                 {
-                    UE_LOG(LogTemp,Warning, TEXT("Head[%d]: %d"), HeadIndex, HeadNode->GetValue());
-                    TailList.AddTail(HeadNode->GetValue());
-                    HeadNode = HeadNode->GetNextNode();
+                    auto* n = h;
+                    while (n)
+                    {
+                        ResolveList.AddHead(n->GetValue());
+                        n = n->GetNextNode();
+                    }
+                    bHasConnection = true;
+                }
+                else
+                if (hv == TailIndex)
+                {
+                    auto* n = h;
+                    while (n)
+                    {
+                        ResolveList.AddTail(n->GetValue());
+                        n = n->GetNextNode();
+                    }
+                    bHasConnection = true;
+                }
+                else
+                if (tv == HeadIndex)
+                {
+                    auto* n = t;
+                    while (n)
+                    {
+                        ResolveList.AddHead(n->GetValue());
+                        n = n->GetPrevNode();
+                    }
+                    bHasConnection = true;
+                }
+                else
+                if (tv == TailIndex)
+                {
+                    auto* n = t;
+                    while (n)
+                    {
+                        ResolveList.AddTail(n->GetValue());
+                        n = n->GetPrevNode();
+                    }
+                    bHasConnection = true;
                 }
 
-                EdgeLists.RemoveAtSwap(HeadIndex, 1, false);
+                if (bHasConnection)
+                {
+                    EdgeLists.RemoveAtSwap(It, 1, false);
+                    It = 0;
+                    continue;
+                }
             }
-            else
-            {
-                EdgeLists[TailIndex].bIsCircular = true;
-            }
-        }
-        // No link found, create new list
-        else
-        if (!bLinkedTail && !bLinkedHead)
-        {
-            EdgeLists.SetNum(EdgeLists.Num()+1);
-            FEdgeList& EdgeList(EdgeLists.Last().EdgeList);
-            EdgeList.AddTail(a);
-            EdgeList.AddTail(b);
-        }
 
-#if 0
-        UE_LOG(LogTemp,Warning, TEXT("EdgeLists.Num(): %d"), EdgeLists.Num());
-
-        for (int32 i=0; i<EdgeLists.Num(); ++i)
-        {
-            const FEdgeList& EdgeList(EdgeLists[i]);
-            UE_LOG(LogTemp,Warning, TEXT("EdgeLists[%d] Head: %d"), i, EdgeList.GetHead()->GetValue());
-            UE_LOG(LogTemp,Warning, TEXT("EdgeLists[%d] Tail: %d"), i, EdgeList.GetTail()->GetValue());
-            UE_LOG(LogTemp,Warning, TEXT("EdgeLists[%d].Num(): %d"), i, EdgeList.Num());
+            ++It;
         }
-#endif
-
-#endif
     }
+#endif
 }
 
 int32 FMQCGridSurface::DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMeshSection& SrcSection, int32 VertexIndex)
@@ -431,6 +467,7 @@ void FMQCGridSurface::GenerateEdgeGeometry()
     }
 #else
 
+#if 0
     TArray<FEdgePair> EdgePairsCopy(EdgePairs);
 
     while (EdgePairsCopy.Num() > 0)
@@ -490,6 +527,7 @@ void FMQCGridSurface::GenerateEdgeGeometry()
             ++i;
         }
     }
+#endif
 
     for (int32 ListId=0; ListId<EdgeLists.Num(); ++ListId)
     {
@@ -631,85 +669,6 @@ void FMQCGridSurface::GenerateEdgeGeometry()
         SyncData.TailIndex = evi1 / 2;
         SyncData.Length = EdgeLength;
     }
-
-#if 0
-    UE_LOG(LogTemp,Warning, TEXT("EdgeLists.Num(): %d"), EdgeLists.Num());
-    for (FEdgeListData& EdgeListData : EdgeLists)
-    {
-        FEdgeList& EdgeList(EdgeListData.EdgeList);
-
-        UE_LOG(LogTemp,Warning, TEXT("bIsCircular: %d"),
-            EdgeListData.bIsCircular);
-
-        check(EdgeList.Num() >= 2);
-
-        auto* HeadNode = EdgeList.GetHead();
-        auto* Node0 = HeadNode;
-        auto* Node1 = Node0->GetNextNode();
-
-        int32 PairIndex0;
-        int32 PairIndex1;
-        int32 VertexIndex0;
-        int32 VertexIndex1;
-
-        TArray<TPair<int32, float>> EdgeDistances;
-        float EdgeLength = 0.f;
-
-        EdgeDistances.Reserve(EdgeList.Num());
-
-        // Calculate edge distance data
-        int32 SafeIt = 0;
-        do
-        {
-            PairIndex0 = Node0->GetValue();
-            PairIndex1 = Node1->GetValue();
-            VertexIndex0 = EdgeIndexMap.FindChecked(PairIndex0);
-            VertexIndex1 = EdgeIndexMap.FindChecked(PairIndex1);
-
-            FVector2D v0(EdgeSection.Positions[VertexIndex0]);
-            FVector2D v1(EdgeSection.Positions[VertexIndex1]);
-
-            EdgeDistances.Emplace(VertexIndex0, EdgeLength);
-            EdgeLength += (v1-v0).Size();
-
-            Node0 = Node1;
-            Node1 = Node1->GetNextNode();
-
-            ++SafeIt;
-        }
-        while (Node1 && SafeIt<50);
-
-        // Assign last edge vertex distance data
-        EdgeDistances.Emplace(VertexIndex1, EdgeLength);
-
-        // Calculate inverse edge length
-
-        float EdgeLengthInv = 0.f;
-
-        if (EdgeLength > 0.f)
-        {
-            EdgeLengthInv = 1.f/EdgeLength;
-        }
-
-        // Assign edge uvs
-        for (int32 i=0; i<EdgeDistances.Num(); ++i)
-        {
-            auto& EdgeData(EdgeDistances[i]);
-
-            int32 ea0 = EdgeData.Key;
-            int32 ea1 = ea0 + 1;
-
-            float Dist = EdgeData.Value * EdgeLengthInv;
-
-            EdgeSection.UVs[ea0].Set(Dist, 0.f);
-            EdgeSection.UVs[ea1].Set(Dist, 1.f);
-
-            //FVector2D Pos(EdgeSection.Positions[ea0]);
-            //UE_LOG(LogTemp,Warning, TEXT("EdgeDistances[%d]: %f (%f) %s"),
-            //    i, Dist, Dist/EdgeLengthInv, *Pos.ToString());
-        }
-    }
-#endif
 #endif
 }
 

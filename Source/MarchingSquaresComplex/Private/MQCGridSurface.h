@@ -69,7 +69,7 @@ private:
     struct FEdgeListData
     {
         FEdgeList EdgeList;
-        bool bIsCircular = false;
+        FGuid Id;
     };
 
 	const FName SHAPE_HEIGHT_MAP_NAME   = TEXT("PMU_VOXEL_SHAPE_HEIGHT_MAP");
@@ -95,7 +95,6 @@ private:
 	int32 yEdgeMin;
 	int32 yEdgeMax;
 
-    TSet<int32> EdgeIndexSet;
     TMap<int32, int32> EdgeIndexMap;
     TArray<FEdgePair> EdgePairs;
 
