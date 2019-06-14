@@ -40,6 +40,9 @@ struct FMQCSurfaceState
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     bool bExtrusionSurface  = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool bRemapEdgeUVs = false;
 };
 
 struct FMQCSurfaceConfig
@@ -50,6 +53,7 @@ struct FMQCSurfaceConfig
     float ExtrusionHeight;
     bool bGenerateExtrusion;
     bool bExtrusionSurface;
+    bool bRemapEdgeUVs;
 };
 
 struct FMQCChunkConfig

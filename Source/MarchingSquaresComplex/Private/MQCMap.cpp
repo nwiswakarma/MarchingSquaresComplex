@@ -74,7 +74,10 @@ void FMQCMap::ResolveChunkEdgeData()
 {
     for (int32 i=0; i<SurfaceStates.Num(); ++i)
     {
-        ResolveChunkEdgeData(i+1);
+        if (SurfaceStates[i].bRemapEdgeUVs)
+        {
+            ResolveChunkEdgeData(i+1);
+        }
     }
 }
 

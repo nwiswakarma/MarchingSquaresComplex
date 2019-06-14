@@ -43,6 +43,8 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
     bExtrusionSurface  = !bGenerateExtrusion && Config.bExtrusionSurface;
     ExtrusionHeight = (FMath::Abs(Config.ExtrusionHeight) > 0.01f) ? -FMath::Abs(Config.ExtrusionHeight) : -1.f;
 
+    bRemapEdgeUVs = Config.bRemapEdgeUVs;
+
     // Resize vertex cache containers
     
     cornersMin.SetNum(VoxelResolution + 1);
@@ -350,6 +352,89 @@ int32 FMQCGridSurface::DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMe
     return OutIndex;
 }
 
+void FMQCGridSurface::GenerateEdgeVertex(TArray<int32>& EdgeIndices, int32 SourceIndex)
+{
+    if (EdgeIndices.Num() != 4)
+    {
+        EdgeIndices.SetNumUninitialized(4);
+    }
+
+    int32 esi = DuplicateVertex(EdgeSection, SurfaceSection, SourceIndex);
+    int32 eai = DuplicateVertex(EdgeSection, SurfaceSection, SourceIndex);
+    int32 ebi = DuplicateVertex(EdgeSection, ExtrudeSection, SourceIndex);
+    int32 eei = DuplicateVertex(EdgeSection, ExtrudeSection, SourceIndex);
+
+    const float Z1 = EdgeSection.Positions[eei].Z;
+    const float A1 = EdgeSection.Colors[esi].A;
+
+    EdgeSection.Positions[eai].Z = Z1*.33333f;
+    EdgeSection.Positions[ebi].Z = Z1*.66667f;
+    EdgeSection.Colors[eai].A = A1*.66667f;
+    EdgeSection.Colors[ebi].A = A1*.33333f;
+
+    EdgeIndices[0] = esi;
+    EdgeIndices[1] = eai;
+    EdgeIndices[2] = ebi;
+    EdgeIndices[3] = eei;
+}
+
+float FMQCGridSurface::GenerateEdgeSegment(TArray<int32>& EdgeIndices0, TArray<int32>& EdgeIndices1)
+{
+    int32 es0 = EdgeIndices0[0];
+    int32 ea0 = EdgeIndices0[1];
+    int32 eb0 = EdgeIndices0[2];
+    int32 ee0 = EdgeIndices0[3];
+
+    int32 es1 = EdgeIndices1[0];
+    int32 ea1 = EdgeIndices1[1];
+    int32 eb1 = EdgeIndices1[2];
+    int32 ee1 = EdgeIndices1[3];
+
+    // Construct edge geometry
+
+    TArray<uint32>& IndexBuffer(EdgeSection.Indices);
+
+    IndexBuffer.Emplace(ee1);
+    IndexBuffer.Emplace(eb1);
+    IndexBuffer.Emplace(eb0);
+    IndexBuffer.Emplace(ee0);
+    IndexBuffer.Emplace(ee1);
+    IndexBuffer.Emplace(eb0);
+
+    IndexBuffer.Emplace(eb1);
+    IndexBuffer.Emplace(ea1);
+    IndexBuffer.Emplace(ea0);
+    IndexBuffer.Emplace(eb0);
+    IndexBuffer.Emplace(eb1);
+    IndexBuffer.Emplace(ea0);
+
+    IndexBuffer.Emplace(ea1);
+    IndexBuffer.Emplace(es1);
+    IndexBuffer.Emplace(es0);
+    IndexBuffer.Emplace(ea0);
+    IndexBuffer.Emplace(ea1);
+    IndexBuffer.Emplace(es0);
+
+    // Calculate edge length
+
+    FVector2D v0(EdgeSection.Positions[es0]);
+    FVector2D v1(EdgeSection.Positions[es1]);
+    FVector2D E01 = v1 - v0;
+
+    // Assign edge tangents
+
+    const FVector EdgeTangent(E01.GetSafeNormal(), 0.f);
+    const FVector EdgeNormal(-EdgeTangent.Y, EdgeTangent.X, 0.f);
+
+    EdgeSection.TangentsX[es0] += EdgeTangent;
+    EdgeSection.TangentsX[es1] += EdgeTangent;
+
+    EdgeSection.TangentsZ[es0] += EdgeNormal;
+    EdgeSection.TangentsZ[es1] += EdgeNormal;
+
+    return E01.Size();
+}
+
 void FMQCGridSurface::GenerateEdgeGeometry()
 {
     // Only generate edge geometry on surface that generate extrusion
@@ -358,7 +443,7 @@ void FMQCGridSurface::GenerateEdgeGeometry()
         return;
     }
 
-    TArray<uint32>& IndexBuffer(EdgeSection.Indices);
+    //TArray<uint32>& IndexBuffer(EdgeSection.Indices);
 
     for (int32 ListId=0; ListId<EdgeLists.Num(); ++ListId)
     {
@@ -380,23 +465,54 @@ void FMQCGridSurface::GenerateEdgeGeometry()
         EdgeDistances.Reserve(EdgeList.Num()+1);
 
         // Construct initial edge vertex
-        int32 vi = Node0->GetValue();
-        int32 es0;
-        int32 ee0;
-        int32 es1 = DuplicateVertex(EdgeSection, SurfaceSection, vi);
-        int32 ee1 = DuplicateVertex(EdgeSection, ExtrudeSection, vi);
-        EdgeDistances.Emplace(es1, 0.f);
+        int32 nvi = Node0->GetValue();
+        TArray<int32> EdgeIndices0;
+        TArray<int32> EdgeIndices1;
+
+        GenerateEdgeVertex(EdgeIndices1, nvi);
+
+        //int32 es0;
+        //int32 ea0;
+        //int32 eb0;
+        //int32 ee0;
+        //int32 es1;
+        //int32 ea1;
+        //int32 eb1;
+        //int32 ee1;
+
+        //{
+        //    es1 = GenerateEdgeVertex(nvi);
+        //    ea1 = es1+1;
+        //    eb1 = es1+2;
+        //    ee1 = es1+3;
+        //}
+
+        EdgeDistances.Emplace(EdgeIndices1[0], 0.f);
 
         // Calculate edge distance data
         do
         {
-            vi = Node1->GetValue();
+            nvi = Node1->GetValue();
 
+            EdgeIndices0 = EdgeIndices1;
+
+            GenerateEdgeVertex(EdgeIndices1, nvi);
+
+            EdgeLength += GenerateEdgeSegment(EdgeIndices0, EdgeIndices1);
+
+            // Assign edge vertex index and t distance
+            EdgeDistances.Emplace(EdgeIndices1[0], EdgeLength);
+
+#if 0
             es0 = es1;
+            ea0 = ea1;
+            eb0 = eb1;
             ee0 = ee1;
 
-            es1 = DuplicateVertex(EdgeSection, SurfaceSection, vi);
-            ee1 = DuplicateVertex(EdgeSection, ExtrudeSection, vi);
+            es1 = GenerateEdgeVertex(nvi);
+            ea1 = es1+1;
+            eb1 = es1+2;
+            ee1 = es1+3;
 
             // Calculate edge length
             FVector2D v0(EdgeSection.Positions[es0]);
@@ -412,10 +528,24 @@ void FMQCGridSurface::GenerateEdgeGeometry()
                 // Add edge section face
 
                 IndexBuffer.Emplace(ee1);
-                IndexBuffer.Emplace(es1);
-                IndexBuffer.Emplace(es0);
+                IndexBuffer.Emplace(eb1);
+                IndexBuffer.Emplace(eb0);
                 IndexBuffer.Emplace(ee0);
                 IndexBuffer.Emplace(ee1);
+                IndexBuffer.Emplace(eb0);
+
+                IndexBuffer.Emplace(eb1);
+                IndexBuffer.Emplace(ea1);
+                IndexBuffer.Emplace(ea0);
+                IndexBuffer.Emplace(eb0);
+                IndexBuffer.Emplace(eb1);
+                IndexBuffer.Emplace(ea0);
+
+                IndexBuffer.Emplace(ea1);
+                IndexBuffer.Emplace(es1);
+                IndexBuffer.Emplace(es0);
+                IndexBuffer.Emplace(ea0);
+                IndexBuffer.Emplace(ea1);
                 IndexBuffer.Emplace(es0);
 
                 // Assign edge tangents
@@ -429,11 +559,17 @@ void FMQCGridSurface::GenerateEdgeGeometry()
                 EdgeSection.TangentsZ[es0] += EdgeNormal;
                 EdgeSection.TangentsZ[es1] += EdgeNormal;
             }
+#endif
 
             Node0 = Node1;
             Node1 = Node1->GetNextNode();
         }
         while (Node1);
+
+        if (! bRemapEdgeUVs)
+        {
+            continue;
+        }
 
         // Calculate inverse edge length
 
@@ -449,16 +585,22 @@ void FMQCGridSurface::GenerateEdgeGeometry()
         {
             auto& EdgeData(EdgeDistances[i]);
 
-            int32 i0 = EdgeData.Key;
-            int32 i1 = i0 + 1;
+            int32 vi = EdgeData.Key;
+
+            int32 i0 = vi;
+            int32 i1 = vi+1;
+            int32 i2 = vi+2;
+            int32 i3 = vi+3;
 
             int32 it0 = i0*2;
             int32 it1 = i1*2;
+            int32 it2 = i2*2;
+            int32 it3 = i3*2;
 
             float UVX = EdgeData.Value * EdgeLengthInv;
 
-            FVector& TangentX(EdgeSection.TangentsX[i0]);
-            FVector& TangentZ(EdgeSection.TangentsZ[i0]);
+            FVector& TangentX(EdgeSection.TangentsX[vi]);
+            FVector& TangentZ(EdgeSection.TangentsZ[vi]);
 
             // Normalize tangents
 
@@ -475,14 +617,22 @@ void FMQCGridSurface::GenerateEdgeGeometry()
             FPackedNormal TX(TangentX);
             FPackedNormal TZ(FVector4(TangentZ, 1));
 
-            EdgeSection.Tangents[it0  ] = TX.Vector.Packed;
-            EdgeSection.Tangents[it0+1] = TZ.Vector.Packed;
+            //EdgeSection.Tangents[it0  ] = TX.Vector.Packed;
+            //EdgeSection.Tangents[it0+1] = TZ.Vector.Packed;
 
             EdgeSection.Tangents[it1  ] = TX.Vector.Packed;
             EdgeSection.Tangents[it1+1] = TZ.Vector.Packed;
 
-            EdgeSection.UVs[i0].Set(UVX, 0.f);
-            EdgeSection.UVs[i1].Set(UVX, 1.f);
+            EdgeSection.Tangents[it2  ] = TX.Vector.Packed;
+            EdgeSection.Tangents[it2+1] = TZ.Vector.Packed;
+
+            //EdgeSection.Tangents[it3  ] = TX.Vector.Packed;
+            //EdgeSection.Tangents[it3+1] = TZ.Vector.Packed;
+
+            EdgeSection.UVs[i0].Set(UVX, 1.f);
+            EdgeSection.UVs[i1].Set(UVX, 2.f/3.f);
+            EdgeSection.UVs[i2].Set(UVX, 1.f/3.f);
+            EdgeSection.UVs[i3].Set(UVX, 0.f);
         }
 
         // Create edge list sync data
@@ -496,28 +646,39 @@ void FMQCGridSurface::GenerateEdgeGeometry()
         SyncData.EdgeListIndex = ListId;
         SyncData.HeadPos = FVector2D(EdgeSection.Positions[evi0]);
         SyncData.TailPos = FVector2D(EdgeSection.Positions[evi1]);
-        SyncData.HeadIndex = evi0 / 2;
-        SyncData.TailIndex = evi1 / 2;
+        SyncData.HeadIndex = evi0;
+        SyncData.TailIndex = evi1;
         SyncData.Length = EdgeLength;
     }
 }
 
 void FMQCGridSurface::RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd)
 {
+    if (! bRemapEdgeUVs)
+    {
+        return;
+    }
+
     const FEdgeSyncData& SyncData(EdgeSyncList[EdgeListId]);
-    int32 HeadIndex = SyncData.HeadIndex;
-    int32 TailIndex = SyncData.TailIndex;
+    int32 HeadIndex = SyncData.HeadIndex / 4;
+    int32 TailIndex = SyncData.TailIndex / 4;
     float UVRange = UVEnd-UVStart;
 
     for (int32 i=HeadIndex; i<=TailIndex; ++i)
     {
-        int32 i0 = i * 2;
-        int32 i1 = i0 + 1;
+        int32 vi = i*4;
 
-        float UVX = UVStart + EdgeSection.UVs[i0].X * UVRange;
+        int32 i0 = vi;
+        int32 i1 = vi+1;
+        int32 i2 = vi+2;
+        int32 i3 = vi+3;
 
-        EdgeSection.UVs[i0].Set(UVX, 0.f);
-        EdgeSection.UVs[i1].Set(UVX, 1.f);
+        float UVX = UVStart + EdgeSection.UVs[vi].X * UVRange;
+
+        EdgeSection.UVs[i0].X = UVX;
+        EdgeSection.UVs[i1].X = UVX;
+        EdgeSection.UVs[i2].X = UVX;
+        EdgeSection.UVs[i3].X = UVX;
     }
 }
 

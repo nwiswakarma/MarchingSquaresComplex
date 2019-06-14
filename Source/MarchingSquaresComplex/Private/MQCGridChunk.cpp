@@ -116,11 +116,13 @@ void FMQCGridChunk::CreateRenderers(const FMQCChunkConfig& GridConfig)
 
             Config.bGenerateExtrusion = State.bGenerateExtrusion;
             Config.bExtrusionSurface  = State.bExtrusionSurface;
+            Config.bRemapEdgeUVs = State.bRemapEdgeUVs;
         }
         else
         {
             Config.bGenerateExtrusion = false;
             Config.bExtrusionSurface  = false;
+            Config.bRemapEdgeUVs = false;
         }
 
         Renderers.Emplace(Config);

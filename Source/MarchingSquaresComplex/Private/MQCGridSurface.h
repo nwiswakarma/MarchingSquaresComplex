@@ -78,6 +78,7 @@ private:
 
     bool bGenerateExtrusion;
     bool bExtrusionSurface;
+    bool bRemapEdgeUVs;
 	float ExtrusionHeight;
 
 	int32 VoxelResolution;
@@ -453,6 +454,9 @@ private:
     void AddSection(int32 a, int32 b);
 
     int32 DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMeshSection& SrcSection, int32 VertexIndex);
+
+    void GenerateEdgeVertex(TArray<int32>& EdgeIndices, int32 SourceIndex);
+    float GenerateEdgeSegment(TArray<int32>& EdgeIndices0, TArray<int32>& EdgeIndices1);
 
     FORCEINLINE int32 AddVertex2(const FVector2D& Vertex)
     {
