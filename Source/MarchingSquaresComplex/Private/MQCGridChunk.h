@@ -93,6 +93,7 @@ private:
     void TriangulateInternal();
     void SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
     void SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetMaterialsInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
 
     // Triangulation Functions
 
@@ -120,17 +121,18 @@ public:
     FMQCGridChunk* xyNeighbor = nullptr;
 
     void Initialize(const FMQCChunkConfig& Config);
-    void CopyFrom(const FMQCGridChunk& Chunk);
 
     void ResetVoxels();
 
     void Triangulate();
     void SetStates(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
     void SetCrossings(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetMaterials(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
 
     void TriangulateAsync();
     void SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
     void SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetMaterialsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
 
     FORCEINLINE FIntPoint GetOffsetId() const
     {
@@ -336,15 +338,14 @@ private:
         }
     }
 
-    FORCEINLINE void FillJoinedCorners(const FMQCFeaturePoint& fA, const FMQCFeaturePoint& fB, const FMQCFeaturePoint& fC, const FMQCFeaturePoint& fD)
+    FORCEINLINE void FillJoinedCorners(
+        const FMQCFeaturePoint& fA,
+        const FMQCFeaturePoint& fB,
+        const FMQCFeaturePoint& fC,
+        const FMQCFeaturePoint& fD
+        )
     {
-        
-        FMQCFeaturePoint point = FMQCFeaturePoint::Average(fA, fB, fC, fD);
-        if (!point.exists)
-        {
-            point.position = cell.GetAverageNESW();
-            point.exists = true;
-        }
+        FMQCFeaturePoint point = cell.GetFeatureAverage(fA, fB, fC, fD);
         FillA(point);
         FillB(point);
         FillC(point);

@@ -28,11 +28,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MQCMaterial.h"
 
 struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 {
-    int32 voxelState = 0;
-    int32 pointState = 0;
+    int32 voxelState;
+    int32 pointState;
+    FMQCMaterial Material;
 
     float xEdge;
     float yEdge;
@@ -41,7 +43,13 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     FVector2D xNormal;
     FVector2D yNormal;
 
-    FMQCVoxel() = default;
+    FMQCVoxel()
+        : voxelState(0)
+        , pointState(0)
+        , xEdge(-1.f)
+        , yEdge(-1.f)
+    {
+    }
 
     FMQCVoxel(int32 x, int32 y)
     {
@@ -53,75 +61,58 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return voxelState > 0;
     }
 
+    FORCEINLINE float GetXEdge() const
+    {
+        return FMath::Max(0.f, xEdge);
+    }
+
+    FORCEINLINE float GetYEdge() const
+    {
+        return FMath::Max(0.f, yEdge);
+    }
+
     FORCEINLINE FVector2D GetXEdgePoint() const
     {
-        return FVector2D(position.X+FMath::Max(0.f, xEdge), position.Y);
+        return FVector2D(position.X+GetXEdge(), position.Y);
     }
     
     FORCEINLINE FVector2D GetYEdgePoint() const
     {
-        return FVector2D(position.X, position.Y+FMath::Max(0.f, yEdge));
+        return FVector2D(position.X, position.Y+GetYEdge());
     }
 
     FORCEINLINE void Reset()
     {
-        voxelState = 0;
-        pointState = 0;
-
         xEdge = -1.f;
         yEdge = -1.f;
+        voxelState = 0;
+        pointState = 0;
+        Material = FMQCMaterial();
     }
 
     FORCEINLINE void Set(int32 x, int32 y)
     {
-        voxelState = 0;
-        pointState = 0;
-
+        Reset();
         position.X = x + 0.5f;
         position.Y = y + 0.5f;
-
-        xEdge = -1.f;
-        yEdge = -1.f;
     }
 
     FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& voxel, float offset)
     {
-        voxelState = voxel.voxelState;
-        pointState = voxel.pointState;
-
-        position = voxel.position;
+        (*this) = voxel;
         position.X += offset;
-
-        xEdge = voxel.xEdge;
-        yEdge = voxel.yEdge;
-
-        yNormal = voxel.yNormal;
     }
     
     FORCEINLINE void BecomeYDummyOf(const FMQCVoxel& voxel, float offset)
     {
-        voxelState = voxel.voxelState;
-        pointState = voxel.pointState;
-
-        position = voxel.position;
+        (*this) = voxel;
         position.Y += offset;
-
-        xEdge = voxel.xEdge;
-        yEdge = voxel.yEdge;
-
-        xNormal = voxel.xNormal;
     }
 
     FORCEINLINE void BecomeXYDummyOf(const FMQCVoxel& voxel, float offset)
     {
-        voxelState = voxel.voxelState;
-        pointState = voxel.pointState;
-
-        position = voxel.position;
+        (*this) = voxel;
         position.X += offset;
         position.Y += offset;
-
-        xEdge = voxel.xEdge;
-        yEdge = voxel.yEdge;
     }
 };

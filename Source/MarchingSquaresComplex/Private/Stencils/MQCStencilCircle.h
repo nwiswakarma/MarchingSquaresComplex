@@ -36,6 +36,8 @@ class FMQCStencilCircle : public FMQCStencilSquare
 private:
 
 	float sqrRadius;
+    float MaterialBlendRadius;
+    float MaterialBlendRadiusInv;
 
 	FVector2D ComputeNormal(float x, float y, const FMQCVoxel& other) const
     {
@@ -53,16 +55,15 @@ protected:
 
     virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
     virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
+    virtual FMQCMaterial GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const override;
 
 public:
-	
-    virtual void Initialize(const FMQCMap& VoxelMap) override
-    {
-        FMQCStencilSquare::Initialize(VoxelMap);
-		sqrRadius = radius * radius;
-	}
-	
-    virtual void ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffset) const override;
+
+    float MaterialBlendRadiusSetting;
+
+    virtual void Initialize(const FMQCMap& VoxelMap) override;
+    virtual void ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const override;
+    virtual void ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const override;
 };
 
 UCLASS(BlueprintType)
@@ -75,12 +76,24 @@ class UMQCStencilCircleRef : public UMQCStencilRef
 public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", UIMin="0"))
-    float Radius = 0.f;
+    float Radius = 1.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", UIMin="0"))
     int32 FillType = 0;
 
-    virtual void EditMap(UMQCMapRef* MapRef, FVector2D Center) override
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    uint8 MaterialIndex;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FColor MaterialColor;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    EMQCMaterialBlendType MaterialBlendType;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float MaterialBlendRadius = 1.f;
+
+    virtual void EditMapAt(UMQCMapRef* MapRef, FVector2D Center) override
     {
         if (IsValid(MapRef) && MapRef->IsInitialized())
         {
@@ -90,17 +103,15 @@ public:
         }
     }
 
-    virtual TArray<int32> GetChunkIndicesAt(UMQCMapRef* MapRef, FVector2D Center) override
+    virtual void EditMaterialAt(UMQCMapRef* MapRef, FVector2D Center) override
     {
-        TArray<int32> ChunkIndices;
-
         if (IsValid(MapRef) && MapRef->IsInitialized())
         {
             Stencil.RadiusSetting = Radius;
-            Stencil.FillTypeSetting = FillType;
-            Stencil.GetChunkIndices(MapRef->GetMap(), Center, ChunkIndices);
+            Stencil.MaterialBlendRadiusSetting = MaterialBlendRadius;
+            Stencil.MaterialSetting = MapRef->GetTypedMaterial(MaterialIndex, MaterialColor);
+            Stencil.MaterialBlendSetting = MaterialBlendType;
+            Stencil.EditMaterial(MapRef->GetMap(), Center);
         }
-
-        return ChunkIndices;
     }
 };

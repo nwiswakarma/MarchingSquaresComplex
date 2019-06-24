@@ -29,6 +29,8 @@
 
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshSocket.h"
+#include "Components/BillboardComponent.h"
+#include "Mesh/PMUMeshComponent.h"
 
 #include "MQCGridChunk.h"
 
@@ -67,6 +69,18 @@ void FMQCMap::TriangulateAsync()
     for (FMQCGridChunk* Chunk : chunks)
     {
         Chunk->TriangulateAsync();
+    }
+
+    bRequireFinalizeAsync = true;
+}
+
+void FMQCMap::FinalizeAsync()
+{
+    if (bRequireFinalizeAsync)
+    {
+        WaitForAsyncTask();
+        ResolveChunkEdgeData();
+        bRequireFinalizeAsync = false;
     }
 }
 
@@ -257,6 +271,7 @@ void FMQCMap::InitializeSettings()
 
     check(chunkResolution > 0);
     check(voxelResolution > 0);
+    check(! bRequireFinalizeAsync);
 
     // Create uninitialized chunks
 
@@ -329,42 +344,6 @@ void FMQCMap::Initialize()
 {
     InitializeSettings();
     InitializeChunks();
-}
-
-void FMQCMap::CopyFrom(const FMQCMap& VoxelMap)
-{
-    // Create uninitialized chunks
-
-    Clear();
-
-    chunks.SetNumUninitialized(chunkResolution * chunkResolution);
-
-    for (int32 y=0, i=0; y<chunkResolution; y++)
-    for (int32 x=0     ; x<chunkResolution; x++, i++)
-    {
-        chunks[i] = new FMQCGridChunk;
-
-        FMQCGridChunk& Chunk(*chunks[i]);
-
-        Chunk.CopyFrom(*VoxelMap.chunks[i]);
-
-        // Link chunk neighbours
-
-        if (x > 0)
-        {
-            chunks[i - 1]->xNeighbor = &Chunk;
-        }
-
-        if (y > 0)
-        {
-            chunks[i - chunkResolution]->yNeighbor = &Chunk;
-
-            if (x > 0)
-            {
-                chunks[i - chunkResolution - 1]->xyNeighbor = &Chunk;
-            }
-        }
-    }
 }
 
 bool FMQCMap::IsPrefabValid(int32 PrefabIndex, int32 LODIndex, int32 SectionIndex) const
@@ -516,6 +495,20 @@ TArray<FBox2D> FMQCMap::GetPrefabBounds(int32 PrefabIndex) const
 
 // ----------------------------------------------------------------------------
 
+UMQCMapRef::UMQCMapRef()
+    : VoxelResolution(8)
+    , ChunkResolution(2)
+    , MaterialType(EMQCMaterialType::MT_COLOR)
+    , ExtrusionHeight(-1.f)
+    , MaxFeatureAngle(135.f)
+    , MaxParallelAngle(8.f)
+{
+}
+
+UMQCMapRef::~UMQCMapRef()
+{
+}
+
 // MAP SETTINGS FUNCTIONS
 
 void UMQCMapRef::ApplyMapSettings()
@@ -524,6 +517,8 @@ void UMQCMapRef::ApplyMapSettings()
     VoxelMap.chunkResolution = ChunkResolution;
     VoxelMap.extrusionHeight = ExtrusionHeight;
 
+    VoxelMap.MaterialType = MaterialType;
+
     VoxelMap.MaxFeatureAngle = MaxFeatureAngle;
     VoxelMap.MaxParallelAngle = MaxParallelAngle;
 
@@ -531,28 +526,56 @@ void UMQCMapRef::ApplyMapSettings()
     VoxelMap.meshPrefabs = MeshPrefabs;
 }
 
-// TRIANGULATION FUNCTIONS
-
-
-UMQCMapRef* UMQCMapRef::Copy(UObject* Outer) const
+void UMQCMapRef::InitializeVoxelMap()
 {
-    UMQCMapRef* MapCopy = NewObject<UMQCMapRef>(Outer);
+    ApplyMapSettings();
+    VoxelMap.Initialize();
+}
 
-	MapCopy->VoxelResolution = VoxelResolution;
-	MapCopy->ChunkResolution = ChunkResolution;
-    MapCopy->SurfaceStates = SurfaceStates;
-	MapCopy->ExtrusionHeight = ExtrusionHeight;
-	MapCopy->MaxFeatureAngle = MaxFeatureAngle;
-	MapCopy->MaxParallelAngle = MaxParallelAngle;
-    MapCopy->MeshPrefabs = MeshPrefabs;
+FMQCMaterial UMQCMapRef::GetTypedMaterial(uint8 MaterialIndex, const FColor& MaterialColor)
+{
+    FMQCMaterial Material;
 
-    if (IsInitialized())
+    switch (MaterialType)
     {
-        MapCopy->ApplyMapSettings();
-        MapCopy->VoxelMap.CopyFrom(VoxelMap);
+        case EMQCMaterialType::MT_COLOR:
+            Material.SetColor(MaterialColor);
+            break;
+
+        case EMQCMaterialType::MT_SINGLE_INDEX:
+        case EMQCMaterialType::MT_DOUBLE_INDEX:
+            Material.SetIndex(MaterialIndex);
+            break;
     }
 
-    return MapCopy;
+    return Material;
+}
+
+// TRIANGULATION FUNCTIONS
+
+void UMQCMapRef::ClearVoxelMap()
+{
+    VoxelMap.Clear();
+}
+
+void UMQCMapRef::Triangulate()
+{
+    VoxelMap.Triangulate();
+}
+
+void UMQCMapRef::TriangulateAsync()
+{
+    VoxelMap.TriangulateAsync();
+}
+
+void UMQCMapRef::WaitForAsyncTask()
+{
+    VoxelMap.WaitForAsyncTask();
+}
+
+void UMQCMapRef::FinalizeAsync()
+{
+    VoxelMap.FinalizeAsync();
 }
 
 void UMQCMapRef::ResetChunkStates(const TArray<int32>& ChunkIndices)
@@ -631,4 +654,123 @@ TArray<FBox2D> UMQCMapRef::GetPrefabBounds(int32 PrefabIndex) const
 bool UMQCMapRef::HasPrefab(int32 PrefabIndex) const
 {
     return IsInitialized() ? VoxelMap.HasPrefab(PrefabIndex) : false;
+}
+
+// MAP ACTOR
+
+AMQCMap::AMQCMap()
+    : MapRef(nullptr)
+    , VoxelResolution(8)
+    , ChunkResolution(2)
+    , MaterialType(EMQCMaterialType::MT_COLOR)
+    , ExtrusionHeight(-1.f)
+    , MaxFeatureAngle(135.f)
+    , MaxParallelAngle(8.f)
+{
+    PrimaryActorTick.bCanEverTick = true;
+
+    RootComponent = CreateDefaultSubobject<USceneComponent>("Root");
+
+    MeshAnchor = CreateDefaultSubobject<USceneComponent>("MeshAnchor");
+    MeshAnchor->SetupAttachment(RootComponent);
+
+#if WITH_EDITOR
+    // Add editor sprite component
+    auto* SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
+    if (SpriteComponent)
+    {
+        static ConstructorHelpers::FObjectFinder<UTexture2D> SpriteFinder(TEXT("/Engine/EditorResources/S_Terrain"));
+        SpriteComponent->Sprite = SpriteFinder.Object;
+        SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
+        SpriteComponent->bHiddenInGame = true;
+        SpriteComponent->bIsScreenSizeScaled = true;
+        SpriteComponent->SetupAttachment(RootComponent);
+        SpriteComponent->bReceivesDecals = false;
+    }
+#endif
+}
+
+AMQCMap::~AMQCMap()
+{
+}
+
+void AMQCMap::Initialize()
+{
+    // Create new 
+    if (! HasValidMap())
+    {
+        MapRef = NewObject<UMQCMapRef>(this);
+    }
+
+    // Apply settings and initialize map
+    MapRef->VoxelResolution = VoxelResolution;
+    MapRef->ChunkResolution = ChunkResolution;
+    MapRef->MaterialType = MaterialType;
+    MapRef->SurfaceStates = SurfaceStates;
+    MapRef->ExtrusionHeight = ExtrusionHeight;
+    MapRef->MaxFeatureAngle = MaxFeatureAngle;
+    MapRef->MaxParallelAngle = MaxParallelAngle;
+    MapRef->MeshPrefabs = MeshPrefabs;
+    MapRef->InitializeVoxelMap();
+
+    // Set mesh anchor offset
+    MeshAnchor->SetRelativeLocation(FVector(-MapRef->GetCenter(), 0.f));
+}
+
+void AMQCMap::Triangulate(bool bAsync, bool bWaitForAsyncToFinish)
+{
+    if (HasValidMap())
+    {
+        if (bAsync)
+        {
+            MapRef->TriangulateAsync();
+
+            if (bWaitForAsyncToFinish)
+            {
+                MapRef->FinalizeAsync();
+            }
+        }
+        else
+        {
+            MapRef->Triangulate();
+        }
+    }
+    else
+    {
+    }
+}
+
+void AMQCMap::GenerateMapMesh()
+{
+    if (! HasValidMap())
+    {
+        return;
+    }
+
+    FMQCMap& Map(MapRef->GetMap());
+    const int32 StateCount = Map.GetStateCount();
+    const int32 ChunkCount = Map.GetChunkCount();
+
+    for (int32 ChunkIndex=0; ChunkIndex<ChunkCount; ++ChunkIndex)
+    {
+        const int32 StateIndex = 1;
+
+        FMQCGridChunk& Chunk(Map.GetChunk(ChunkIndex));
+        FPMUMeshSectionRef SurfaceRef(*Chunk.GetSurfaceSection(StateIndex));
+        FPMUMeshSectionRef ExtrudeRef(*Chunk.GetExtrudeSection(StateIndex));
+        FPMUMeshSectionRef EdgeRef(*Chunk.GetEdgeSection(StateIndex));
+
+        UPMUMeshComponent* MeshComponent;
+        FName MeshName(*FString::Printf(TEXT("SurfaceMesh_%d"), ChunkIndex));
+
+        MeshComponent = NewObject<UPMUMeshComponent>(this, MeshName);
+        MeshComponent->bEditableWhenInherited = true;
+        MeshComponent->SetupAttachment(MeshAnchor);
+        MeshComponent->RegisterComponent();
+
+        MeshComponent->CreateNewSection(SurfaceRef, MGI_SURFACE);
+        MeshComponent->CreateNewSection(ExtrudeRef, MGI_EXTRUDE);
+        MeshComponent->CreateNewSection(EdgeRef, MGI_EDGE);
+        MeshComponent->UpdateRenderState();
+    }
 }

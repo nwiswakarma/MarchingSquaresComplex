@@ -73,8 +73,8 @@ private:
 
 protected:
 
-    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const override;
-    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const override;
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
 
 public:
 
@@ -147,12 +147,15 @@ public:
         }
     }
 
-    FORCEINLINE virtual void ApplyVoxel(FMQCVoxel& voxel) const override
+    FORCEINLINE virtual void ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const override
     {
-        if (UGULPolyUtilityLibrary::IsPointOnTri(FVector(voxel.position, 0.f), Pos[0], Pos[1], Pos[2]))
+        check(0);
+#if 0
+        if (UGULPolyUtilityLibrary::IsPointOnTri(FVector(Voxel.position, 0.f), Pos[0], Pos[1], Pos[2]))
         {
-            voxel.voxelState = fillType;
+            Voxel.voxelState = fillType;
         }
+#endif
     }
 
     void SetPositions(const FVector& Pos0, const FVector& Pos1, const FVector& Pos2)
@@ -228,7 +231,7 @@ public:
         }
     }
 
-    virtual void EditMap(UMQCMapRef* MapRef, FVector2D Center) override
+    virtual void EditMapAt(UMQCMapRef* MapRef, FVector2D Center) override
     {
         if (IsValid(MapRef) && MapRef->IsInitialized())
         {
@@ -236,24 +239,4 @@ public:
             Stencil.EditMap(MapRef->GetMap(), Center);
         }
     }
-
-    //UFUNCTION(BlueprintCallable)
-    //void EditStates(UMQCMapRef* MapRef, FVector2D Center)
-    //{
-    //    if (IsValid(MapRef) && MapRef->IsInitialized())
-    //    {
-    //        Stencil.FillTypeSetting = FillType;
-    //        Stencil.EditStates(MapRef->GetMap(), Center);
-    //    }
-    //}
-
-    //UFUNCTION(BlueprintCallable)
-    //void EditCrossings(UMQCMapRef* MapRef, FVector2D Center)
-    //{
-    //    if (IsValid(MapRef) && MapRef->IsInitialized())
-    //    {
-    //        Stencil.FillTypeSetting = FillType;
-    //        Stencil.EditCrossings(MapRef->GetMap(), Center);
-    //    }
-    //}
 };

@@ -42,8 +42,8 @@ protected:
     FVector2D boundsCenter;
     FVector2D boundsExtents;
 
-    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const override;
-    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const override;
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
 
 public:
 
@@ -135,7 +135,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", UIMin="0"))
     int32 FillType = 0;
 
-    virtual void EditMap(UMQCMapRef* MapRef, FVector2D Center) override
+    virtual void EditMapAt(UMQCMapRef* MapRef, FVector2D Center) override
     {
         if (IsValid(MapRef) && MapRef->IsInitialized())
         {
@@ -158,24 +158,16 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", UIMin="0"))
     int32 FillType = 0;
 
-    virtual void EditMap(UMQCMapRef* MapRef, FVector2D Center) override
+    virtual void EditMapAt(UMQCMapRef* MapRef, FVector2D Center) override
     {
         if (IsValid(MapRef) && MapRef->IsInitialized())
         {
             FMQCMap& Map(MapRef->GetMap());
 
-            // Edit map states
             for (FMQCStencilBox& Stencil : Stencils)
             {
                 FVector2D BoxCenter = Center + Stencil.GetCenter();
-                Stencil.EditStates(Map, BoxCenter);
-            }
-
-            // Edit map voxel crossings
-            for (FMQCStencilBox& Stencil : Stencils)
-            {
-                FVector2D BoxCenter = Center + Stencil.GetCenter();
-                Stencil.EditCrossings(Map, BoxCenter);
+                Stencil.EditMap(Map, BoxCenter);
             }
         }
     }

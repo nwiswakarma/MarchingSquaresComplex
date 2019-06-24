@@ -28,58 +28,22 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MQCVoxelTypes.generated.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
+#include "MQCMaterial.h"
+#include "MQCMaterialUtility.generated.h"
 
-UENUM(BlueprintType)
-enum class EMQCMaterialType : uint8
+UCLASS()
+class MARCHINGSQUARESCOMPLEX_API UMQCMaterialUtility : public UBlueprintFunctionLibrary
 {
-    MT_COLOR,
-    MT_SINGLE_INDEX,
-    MT_DOUBLE_INDEX
-};
+	GENERATED_BODY()
 
-UENUM(BlueprintType)
-enum class EMQCMaterialBlendType : uint8
-{
-    MBT_DEFAULT,
-    MBT_MAX,
-    MBT_COPY,
-    MBT_LERP
-};
+public:
 
-USTRUCT(BlueprintType)
-struct MARCHINGSQUARESCOMPLEX_API FMQCSurfaceState
-{
-    GENERATED_BODY()
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    bool bGenerateExtrusion = false;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    bool bExtrusionSurface  = false;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    bool bRemapEdgeUVs = false;
-};
-
-struct FMQCSurfaceConfig
-{
-    FVector2D Position;
-    int32 MapSize;
-    int32 VoxelResolution;
-    float ExtrusionHeight;
-    bool bGenerateExtrusion;
-    bool bExtrusionSurface;
-    bool bRemapEdgeUVs;
-};
-
-struct FMQCChunkConfig
-{
-    FVector2D Position;
-    int32 MapSize;
-    int32 VoxelResolution;
-    float MaxFeatureAngle;
-    float MaxParallelAngle;
-    float ExtrusionHeight;
-    TArray<FMQCSurfaceState> States;
+	FORCEINLINE static uint8 LerpUINT8(uint8 A, uint8 B, float Alpha)
+	{
+		float LerpResult = FMath::Lerp<float>(A, B, Alpha);
+		// Do special rounding to not get stuck, eg Lerp(251, 255, 0.1) = 251
+		int32 RoundedResult = Alpha > 0.f ? FMath::CeilToInt(LerpResult) : FMath::FloorToInt(LerpResult);
+		return FMath::Clamp(RoundedResult, 0, 255);
+	}
 };

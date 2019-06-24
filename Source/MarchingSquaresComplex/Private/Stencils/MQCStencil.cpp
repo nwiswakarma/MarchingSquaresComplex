@@ -174,6 +174,120 @@ void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVe
     }
 }
 
+FMQCMaterial FMQCStencil::GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+{
+    return FMQCMaterial();
+}
+
+void FMQCStencil::GetMaterialBlendTyped(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const
+{
+    switch (MaterialType)
+    {
+        case EMQCMaterialType::MT_COLOR:
+            GetMaterialBlendColor(OutMaterial, BaseMaterial, BlendAlpha);
+            break;
+
+        case EMQCMaterialType::MT_SINGLE_INDEX:
+            GetMaterialBlendSingleIndex(OutMaterial, BaseMaterial, BlendAlpha);
+            break;
+
+        case EMQCMaterialType::MT_DOUBLE_INDEX:
+            GetMaterialBlendDoubleIndex(OutMaterial, BaseMaterial, BlendAlpha);
+            break;
+    }
+}
+
+void FMQCStencil::GetMaterialBlendColor(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const
+{
+    FLinearColor BaseColor = BaseMaterial.ToFColor().ReinterpretAsLinear();
+    FLinearColor StencilColor = Material.ToFColor().ReinterpretAsLinear();
+    FLinearColor LinearBlend = FMath::Lerp(BaseColor, StencilColor, BlendAlpha);
+    FColor ColorBlend = LinearBlend.ToFColor(false);
+    OutMaterial.SetR(ColorBlend.R);
+    OutMaterial.SetG(ColorBlend.G);
+    OutMaterial.SetB(ColorBlend.B);
+    OutMaterial.SetA(ColorBlend.A);
+}
+
+void FMQCStencil::GetMaterialBlendSingleIndex(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const
+{
+}
+
+void FMQCStencil::GetMaterialBlendDoubleIndex(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const
+{
+    uint8 TargetIndex = Material.GetIndex();
+    uint8 TargetBlend = UMQCMaterialUtility::LerpUINT8(0, 255, BlendAlpha);
+    uint8 BaseBlend = BaseMaterial.GetBlend();
+
+    OutMaterial = BaseMaterial;
+
+    // Base material does not have the target index, assign target index
+    if (TargetIndex != BaseMaterial.GetIndexA() && TargetIndex != BaseMaterial.GetIndexB())
+    {
+        // Index A dominant, assign target index as material index B
+        if (BaseBlend < 128)
+        {
+            if (TargetBlend > BaseBlend)
+            {
+                OutMaterial.SetIndexB(TargetIndex);
+                OutMaterial.SetBlend(TargetBlend);
+            }
+        }
+        // Index B dominant, assign target index as material index A
+        else
+        {
+            // Inverse target blend
+            TargetBlend = 255-TargetBlend;
+
+            if (TargetBlend < BaseBlend)
+            {
+                OutMaterial.SetIndexA(TargetIndex);
+                OutMaterial.SetBlend(TargetBlend);
+            }
+        }
+    }
+    // Base material have the target index, blend target index
+    else
+    {
+        bool bInverseBlendAlpha = (TargetIndex == BaseMaterial.GetIndexA());
+
+        if (bInverseBlendAlpha)
+        {
+            TargetBlend = 255-TargetBlend;
+        }
+
+        switch (MaterialBlendType)
+        {
+            case EMQCMaterialBlendType::MBT_DEFAULT:
+            case EMQCMaterialBlendType::MBT_MAX:
+                TargetBlend = bInverseBlendAlpha
+                    ? FMath::Min(BaseBlend, TargetBlend)
+                    : FMath::Max(BaseBlend, TargetBlend);
+                break;
+
+            case EMQCMaterialBlendType::MBT_LERP:
+                TargetBlend = UMQCMaterialUtility::LerpUINT8(BaseBlend, TargetBlend, BlendAlpha);
+                break;
+
+            case EMQCMaterialBlendType::MBT_COPY:
+            default:
+                break;
+        }
+
+        OutMaterial.SetBlend(TargetBlend);
+    }
+
+    OutMaterial.SortIndexOrder();
+}
+
+void FMQCStencil::Initialize(const FMQCMap& VoxelMap)
+{
+    fillType = FillTypeSetting;
+    Material = MaterialSetting;
+    MaterialBlendType = MaterialBlendSetting;
+    MaterialType = VoxelMap.GetMaterialType();
+}
+
 void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 {
     const int32 voxelResolution = Map.voxelResolution;
@@ -191,77 +305,20 @@ void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
     SetCrossings(Chunks);
 }
 
-void FMQCStencil::EditStates(FMQCMap& Map, const FVector2D& center)
-{
-    check(0);
-#if 0
-    const int32 voxelResolution = Map.voxelResolution;
-    const int32 chunkResolution = Map.chunkResolution;
-    int32 X0, X1, Y0, Y1;
-
-    Initialize(Map);
-    SetCenter(center.X, center.Y);
-    GetMapRange(X0, X1, Y0, Y1, voxelResolution, chunkResolution);
-
-    for (int32 y=Y1; y>=Y0; y--)
-    {
-        int32 i = y * chunkResolution + X1;
-
-        for (int32 x=X1; x>=X0; x--, i--)
-        {
-            SetVoxels(*Map.chunks[i]);
-        }
-    }
-#endif
-}
-
-void FMQCStencil::EditCrossings(FMQCMap& Map, const FVector2D& center)
-{
-    check(0);
-#if 0
-    const int32 voxelResolution = Map.voxelResolution;
-    const int32 chunkResolution = Map.chunkResolution;
-    int32 X0, X1, Y0, Y1;
-
-    Initialize(Map);
-    SetCenter(center.X, center.Y);
-    GetMapRange(X0, X1, Y0, Y1, voxelResolution, chunkResolution);
-
-    for (int32 y=Y1; y>=Y0; y--)
-    {
-        int32 i = y * chunkResolution + X1;
-
-        for (int32 x=X1; x>=X0; x--, i--)
-        {
-            SetCrossings(*Map.chunks[i]);
-        }
-    }
-#endif
-}
-
-void FMQCStencil::GetChunkIndices(FMQCMap& Map, const FVector2D& center, TArray<int32>& OutIndices)
+void FMQCStencil::EditMaterial(FMQCMap& Map, const FVector2D& center)
 {
     const int32 voxelResolution = Map.voxelResolution;
     const int32 chunkResolution = Map.chunkResolution;
-    int32 X0, X1, Y0, Y1;
+
+    TArray<int32> ChunkIndices;
+    TArray<FMQCGridChunk*> Chunks;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(X0, X1, Y0, Y1, voxelResolution, chunkResolution);
+    GetMapRange(ChunkIndices, voxelResolution, chunkResolution);
+    GetChunks(Chunks, Map, ChunkIndices);
 
-    OutIndices.Reset(chunkResolution * chunkResolution);
-
-    for (int32 y=Y1; y>=Y0; y--)
-    {
-        int32 i = y * chunkResolution + X1;
-
-        for (int32 x=X1; x>=X0; x--, i--)
-        {
-            OutIndices.Emplace(i);
-        }
-    }
-
-    OutIndices.Shrink();
+    SetMaterials(Chunks);
 }
 
 void FMQCStencil::SetVoxels(FMQCGridChunk& Chunk)
@@ -324,25 +381,69 @@ void FMQCStencil::SetCrossings(const TArray<FMQCGridChunk*>& Chunks)
     }
 }
 
-void FMQCStencil::ApplyVoxel(FMQCVoxel& voxel) const
+void FMQCStencil::SetMaterials(FMQCGridChunk& Chunk)
 {
-    const FVector2D& p(voxel.position);
+    int32 X0, X1, Y0, Y1;
+    GetChunkRange(X0, X1, Y0, Y1, Chunk);
+    Chunk.SetMaterials(*this, X0, X1, Y0, Y1);
+}
 
-    if (p.X >= GetXStart() && p.X <= GetXEnd() && p.Y >= GetYStart() && p.Y <= GetYEnd())
+void FMQCStencil::SetMaterials(const TArray<FMQCGridChunk*>& Chunks)
+{
+    for (FMQCGridChunk* Chunk : Chunks)
     {
-        voxel.voxelState = fillType;
+        int32 X0, X1, Y0, Y1;
+        GetChunkRange(X0, X1, Y0, Y1, *Chunk);
+
+        if (bEnableAsync)
+        {
+            Chunk->SetMaterialsAsync(*this, X0, X1, Y0, Y1);
+        }
+        else
+        {
+            Chunk->SetMaterials(*this, X0, X1, Y0, Y1);
+        }
     }
 }
 
-void FMQCStencil::ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffset) const
+void FMQCStencil::ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
 {
-    const FVector2D& p(voxel.position);
+    const FVector2D& p(Voxel.position);
 
     float X0, X1, Y0, Y1;
     GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
 
     if (p.X >= X0 && p.X <= X1 && p.Y >= Y0 && p.Y <= Y1)
     {
-        voxel.voxelState = fillType;
+        Voxel.voxelState = fillType;
+    }
+}
+
+void FMQCStencil::ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+{
+    const FVector2D& p(Voxel.position);
+
+    float X0, X1, Y0, Y1;
+    GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
+
+    if (p.X >= X0 && p.X <= X1 && p.Y >= Y0 && p.Y <= Y1)
+    {
+        Voxel.Material = Material;
+    }
+}
+
+void UMQCStencilRef::EditMap(UMQCMapRef* MapRef)
+{
+    if (IsValid(MapRef))
+    {
+        EditMapAt(MapRef, MapRef->GetCenter());
+    }
+}
+
+void UMQCStencilRef::EditMaterial(UMQCMapRef* MapRef)
+{
+    if (IsValid(MapRef))
+    {
+        EditMaterialAt(MapRef, MapRef->GetCenter());
     }
 }

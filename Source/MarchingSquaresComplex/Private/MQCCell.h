@@ -47,8 +47,7 @@ public:
 
     FORCEINLINE FVector2D GetAverageNESW() const
     {
-        return (a.GetXEdgePoint() + a.GetYEdgePoint() +
-                b.GetYEdgePoint() + c.GetXEdgePoint()) * 0.25f;
+        return (a.GetXEdgePoint() + a.GetYEdgePoint() + b.GetYEdgePoint() + c.GetXEdgePoint()) / 4.f;
     }
 
     FORCEINLINE FMQCFeaturePoint GetFeatureSW() const
@@ -83,8 +82,7 @@ public:
 
     FORCEINLINE FMQCFeaturePoint GetFeatureNEW() const
     {
-        FMQCFeaturePoint f = FMQCFeaturePoint::Average(
-            GetFeatureEW(), GetFeatureNE(), GetFeatureNW());
+        FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureEW(), GetFeatureNE(), GetFeatureNW());
         if (!f.exists)
         {
             f.position = (a.GetYEdgePoint() + b.GetYEdgePoint() + c.GetXEdgePoint()) / 3.f;
@@ -95,8 +93,7 @@ public:
 
     FORCEINLINE FMQCFeaturePoint GetFeatureNSE() const
     {
-        FMQCFeaturePoint f = FMQCFeaturePoint::Average(
-            GetFeatureNS(), GetFeatureSE(), GetFeatureNE());
+        FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureNS(), GetFeatureSE(), GetFeatureNE());
         if (!f.exists)
         {
             f.position = (a.GetXEdgePoint() + b.GetYEdgePoint() + c.GetXEdgePoint()) / 3.f;
@@ -107,8 +104,7 @@ public:
     
     FORCEINLINE FMQCFeaturePoint GetFeatureNSW() const
     {
-        FMQCFeaturePoint f = FMQCFeaturePoint::Average(
-            GetFeatureNS(), GetFeatureNW(), GetFeatureSW());
+        FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureNS(), GetFeatureNW(), GetFeatureSW());
         if (!f.exists)
         {
             f.position = (a.GetXEdgePoint() + a.GetYEdgePoint() + c.GetXEdgePoint()) / 3.f;
@@ -119,14 +115,30 @@ public:
     
     FORCEINLINE FMQCFeaturePoint GetFeatureSEW() const
     {
-        FMQCFeaturePoint f = FMQCFeaturePoint::Average(
-            GetFeatureEW(), GetFeatureSE(), GetFeatureSW());
+        FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureEW(), GetFeatureSE(), GetFeatureSW());
         if (!f.exists)
         {
             f.position = (a.GetXEdgePoint() + a.GetYEdgePoint() + b.GetYEdgePoint()) / 3.f;
             f.exists = true;
         }
         return f;
+    }
+    
+    FMQCFeaturePoint GetFeatureAverage(
+        const FMQCFeaturePoint& fA,
+        const FMQCFeaturePoint& fB,
+        const FMQCFeaturePoint& fC,
+        const FMQCFeaturePoint& fD
+        ) const
+    {
+        FMQCFeaturePoint point = FMQCFeaturePoint::Average(fA, fB, fC, fD);
+        if (! point.exists)
+        {
+            point.position = GetAverageNESW();
+            point.Material = GetMaterial(point.position);
+            point.exists = true;
+        }
+        return point;
     }
 
     bool HasConnectionAD(const FMQCFeaturePoint& fA, const FMQCFeaturePoint& fD)
@@ -168,8 +180,7 @@ public:
     bool HasConnectionBC(const FMQCFeaturePoint& fB, const FMQCFeaturePoint& fC)
     {
         bool flip = (b.voxelState < a.voxelState) == (b.voxelState < d.voxelState);
-        if (
-            IsParallel(a.xNormal, b.yNormal, flip) ||
+        if (IsParallel(a.xNormal, b.yNormal, flip) ||
             IsParallel(c.xNormal, a.yNormal, flip))
         {
             return true;
@@ -226,9 +237,7 @@ private:
 
     FORCEINLINE static bool IsBelowLine(const FVector2D& p, const FVector2D& start, const FVector2D& end)
     {
-        float determinant =
-            (end.X - start.X) * (p.Y - start.Y) -
-            (end.Y - start.Y) * (p.X - start.X);
+        float determinant = (end.X - start.X) * (p.Y - start.Y) - (end.Y - start.Y) * (p.X - start.X);
         return determinant < 0.f;
     }
 
@@ -237,58 +246,6 @@ private:
         FVector2D d2(-n2.Y, n2.X);
         float u2 = -FVector2D::DotProduct(n1, p2 - p1) / FVector2D::DotProduct(n1, d2);
         return p2 + d2 * u2;
-    }
-
-    FORCEINLINE FMQCFeaturePoint GetCheckedFeatureSW() const
-    {
-        FVector2D n2 = (a.voxelState < b.voxelState) == (a.voxelState < c.voxelState) ?  a.yNormal : -a.yNormal;
-        return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, a.GetYEdgePoint(), n2);
-    }
-    
-    FORCEINLINE FMQCFeaturePoint GetCheckedFeatureSE() const
-    {
-        FVector2D n2 = (b.voxelState < a.voxelState) == (b.voxelState < c.voxelState) ?  b.yNormal : -b.yNormal;
-        return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, b.GetYEdgePoint(), n2);
-    }
-    
-    FORCEINLINE FMQCFeaturePoint GetCheckedFeatureNW() const
-    {
-        FVector2D n2 = (c.voxelState < a.voxelState) == (c.voxelState < d.voxelState) ?  c.xNormal : -c.xNormal;
-        return GetSharpFeature(a.GetYEdgePoint(), a.yNormal, c.GetXEdgePoint(), n2);
-    }
-    
-    FORCEINLINE FMQCFeaturePoint GetCheckedFeatureNE() const
-    {
-        FVector2D n2 = (d.voxelState < b.voxelState) == (d.voxelState < c.voxelState) ?  b.yNormal : -b.yNormal;
-        return GetSharpFeature(c.GetXEdgePoint(), c.xNormal, b.GetYEdgePoint(), n2);
-    }
-    
-    FORCEINLINE FMQCFeaturePoint GetCheckedFeatureNS() const
-    {
-        FVector2D n2 = (a.voxelState < b.voxelState) == (c.voxelState < d.voxelState) ?  c.xNormal : -c.xNormal;
-        return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, c.GetXEdgePoint(), n2);
-    }
-    
-    FORCEINLINE FMQCFeaturePoint GetCheckedFeatureEW() const
-    {
-        FVector2D n2 = (a.voxelState < c.voxelState) == (b.voxelState < d.voxelState) ?  b.yNormal : -b.yNormal;
-        return GetSharpFeature(a.GetYEdgePoint(), a.yNormal, b.GetYEdgePoint(), n2);
-    }
-
-    FMQCFeaturePoint GetSharpFeature(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2) const
-    {
-        FMQCFeaturePoint point;
-        if (IsSharpFeature(n1, n2))
-        {
-            point.position = GetIntersection(p1, n1, p2, n2);
-            point.exists = IsInsideCell(point.position);
-        }
-        else
-        {
-            point.position = FVector2D::ZeroVector;
-            point.exists = false;
-        }
-        return point;
     }
 
     FORCEINLINE bool IsSharpFeature(const FVector2D& n1, const FVector2D& n2) const
@@ -304,8 +261,59 @@ private:
 
     FORCEINLINE bool IsInsideCell(const FVector2D& point) const
     {
-        return
-            point.X > a.position.X && point.Y > a.position.Y &&
-            point.X < d.position.X && point.Y < d.position.Y;
+        return (point >= a.position) && (point <= d.position);
+    }
+
+    FMQCFeaturePoint GetSharpFeature(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2) const
+    {
+        FMQCFeaturePoint point;
+        if (IsSharpFeature(n1, n2))
+        {
+            point.position = GetIntersection(p1, n1, p2, n2);
+            point.exists = IsInsideCell(point.position);
+
+            // Assign material if feature point is valid
+            if (point.exists)
+            {
+                point.Material = GetMaterial(point.position);
+            }
+        }
+        else
+        {
+            point.position = FVector2D::ZeroVector;
+            point.exists = false;
+        }
+        return point;
+    }
+
+    FMQCMaterial GetMaterial(const FVector2D& Position) const
+    {
+        FVector2D PointToCenter = Position - ((d.position-a.position) / 2.f);
+        FMQCMaterial Material;
+
+        if (Position.X > 0.f)
+        {
+            if (Position.Y > 0.f)
+            {
+                Material = d.Material;
+            }
+            else
+            {
+                Material = b.Material;
+            }
+        }
+        else
+        {
+            if (Position.Y > 0.f)
+            {
+                Material = c.Material;
+            }
+            else
+            {
+                Material = a.Material;
+            }
+        }
+
+        return Material;
     }
 };

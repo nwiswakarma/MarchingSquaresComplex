@@ -28,10 +28,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MQCMaterial.h"
 
 struct FMQCFeaturePoint
 {
 	FVector2D position;
+    FMQCMaterial Material;
 	bool exists;
 
     FMQCFeaturePoint() = default;

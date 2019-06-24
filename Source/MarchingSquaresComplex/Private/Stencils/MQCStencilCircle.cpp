@@ -121,16 +121,46 @@ void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
     }
 }
 
-void FMQCStencilCircle::ApplyVoxel(FMQCVoxel& voxel, const FVector2D& ChunkOffset) const
+FMQCMaterial FMQCStencilCircle::GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
 {
-    float ChunkCenterX = centerX - ChunkOffset.X;
-    float ChunkCenterY = centerY - ChunkOffset.Y;
+    float DistToCenter = GetVoxelToChunk(Voxel, ChunkOffset).Size();
+    float Alpha = 1.f-FMath::Clamp((DistToCenter-MaterialBlendRadius)*MaterialBlendRadiusInv, 0.f, 1.f);
 
-    float x = voxel.position.X - ChunkCenterX;
-    float y = voxel.position.Y - ChunkCenterY;
+    FMQCMaterial VoxelMaterial;
+    GetMaterialBlendTyped(VoxelMaterial, Voxel.Material, Alpha);
 
-    if (x * x + y * y <= sqrRadius)
+    return VoxelMaterial;
+}
+
+void FMQCStencilCircle::Initialize(const FMQCMap& VoxelMap)
+{
+    FMQCStencilSquare::Initialize(VoxelMap);
+
+    sqrRadius = radius * radius;
+
+    float BlendRadius = FMath::Max(0.f, radius-MaterialBlendRadiusSetting);
+    float BlendRange = FMath::Clamp((radius-BlendRadius), 0.f, radius);
+
+    MaterialBlendRadius = BlendRadius;
+    MaterialBlendRadiusInv = BlendRange > KINDA_SMALL_NUMBER ? (1.f/BlendRange) : 1.f;
+}
+
+void FMQCStencilCircle::ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+{
+    FVector2D VoxelToChunk(GetVoxelToChunk(Voxel, ChunkOffset));
+
+    if (VoxelToChunk.SizeSquared() <= sqrRadius)
     {
-        voxel.voxelState = fillType;
+        Voxel.voxelState = fillType;
+    }
+}
+
+void FMQCStencilCircle::ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+{
+    FVector2D VoxelToChunk(GetVoxelToChunk(Voxel, ChunkOffset));
+
+    if (VoxelToChunk.SizeSquared() <= sqrRadius)
+    {
+        Voxel.Material = GetMaterialFor(Voxel, ChunkOffset);
     }
 }
