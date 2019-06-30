@@ -36,6 +36,7 @@
 #include "MQCMap.generated.h"
 
 class FMQCGridChunk;
+class UPMUMeshComponent;
 
 class MARCHINGSQUARESCOMPLEX_API FMQCMap
 {
@@ -179,7 +180,7 @@ public:
     }
 
     void ApplyMapSettings();
-    FMQCMaterial GetTypedMaterial(uint8 MaterialIndex, const FColor& MaterialColor);
+    FMQCMaterial GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor);
 
     UFUNCTION(BlueprintCallable)
     bool IsInitialized() const;
@@ -273,6 +274,12 @@ protected:
     UPROPERTY(BlueprintGetter=K2_GetMeshAnchor)
     USceneComponent* MeshAnchor;
 
+    UPROPERTY()
+    TArray<UPMUMeshComponent*> SurfaceMeshComponents;
+
+    void InitializeMeshComponents(TArray<UPMUMeshComponent*>& MeshComponents);
+    UPMUMeshComponent* GetOrAddMeshComponent(TArray<UPMUMeshComponent*>& MeshComponents, int32 MeshIndex);
+
 public:
 
     UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
@@ -324,6 +331,16 @@ public:
 
     UFUNCTION(BlueprintCallable)
     void GenerateMapMesh();
+
+    UFUNCTION(BlueprintCallable)
+    void GenerateMaterialMesh(
+        int32 StateIndex,
+        uint8 MaterialIndex0,
+        uint8 MaterialIndex1,
+        uint8 MaterialIndex2,
+        bool bUseTripleIndex,
+        UMaterialInterface* Material
+        );
 };
 
 // Blueprint Inlines

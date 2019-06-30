@@ -194,6 +194,10 @@ void FMQCStencil::GetMaterialBlendTyped(FMQCMaterial& OutMaterial, const FMQCMat
         case EMQCMaterialType::MT_DOUBLE_INDEX:
             GetMaterialBlendDoubleIndex(OutMaterial, BaseMaterial, BlendAlpha);
             break;
+
+        case EMQCMaterialType::MT_TRIPLE_INDEX:
+            GetMaterialBlendTripleIndex(OutMaterial, BaseMaterial, BlendAlpha);
+            break;
     }
 }
 
@@ -221,31 +225,146 @@ void FMQCStencil::GetMaterialBlendDoubleIndex(FMQCMaterial& OutMaterial, const F
 
     OutMaterial = BaseMaterial;
 
-    // Base material does not have the target index, assign target index
-    if (TargetIndex != BaseMaterial.GetIndexA() && TargetIndex != BaseMaterial.GetIndexB())
+    // Zero target blend, skip further material assignment
+    if (TargetBlend == 0)
     {
-        // Index A dominant, assign target index as material index B
-        if (BaseBlend < 128)
+        return;
+    }
+
+    uint8 IndexA = BaseMaterial.GetIndexA();
+    uint8 IndexB = BaseMaterial.GetIndexB();
+
+    // Base material does not have the target index, assign target index
+    if (TargetIndex != IndexA && TargetIndex != IndexB)
+    {
+        if (TargetBlend < 255)
         {
-            if (TargetBlend > BaseBlend)
+            // Index A dominant, assign target index as material index B
+            if (BaseBlend < 128)
             {
                 OutMaterial.SetIndexB(TargetIndex);
                 OutMaterial.SetBlend(TargetBlend);
             }
-        }
-        // Index B dominant, assign target index as material index A
-        else
-        {
-            // Inverse target blend
-            TargetBlend = 255-TargetBlend;
-
-            if (TargetBlend < BaseBlend)
+            // Index B dominant, assign target index as material index A
+            else
             {
                 OutMaterial.SetIndexA(TargetIndex);
-                OutMaterial.SetBlend(TargetBlend);
+                OutMaterial.SetBlend(255-TargetBlend);
             }
         }
+        // Max target blend, assign single index material
+        else
+        {
+            OutMaterial.SetIndexA(TargetIndex);
+            OutMaterial.SetIndexB(TargetIndex);
+            OutMaterial.SetBlend(0);
+        }
     }
+    // Base material have the target index, blend target index
+    else
+    {
+        bool bInverseBlendAlpha = (TargetIndex == IndexA);
+
+        if (bInverseBlendAlpha)
+        {
+            TargetBlend = 255-TargetBlend;
+        }
+
+        switch (MaterialBlendType)
+        {
+            case EMQCMaterialBlendType::MBT_DEFAULT:
+            case EMQCMaterialBlendType::MBT_MAX:
+                TargetBlend = bInverseBlendAlpha
+                    ? FMath::Min(BaseBlend, TargetBlend)
+                    : FMath::Max(BaseBlend, TargetBlend);
+                break;
+
+            case EMQCMaterialBlendType::MBT_LERP:
+                TargetBlend = UMQCMaterialUtility::LerpUINT8(BaseBlend, TargetBlend, BlendAlpha);
+                break;
+
+            case EMQCMaterialBlendType::MBT_COPY:
+            default:
+                break;
+        }
+
+        OutMaterial.SetBlend(TargetBlend);
+    }
+
+    OutMaterial.SortDoubleIndex();
+}
+
+void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const
+{
+    uint8 TargetIndex = Material.GetIndex();
+    uint8 TargetBlend = UMQCMaterialUtility::LerpUINT8(0, 255, BlendAlpha);
+
+    // Triple index is not required or fully opaque target blend, use double index
+    if (! BaseMaterial.IsTripleIndexRequiredFor(TargetIndex) || TargetBlend == 255)
+    {
+        GetMaterialBlendDoubleIndex(OutMaterial, BaseMaterial, BlendAlpha);
+        return;
+    }
+
+    const bool bBaseIsTriple = BaseMaterial.IsMarkedAsTripledIndex();
+
+    OutMaterial = BaseMaterial;
+
+    // Base material does not have the target index, assign target index
+    if (! BaseMaterial.HasIndexAsTriple(TargetIndex))
+    {
+        if (bBaseIsTriple)
+        {
+        }
+        else
+        {
+            uint8 IndexA = BaseMaterial.GetIndexA();
+            uint8 IndexB = BaseMaterial.GetIndexB();
+            uint8 Blend  = BaseMaterial.GetBlend();
+
+            check(IndexA <= IndexB);
+
+            OutMaterial = FMQCMaterial();
+
+            if (TargetIndex > IndexB)
+            {
+                OutMaterial.SetIndex0(IndexA);
+                OutMaterial.SetIndex1(IndexB);
+                OutMaterial.SetIndex2(TargetIndex);
+
+                OutMaterial.SetBlend01(Blend);
+                OutMaterial.SetBlend12(TargetBlend);
+            }
+            else
+            if (TargetIndex > IndexA)
+            {
+                OutMaterial.SetIndex0(IndexA);
+                OutMaterial.SetIndex1(TargetIndex);
+                OutMaterial.SetIndex2(IndexB);
+
+                OutMaterial.SetBlend01(TargetBlend);
+                //OutMaterial.SetBlend12(Blend);
+                OutMaterial.SetBlend12(UMQCMaterialUtility::LerpUINT8(Blend, 0, TargetBlend/255.f));
+
+                //OutMaterial.SetBlend01(255);
+                //OutMaterial.SetBlend12(Blend);
+
+                //UE_LOG(LogTemp,Warning, TEXT("Blend: %u, TargetBlend: %u"), Blend, TargetBlend);
+            }
+            else
+            {
+                OutMaterial.SetIndex0(TargetIndex);
+                OutMaterial.SetIndex1(IndexA);
+                OutMaterial.SetIndex2(IndexB);
+
+                OutMaterial.SetBlend01(255-TargetBlend);
+                OutMaterial.SetBlend12(Blend);
+            }
+
+            OutMaterial.MarkAsTripleIndex();
+        }
+    }
+#if 0
     // Base material have the target index, blend target index
     else
     {
@@ -276,8 +395,9 @@ void FMQCStencil::GetMaterialBlendDoubleIndex(FMQCMaterial& OutMaterial, const F
 
         OutMaterial.SetBlend(TargetBlend);
     }
+#endif
 
-    OutMaterial.SortIndexOrder();
+    OutMaterial.SortTripleIndex();
 }
 
 void FMQCStencil::Initialize(const FMQCMap& VoxelMap)

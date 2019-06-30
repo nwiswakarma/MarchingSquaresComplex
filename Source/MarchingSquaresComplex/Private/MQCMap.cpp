@@ -62,6 +62,16 @@ void FMQCMap::Triangulate()
     }
 
     ResolveChunkEdgeData();
+
+    //TSet<FMQCMaterialBlend> MaterialSet;
+    //for (FMQCGridChunk* Chunk : chunks)
+    //{
+    //    Chunk->GetMaterialSet(MaterialSet);
+    //}
+    //for (const FMQCMaterialBlend& M : MaterialSet)
+    //{
+    //    UE_LOG(LogTemp,Warning, TEXT("M: %s"), *M.ToString());
+    //}
 }
 
 void FMQCMap::TriangulateAsync()
@@ -300,6 +310,7 @@ void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCChunkConfig
     ChunkConfig.MaxFeatureAngle = MaxFeatureAngle;
     ChunkConfig.MaxParallelAngle = MaxParallelAngle;
     ChunkConfig.ExtrusionHeight = extrusionHeight;
+    ChunkConfig.MaterialType = MaterialType;
 
     // Link chunk neighbours
 
@@ -532,23 +543,9 @@ void UMQCMapRef::InitializeVoxelMap()
     VoxelMap.Initialize();
 }
 
-FMQCMaterial UMQCMapRef::GetTypedMaterial(uint8 MaterialIndex, const FColor& MaterialColor)
+FMQCMaterial UMQCMapRef::GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor)
 {
-    FMQCMaterial Material;
-
-    switch (MaterialType)
-    {
-        case EMQCMaterialType::MT_COLOR:
-            Material.SetColor(MaterialColor);
-            break;
-
-        case EMQCMaterialType::MT_SINGLE_INDEX:
-        case EMQCMaterialType::MT_DOUBLE_INDEX:
-            Material.SetIndex(MaterialIndex);
-            break;
-    }
-
-    return Material;
+    return UMQCMaterialUtility::GetTypedMaterial(MaterialType, MaterialIndex, MaterialColor);
 }
 
 // TRIANGULATION FUNCTIONS
@@ -773,4 +770,110 @@ void AMQCMap::GenerateMapMesh()
         MeshComponent->CreateNewSection(EdgeRef, MGI_EDGE);
         MeshComponent->UpdateRenderState();
     }
+}
+
+void AMQCMap::GenerateMaterialMesh(
+    int32 StateIndex,
+    uint8 MaterialIndex0,
+    uint8 MaterialIndex1,
+    uint8 MaterialIndex2,
+    bool bUseTripleIndex,
+    UMaterialInterface* Material
+    )
+{
+    if (! HasValidMap())
+    {
+        return;
+    }
+
+    FMQCMaterialBlend MaterialId;
+
+    if (bUseTripleIndex)
+    {
+        if (MaterialIndex1 > MaterialIndex2)
+        {
+            Swap(MaterialIndex1, MaterialIndex2);
+        }
+        if (MaterialIndex0 > MaterialIndex2)
+        {
+            Swap(MaterialIndex0, MaterialIndex1);
+            Swap(MaterialIndex1, MaterialIndex2);
+        }
+        else
+        if (MaterialIndex0 > MaterialIndex1)
+        {
+            Swap(MaterialIndex0, MaterialIndex1);
+        }
+
+        MaterialId = FMQCMaterialBlend(MaterialIndex0, MaterialIndex1, MaterialIndex2);
+    }
+    else
+    {
+        if (MaterialIndex0 > MaterialIndex1)
+        {
+            Swap(MaterialIndex0, MaterialIndex1);
+        }
+
+        if (MaterialIndex0 == MaterialIndex1)
+        {
+            MaterialId = FMQCMaterialBlend(MaterialIndex0);
+        }
+        else
+        {
+            MaterialId = FMQCMaterialBlend(MaterialIndex0, MaterialIndex1);
+        }
+    }
+
+    FMQCMap& Map(MapRef->GetMap());
+    const int32 ChunkCount = Map.GetChunkCount();
+
+    InitializeMeshComponents(SurfaceMeshComponents);
+
+    for (int32 ChunkIndex=0; ChunkIndex<ChunkCount; ++ChunkIndex)
+    {
+        UPMUMeshComponent* MeshComponent = GetOrAddMeshComponent(SurfaceMeshComponents, ChunkIndex);
+
+        FMQCGridChunk& Chunk(Map.GetChunk(ChunkIndex));
+        FPMUMeshSection* SectionPtr;
+
+        SectionPtr = Chunk.GetMaterialSection(StateIndex, MaterialId);
+
+        if (SectionPtr)
+        {
+            FPMUMeshSectionRef SectionRef(*SectionPtr);
+            int32 SectionIndex = MeshComponent->CreateNewSection(SectionRef);
+            MeshComponent->SetMaterial(SectionIndex, Material);
+            MeshComponent->UpdateRenderState();
+        }
+    }
+}
+
+void AMQCMap::InitializeMeshComponents(TArray<UPMUMeshComponent*>& MeshComponents)
+{
+    if (HasValidMap())
+    {
+        MeshComponents.SetNumZeroed(MapRef->GetChunkCount());
+    }
+}
+
+UPMUMeshComponent* AMQCMap::GetOrAddMeshComponent(TArray<UPMUMeshComponent*>& MeshComponents, int32 MeshIndex)
+{
+    UPMUMeshComponent* MeshComponent = nullptr;
+
+    if (MeshComponents.IsValidIndex(MeshIndex))
+    {
+        MeshComponent = MeshComponents[MeshIndex];
+
+        if (! IsValid(MeshComponent))
+        {
+            FName MeshName(*FString::Printf(TEXT("MaterialMesh_%d"), MeshIndex));
+            MeshComponent = NewObject<UPMUMeshComponent>(this, MeshName);
+            MeshComponent->bEditableWhenInherited = true;
+            MeshComponent->SetupAttachment(MeshAnchor);
+            MeshComponent->RegisterComponent();
+            MeshComponents[MeshIndex] = MeshComponent;
+        }
+    }
+
+    return IsValid(MeshComponent) ? MeshComponent : nullptr;
 }

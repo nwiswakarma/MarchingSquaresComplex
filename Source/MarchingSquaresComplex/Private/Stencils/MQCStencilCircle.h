@@ -85,7 +85,7 @@ public:
     uint8 MaterialIndex;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    FColor MaterialColor;
+    FLinearColor MaterialColor;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     EMQCMaterialBlendType MaterialBlendType;

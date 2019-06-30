@@ -91,6 +91,7 @@ void FMQCGridChunk::CreateRenderers(const FMQCChunkConfig& GridConfig)
         Config.MapSize         = mapSize;
         Config.VoxelResolution = voxelResolution;
         Config.ExtrusionHeight = GridConfig.ExtrusionHeight;
+        Config.MaterialType    = GridConfig.MaterialType;
 
         if (i > 0)
         {
@@ -288,6 +289,36 @@ void FMQCGridChunk::SetMaterialsInternal(const FMQCStencil& Stencil, int32 X0, i
             Stencil.ApplyMaterial(voxels[i], position);
         }
     }
+}
+
+FMQCGridSurface& FMQCGridChunk::GetSurface(int32 StateIndex)
+{
+    return Renderers[StateIndex].GetSurface();
+}
+
+const FMQCGridSurface& FMQCGridChunk::GetSurface(int32 StateIndex) const
+{
+    return Renderers[StateIndex].GetSurface();
+}
+
+void FMQCGridChunk::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
+{
+    for (int32 i=1; i<Renderers.Num(); i++)
+    {
+        GetSurface(i).GetMaterialSet(MaterialSet);
+    }
+}
+
+FPMUMeshSection* FMQCGridChunk::GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material)
+{
+    FPMUMeshSection* Section = nullptr;
+
+    if (HasRenderer(StateIndex))
+    {
+        Section = GetSurface(StateIndex).MaterialSectionMap.Find(Material);
+    }
+
+    return Section;
 }
 
 void FMQCGridChunk::Triangulate()

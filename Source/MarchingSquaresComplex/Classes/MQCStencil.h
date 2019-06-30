@@ -73,6 +73,7 @@ protected:
     virtual void GetMaterialBlendColor(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const;
     virtual void GetMaterialBlendSingleIndex(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const;
     virtual void GetMaterialBlendDoubleIndex(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const;
+    virtual void GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const;
 
     virtual void SetVoxels(FMQCGridChunk& Chunk);
     virtual void SetVoxels(const TArray<FMQCGridChunk*>& Chunks);

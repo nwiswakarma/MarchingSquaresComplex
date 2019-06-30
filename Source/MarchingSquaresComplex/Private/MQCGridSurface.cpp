@@ -44,6 +44,7 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
     ExtrusionHeight = (FMath::Abs(Config.ExtrusionHeight) > 0.01f) ? -FMath::Abs(Config.ExtrusionHeight) : -1.f;
 
     bRemapEdgeUVs = Config.bRemapEdgeUVs;
+    MaterialType = Config.MaterialType;
 
     // Resize vertex cache containers
     
@@ -88,11 +89,6 @@ void FMQCGridSurface::ReserveGeometry(FPMUMeshSection& Section)
     Section.Positions.Reserve(VoxelCount);
     Section.UVs.Reserve(VoxelCount);
     Section.Colors.Reserve(VoxelCount);
-    //if (bGenerateExtrusion)
-    //{
-    //    Section.TangentsX.Reserve(VoxelCount);
-    //    Section.TangentsZ.Reserve(VoxelCount);
-    //}
     Section.Tangents.Reserve(VoxelCount*2);
     Section.Indices.Reserve(VoxelCount * 6);
 }
@@ -102,8 +98,6 @@ void FMQCGridSurface::CompactGeometry(FPMUMeshSection& Section)
     Section.Positions.Shrink();
     Section.UVs.Shrink();
     Section.Colors.Shrink();
-    //Section.TangentsX.Reset();
-    //Section.TangentsZ.Reset();
     Section.Tangents.Shrink();
     Section.Indices.Shrink();
 }
@@ -115,6 +109,64 @@ void FMQCGridSurface::Finalize()
         GenerateEdgeGeometry();
     }
 
+#if 0
+    for (auto& Pair : MaterialSectionMap)
+    {
+        FMQCMaterialBlend Id(Pair.Get<0>());
+
+        if (! Id.IsTriple())
+        {
+            continue;
+        }
+
+        FIndexMap& IndexMap012(MaterialIndexMaps.FindChecked(Id));
+        FPMUMeshSection& Section012(Pair.Get<1>());
+
+        FMQCMaterialBlend Id01(Id.Index0, Id.Index1);
+        FIndexMap* IndexMap01(MaterialIndexMaps.Find(Id01));
+        FPMUMeshSection* Section01(MaterialSectionMap.Find(Id01));
+
+        FMQCMaterialBlend Id02(Id.Index0, Id.Index2);
+        FIndexMap* IndexMap02(MaterialIndexMaps.Find(Id02));
+        FPMUMeshSection* Section02(MaterialSectionMap.Find(Id02));
+
+        FMQCMaterialBlend Id12(Id.Index1, Id.Index2);
+        FIndexMap* IndexMap12(MaterialIndexMaps.Find(Id12));
+        FPMUMeshSection* Section12(MaterialSectionMap.Find(Id12));
+
+        for (const auto& IndexPair012 : IndexMap012)
+        {
+            const int32 VId = IndexPair012.Key;
+            FColor& Color(Section012.Colors[IndexPair012.Value]);
+
+            if (IndexMap01)
+            {
+                if (int32* i01 = IndexMap01->Find(VId))
+                {
+                    Color.R = Section01->Colors[*i01].R;
+                    Color.G = 0;
+                }
+            }
+            if (IndexMap02)
+            {
+                if (int32* i02 = IndexMap02->Find(VId))
+                {
+                    Color.R = 0;
+                    Color.G = Section02->Colors[*i02].R;
+                }
+            }
+            if (IndexMap12)
+            {
+                if (int32* i12 = IndexMap12->Find(VId))
+                {
+                    Color.R = 255;
+                    Color.G = Section12->Colors[*i12].R;
+                }
+            }
+        }
+    }
+#endif
+
     CompactGeometry();
 }
 
@@ -125,6 +177,14 @@ void FMQCGridSurface::Clear()
     EdgeSection.Reset();
 }
 
+void FMQCGridSurface::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
+{
+    for (const auto& MaterialSectionPair : MaterialSectionMap)
+    {
+        MaterialSet.Emplace(MaterialSectionPair.Key);
+    }
+}
+
 void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Material, bool bIsExtrusion)
 {
     FVector2D XY((position+Vertex)-.5f);
@@ -133,25 +193,18 @@ void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Mat
     float Height;
     float FaceSign;
 
-    uint8 R = Material.GetR();
-    uint8 G = Material.GetG();
-    uint8 B = Material.GetB();
-    uint8 SurfaceMask = 0;
-
     FPMUMeshSection* SectionPtr;
 
     if (bIsExtrusion)
     {
         SectionPtr = &ExtrudeSection;
         Height = ExtrusionHeight;
-        SurfaceMask = 255;
         FaceSign = -1.f;
     }
     else
     {
         SectionPtr = &SurfaceSection;
         Height = 0.f;
-        SurfaceMask = 0;
         FaceSign = 1.f;
     }
 
@@ -164,18 +217,13 @@ void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Mat
 
     Section.Positions.Emplace(Pos);
     Section.UVs.Emplace(UV);
-    Section.Colors.Emplace(R,G,B,SurfaceMask);
-    //if (bGenerateExtrusion)
-    //{
-    //    Section.TangentsX.Emplace(0);
-    //    Section.TangentsZ.Emplace(0);
-    //}
+    Section.Colors.Emplace(Material.ToFColor());
     Section.Tangents.Emplace(TangentX.Vector.Packed);
     Section.Tangents.Emplace(TangentZ.Vector.Packed);
     Section.SectionLocalBox += Pos;
 }
 
-void FMQCGridSurface::AddSection(int32 a, int32 b)
+void FMQCGridSurface::AddEdgeFace(int32 a, int32 b)
 {
     if (! bGenerateExtrusion)
     {
@@ -308,7 +356,160 @@ void FMQCGridSurface::AddSection(int32 a, int32 b)
     }
 }
 
-int32 FMQCGridSurface::DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMeshSection& SrcSection, int32 VertexIndex)
+void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
+{
+    const FPMUMeshSection& SrcSection(SurfaceSection);
+
+    check(SrcSection.Colors.IsValidIndex(a));
+    check(SrcSection.Colors.IsValidIndex(b));
+    check(SrcSection.Colors.IsValidIndex(c));
+
+    FMQCMaterialBlend Material;
+
+    FMQCMaterial Materials[3];
+    Materials[0].SetColor(SrcSection.Colors[a]);
+    Materials[1].SetColor(SrcSection.Colors[b]);
+    Materials[2].SetColor(SrcSection.Colors[c]);
+
+    EMQCMaterialType FaceMatType(MaterialType);
+
+    // If material type is MT_TRIPLE_INDEX but the face does not require
+    // triple material index set, revert to double index material face
+    if (FaceMatType == EMQCMaterialType::MT_TRIPLE_INDEX)
+    {
+        if (! Materials[0].IsMarkedAsTripledIndex() &&
+            ! Materials[1].IsMarkedAsTripledIndex() &&
+            ! Materials[2].IsMarkedAsTripledIndex()
+            )
+        {
+            FaceMatType = EMQCMaterialType::MT_DOUBLE_INDEX;
+        }
+    }
+
+    if (FaceMatType == EMQCMaterialType::MT_DOUBLE_INDEX)
+    {
+        uint8 Blends[3];
+        UMQCMaterialUtility::FindDoubleIndexFaceBlend(Materials, Material, Blends);
+
+        FPMUMeshSection& DstSection(MaterialSectionMap.FindOrAdd(Material));
+        FIndexMap& IndexMap(MaterialIndexMaps.FindOrAdd(Material));
+
+        struct FHelper
+        {
+            inline static void AddVertex(
+                const int32 Index,
+                const uint8 Blend,
+                const FPMUMeshSection& SrcSection,
+                FPMUMeshSection& DstSection,
+                FIndexMap& IndexMap
+                )
+            {
+                int32 MappedIndex;
+
+                if (int32* MappedIndexPtr = IndexMap.Find(Index))
+                {
+                    MappedIndex = *MappedIndexPtr;
+                }
+                else
+                {
+                    MappedIndex = FMQCGridSurface::DuplicateVertex(
+                        SrcSection,
+                        DstSection,
+                        Index
+                        );
+
+                    // Assign blend value
+                    DstSection.Colors[MappedIndex].R = Blend;
+
+                    // Map duplicated vertex index
+                    IndexMap.Add(Index, MappedIndex);
+                }
+
+                DstSection.Indices.Emplace(MappedIndex);
+            }
+        };
+
+        FHelper::AddVertex(a, Blends[0], SrcSection, DstSection, IndexMap);
+        FHelper::AddVertex(b, Blends[1], SrcSection, DstSection, IndexMap);
+        FHelper::AddVertex(c, Blends[2], SrcSection, DstSection, IndexMap);
+    }
+    else
+    if (FaceMatType == EMQCMaterialType::MT_TRIPLE_INDEX)
+    {
+        uint8 Blends01[3];
+        uint8 Blends12[3];
+
+        UMQCMaterialUtility::FindTripleIndexFaceBlend(
+            Materials,
+            Material,
+            Blends01,
+            Blends12
+            );
+
+        struct FVertexHelper
+        {
+            const FPMUMeshSection& SrcSection;
+            FPMUMeshSection& DstSection;
+            FIndexMap& IndexMap;
+
+            FVertexHelper(
+                const FPMUMeshSection& SrcSection,
+                FPMUMeshSection& DstSection,
+                FIndexMap& IndexMap
+                )
+                : SrcSection(SrcSection)
+                , DstSection(DstSection)
+                , IndexMap(IndexMap)
+            {
+            }
+
+            inline void AddVertex(
+                const int32 Index,
+                const uint8 Blend01,
+                const uint8 Blend12
+                )
+            {
+                int32 MappedIndex;
+
+                if (int32* MappedIndexPtr = IndexMap.Find(Index))
+                {
+                    MappedIndex = *MappedIndexPtr;
+                }
+                else
+                {
+                    MappedIndex = FMQCGridSurface::DuplicateVertex(
+                        SrcSection,
+                        DstSection,
+                        Index
+                        );
+
+                    // Assign blend value
+                    DstSection.Colors[MappedIndex].R = Blend01;
+                    DstSection.Colors[MappedIndex].G = Blend12;
+
+                    // Map duplicated vertex index
+                    IndexMap.Add(Index, MappedIndex);
+                }
+
+                DstSection.Indices.Emplace(MappedIndex);
+            }
+        };
+
+        FPMUMeshSection& DstSection(MaterialSectionMap.FindOrAdd(Material));
+        FIndexMap& IndexMap(MaterialIndexMaps.FindOrAdd(Material));
+        FVertexHelper VertexHelper(SrcSection, DstSection, IndexMap);
+
+        VertexHelper.AddVertex(a, Blends01[0], Blends12[0]);
+        VertexHelper.AddVertex(b, Blends01[1], Blends12[1]);
+        VertexHelper.AddVertex(c, Blends01[2], Blends12[2]);
+    }
+}
+
+int32 FMQCGridSurface::DuplicateVertex(
+    const FPMUMeshSection& SrcSection,
+    FPMUMeshSection& DstSection,
+    int32 VertexIndex
+    )
 {
     check(SrcSection.Positions.IsValidIndex(VertexIndex));
 
@@ -317,11 +518,6 @@ int32 FMQCGridSurface::DuplicateVertex(FPMUMeshSection& DstSection, const FPMUMe
     DstSection.Positions.Emplace(SrcSection.Positions[VertexIndex]);
     DstSection.UVs.Emplace(SrcSection.UVs[VertexIndex]);
     DstSection.Colors.Emplace(SrcSection.Colors[VertexIndex]);
-    //if (bGenerateExtrusion)
-    //{
-    //    DstSection.TangentsX.Emplace(0);
-    //    DstSection.TangentsZ.Emplace(0);
-    //}
     DstSection.Tangents.Emplace(SrcSection.Tangents[(VertexIndex*2)  ]);
     DstSection.Tangents.Emplace(SrcSection.Tangents[(VertexIndex*2)+1]);
     DstSection.SectionLocalBox += SrcSection.Positions[VertexIndex];
@@ -336,21 +532,15 @@ void FMQCGridSurface::GenerateEdgeVertex(TArray<int32>& EdgeIndices, int32 Sourc
         EdgeIndices.SetNumUninitialized(4);
     }
 
-    int32 esi = DuplicateVertex(EdgeSection, ExtrudeSection, SourceIndex);
-    int32 eai = DuplicateVertex(EdgeSection, ExtrudeSection, SourceIndex);
-    int32 ebi = DuplicateVertex(EdgeSection, ExtrudeSection, SourceIndex);
-    int32 eei = DuplicateVertex(EdgeSection, ExtrudeSection, SourceIndex);
+    int32 esi = DuplicateVertex(ExtrudeSection, EdgeSection, SourceIndex);
+    int32 eai = DuplicateVertex(ExtrudeSection, EdgeSection, SourceIndex);
+    int32 ebi = DuplicateVertex(ExtrudeSection, EdgeSection, SourceIndex);
+    int32 eei = DuplicateVertex(ExtrudeSection, EdgeSection, SourceIndex);
 
     const float Z1 = EdgeSection.Positions[eei].Z;
-    const float A1 = EdgeSection.Colors[eei].A;
-
     EdgeSection.Positions[esi].Z = 0.f;
     EdgeSection.Positions[eai].Z = Z1*.33333f;
     EdgeSection.Positions[ebi].Z = Z1*.66667f;
-
-    EdgeSection.Colors[esi].A = 0.f;
-    EdgeSection.Colors[eai].A = A1*.33333f;
-    EdgeSection.Colors[ebi].A = A1*.66667f;
 
     EdgeIndices[0] = esi;
     EdgeIndices[1] = eai;
@@ -401,17 +591,6 @@ float FMQCGridSurface::GenerateEdgeSegment(TArray<int32>& EdgeIndices0, TArray<i
     FVector2D v1(EdgeSection.Positions[es1]);
     FVector2D E01 = v1 - v0;
 
-    // Assign edge tangents
-
-    //const FVector EdgeTangent(E01.GetSafeNormal(), 0.f);
-    //const FVector EdgeNormal(-EdgeTangent.Y, EdgeTangent.X, 0.f);
-
-    //EdgeSection.TangentsX[es0] += EdgeTangent;
-    //EdgeSection.TangentsX[es1] += EdgeTangent;
-
-    //EdgeSection.TangentsZ[es0] += EdgeNormal;
-    //EdgeSection.TangentsZ[es1] += EdgeNormal;
-
     return E01.Size();
 }
 
@@ -450,40 +629,10 @@ void FMQCGridSurface::GenerateEdgeSyncData(int32 EdgeListId, const TArray<FEdgeS
 
         float UVX = SegmentData.Value * EdgeLengthInv;
 
-        EdgeSection.UVs[i0].Set(UVX, 1.f);
-        EdgeSection.UVs[i1].Set(UVX, 2.f/3.f);
-        EdgeSection.UVs[i2].Set(UVX, 1.f/3.f);
-        EdgeSection.UVs[i3].Set(UVX, 0.f);
-
-        //FVector& TangentX(EdgeSection.TangentsX[vi]);
-        //FVector& TangentZ(EdgeSection.TangentsZ[vi]);
-
-        // Normalize tangents
-
-        //TangentX.Normalize();
-        //TangentZ.Normalize();
-
-        // Use Gram-Schmidt orthogonalization to make sure X is orth with Z
-
-        //TangentX -= TangentZ * (TangentZ | TangentX);
-        //TangentX.Normalize();
-
-        // Assign packed tangents
-
-        //FPackedNormal TX(TangentX);
-        //FPackedNormal TZ(FVector4(TangentZ, 1));
-
-        //EdgeSection.Tangents[it0  ] = TX.Vector.Packed;
-        //EdgeSection.Tangents[it0+1] = TZ.Vector.Packed;
-
-        //EdgeSection.Tangents[it1  ] = TX.Vector.Packed;
-        //EdgeSection.Tangents[it1+1] = TZ.Vector.Packed;
-
-        //EdgeSection.Tangents[it2  ] = TX.Vector.Packed;
-        //EdgeSection.Tangents[it2+1] = TZ.Vector.Packed;
-
-        //EdgeSection.Tangents[it3  ] = TX.Vector.Packed;
-        //EdgeSection.Tangents[it3+1] = TZ.Vector.Packed;
+        EdgeSection.UVs[i0].Set(UVX, 0.f);
+        EdgeSection.UVs[i1].Set(UVX, 0.33333f);
+        EdgeSection.UVs[i2].Set(UVX, 0.66667f);
+        EdgeSection.UVs[i3].Set(UVX, 1.f);
     }
 
     // Create edge list sync data
@@ -605,6 +754,7 @@ void FMQCGridSurface::AddTriangle(int32 a, int32 b, int32 c)
             IndexBuffer.Emplace(a);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(c);
+            AddMaterialFace(a, b, c);
         }
 
         // Generate extrude
@@ -642,6 +792,8 @@ void FMQCGridSurface::AddQuad(int32 a, int32 b, int32 c, int32 d)
             IndexBuffer.Emplace(a);
             IndexBuffer.Emplace(c);
             IndexBuffer.Emplace(d);
+            AddMaterialFace(a, b, c);
+            AddMaterialFace(a, c, d);
         }
 
         // Generate extrude
@@ -688,6 +840,9 @@ void FMQCGridSurface::AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e)
             IndexBuffer.Emplace(a);
             IndexBuffer.Emplace(d);
             IndexBuffer.Emplace(e);
+            AddMaterialFace(a, b, c);
+            AddMaterialFace(a, c, d);
+            AddMaterialFace(a, d, e);
         }
 
         // Generate extrude
@@ -743,6 +898,10 @@ void FMQCGridSurface::AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, in
             IndexBuffer.Emplace(a);
             IndexBuffer.Emplace(e);
             IndexBuffer.Emplace(f);
+            AddMaterialFace(a, b, c);
+            AddMaterialFace(a, c, d);
+            AddMaterialFace(a, d, e);
+            AddMaterialFace(a, e, f);
         }
 
         // Generate extrude

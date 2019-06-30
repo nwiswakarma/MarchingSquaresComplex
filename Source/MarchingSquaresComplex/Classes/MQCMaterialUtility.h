@@ -39,11 +39,74 @@ class MARCHINGSQUARESCOMPLEX_API UMQCMaterialUtility : public UBlueprintFunction
 
 public:
 
-	FORCEINLINE static uint8 LerpUINT8(uint8 A, uint8 B, float Alpha)
+	inline static uint8 LerpUINT8(uint8 A, uint8 B, float Alpha)
 	{
 		float LerpResult = FMath::Lerp<float>(A, B, Alpha);
 		// Do special rounding to not get stuck, eg Lerp(251, 255, 0.1) = 251
-		int32 RoundedResult = Alpha > 0.f ? FMath::CeilToInt(LerpResult) : FMath::FloorToInt(LerpResult);
+		int32 RoundedResult = Alpha > 0.f
+            ? FMath::CeilToInt(LerpResult)
+            : FMath::FloorToInt(LerpResult);
 		return FMath::Clamp(RoundedResult, 0, 255);
 	}
+
+	FORCEINLINE static uint8 AlphaToUINT8(float Alpha)
+    {
+        return LerpUINT8(0, 255, FMath::Clamp(Alpha, 0.f, 1.f));
+    }
+
+    inline static FMQCMaterial GetTypedMaterial(EMQCMaterialType MaterialType, uint8 MaterialIndex, const FColor& MaterialColor)
+    {
+        FMQCMaterial Material;
+
+        if (MaterialType == EMQCMaterialType::MT_COLOR)
+        {
+            Material.SetColor(MaterialColor);
+        }
+        else
+        {
+            Material.SetIndex(MaterialIndex);
+        }
+
+        return Material;
+    }
+
+    FORCEINLINE static FMQCMaterial GetTypedMaterial(EMQCMaterialType MaterialType, uint8 MaterialIndex, const FLinearColor& MaterialColor)
+    {
+        return GetTypedMaterial(MaterialType, MaterialIndex, MaterialColor.ToFColor(true));
+    }
+
+    FORCEINLINE static FMQCMaterial GetTypedMaterial(FMQCMaterialInput Input)
+    {
+        return GetTypedMaterial(Input.Type, Input.Index, Input.Color);
+    }
+
+    inline static bool IsBlendsEqual(uint8 Blends[3], uint8 Blend)
+    {
+        return Blends[0] == Blend && Blends[1] == Blend && Blends[2] == Blend;
+    }
+
+    static FMQCDoubleIndexBlend FindDoubleIndexBlend(
+        const FMQCDoubleIndexBlend& A,
+        const FMQCDoubleIndexBlend& B,
+        const FMQCDoubleIndexBlend& C
+        );
+
+    static FMQCTripleIndexBlend FindTripleIndexBlend(
+        const FMQCTripleIndexBlend& A,
+        const FMQCTripleIndexBlend& B,
+        const FMQCTripleIndexBlend& C
+        );
+
+    static void FindDoubleIndexFaceBlend(
+        const FMQCMaterial VertexMaterials[3],
+        FMQCMaterialBlend& FaceMaterial,
+        uint8 MaterialBlends[3]
+        );
+
+    static void FindTripleIndexFaceBlend(
+        const FMQCMaterial VertexMaterials[3],
+        FMQCMaterialBlend& FaceMaterial,
+        uint8 MaterialBlends01[3],
+        uint8 MaterialBlends12[3]
+        );
 };

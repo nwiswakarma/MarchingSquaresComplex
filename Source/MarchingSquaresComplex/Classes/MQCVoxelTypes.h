@@ -28,24 +28,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MQCMaterial.h"
 #include "MQCVoxelTypes.generated.h"
-
-UENUM(BlueprintType)
-enum class EMQCMaterialType : uint8
-{
-    MT_COLOR,
-    MT_SINGLE_INDEX,
-    MT_DOUBLE_INDEX
-};
-
-UENUM(BlueprintType)
-enum class EMQCMaterialBlendType : uint8
-{
-    MBT_DEFAULT,
-    MBT_MAX,
-    MBT_COPY,
-    MBT_LERP
-};
 
 USTRUCT(BlueprintType)
 struct MARCHINGSQUARESCOMPLEX_API FMQCSurfaceState
@@ -71,6 +55,7 @@ struct FMQCSurfaceConfig
     bool bGenerateExtrusion;
     bool bExtrusionSurface;
     bool bRemapEdgeUVs;
+    EMQCMaterialType MaterialType;
 };
 
 struct FMQCChunkConfig
@@ -81,5 +66,6 @@ struct FMQCChunkConfig
     float MaxFeatureAngle;
     float MaxParallelAngle;
     float ExtrusionHeight;
+    EMQCMaterialType MaterialType;
     TArray<FMQCSurfaceState> States;
 };

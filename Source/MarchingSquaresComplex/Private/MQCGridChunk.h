@@ -36,6 +36,8 @@
 #include "MQCGridSurface.h"
 #include "MQCVoxelTypes.h"
 
+class FMQCGridSurface;
+
 class FMQCGridChunk
 {
 private:
@@ -121,7 +123,6 @@ public:
     FMQCGridChunk* xyNeighbor = nullptr;
 
     void Initialize(const FMQCChunkConfig& Config);
-
     void ResetVoxels();
 
     void Triangulate();
@@ -133,6 +134,12 @@ public:
     void SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
     void SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
     void SetMaterialsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+
+    FMQCGridSurface& GetSurface(int32 StateIndex);
+    const FMQCGridSurface& GetSurface(int32 StateIndex) const;
+
+    void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
+    FPMUMeshSection* GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material);
 
     FORCEINLINE FIntPoint GetOffsetId() const
     {
