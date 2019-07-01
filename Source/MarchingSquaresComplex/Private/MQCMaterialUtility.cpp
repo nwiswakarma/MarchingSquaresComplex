@@ -272,15 +272,19 @@ FMQCTripleIndexBlend UMQCMaterialUtility::FindTripleIndexBlend(
 
         float Sum3Inv = 1.f / Sum3;
 
-        float Blend0 = MaxIndex0Strength * Sum3Inv;
-        float Blend1 = MaxIndex1Strength * Sum3Inv;
-        float Blend2 = MaxIndex2Strength * Sum3Inv;
+        float Blend0F = MaxIndex0Strength * Sum3Inv;
+        float Blend1F = MaxIndex1Strength * Sum3Inv;
+        float Blend2F = MaxIndex2Strength * Sum3Inv;
 
-        float Blend01F = (Blend0>0.f || Blend1>0.f) ? (Blend1/(Blend0+Blend1)) : 0.f;
-        float Blend12F = Blend2;
+        uint8 Blend0 = AlphaToUINT8(Blend0F);
+        uint8 Blend1 = AlphaToUINT8(Blend1F);
+        uint8 Blend2 = AlphaToUINT8(Blend2F);
 
-        uint8 Blend01 = AlphaToUINT8(Blend01F);
-        uint8 Blend12 = AlphaToUINT8(Blend12F);
+        //float Blend01F = (Blend0>0.f || Blend1>0.f) ? (Blend1/(Blend0+Blend1)) : 0.f;
+        //float Blend12F = Blend2;
+
+        //uint8 Blend01 = AlphaToUINT8(Blend01F);
+        //uint8 Blend12 = AlphaToUINT8(Blend12F);
 
         //int32 Blend01I = ((255-MaxIndex0Strength) + MaxIndex1Strength) / 2;
         //int32 Blend12I = ((255-MaxIndex1Strength) + MaxIndex2Strength) / 2;
@@ -288,7 +292,8 @@ FMQCTripleIndexBlend UMQCMaterialUtility::FindTripleIndexBlend(
         //uint8 Blend01 = FMath::Clamp<uint8>(Blend01I, 0, 255);
         //uint8 Blend12 = FMath::Clamp<uint8>(Blend12I, 0, 255);
 
-        Blend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex1, MaxIndex2, Blend01, Blend12);
+        //Blend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex1, MaxIndex2, Blend01, Blend12);
+        Blend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex1, MaxIndex2, Blend0, Blend1, Blend2);
     }
 
     return Blend;
@@ -361,8 +366,9 @@ void UMQCMaterialUtility::FindDoubleIndexFaceBlend(
 void UMQCMaterialUtility::FindTripleIndexFaceBlend(
     const FMQCMaterial VertexMaterials[3],
     FMQCMaterialBlend& FaceMaterial,
-    uint8 MaterialBlends01[3],
-    uint8 MaterialBlends12[3]
+    uint8 MaterialBlends0[3],
+    uint8 MaterialBlends1[3],
+    uint8 MaterialBlends2[3]
     )
 {
     const FMQCMaterial& VertexMatA(VertexMaterials[0]);
@@ -372,8 +378,9 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
     // Find material index set for tri face and blend alphas for each vertex
 
     FMQCTripleIndexBlend FaceIndexBlend;
-    uint8 Blends01[3];
-    uint8 Blends12[3];
+    uint8 Blends0[3];
+    uint8 Blends1[3];
+    uint8 Blends2[3];
 
     {
         FMQCTripleIndexBlend MaterialA(VertexMatA);
@@ -394,40 +401,29 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
         FMQCTripleIndexBlend BlendB = MaterialB.GetBlendFor(FaceIndexBlend);
         FMQCTripleIndexBlend BlendC = MaterialC.GetBlendFor(FaceIndexBlend);
 
-        Blends01[0] = BlendA.Blend01;
-        Blends01[1] = BlendB.Blend01;
-        Blends01[2] = BlendC.Blend01;
+        //Blends0[0] = BlendA.Blend01;
+        //Blends0[1] = BlendB.Blend01;
+        //Blends0[2] = BlendC.Blend01;
 
-        Blends12[0] = BlendA.Blend12;
-        Blends12[1] = BlendB.Blend12;
-        Blends12[2] = BlendC.Blend12;
+        //Blends1[0] = BlendA.Blend12;
+        //Blends1[1] = BlendB.Blend12;
+        //Blends1[2] = BlendC.Blend12;
 
-        //if (BlendA.Blend01 == 255 && BlendA.Blend12 == 255 &&
-        //    BlendB.Blend01 == 255 && BlendB.Blend12 == 255 &&
-        //    BlendC.Blend01 == 255 && BlendC.Blend12 == 255)
-        //{
-        //    Blends01[0] = 0;
-        //    Blends01[1] = 0;
-        //    Blends01[2] = 0;
+        //Blends2[0] = 0;
+        //Blends2[1] = 0;
+        //Blends2[2] = 0;
 
-        //    Blends12[0] = 0;
-        //    Blends12[1] = 0;
-        //    Blends12[2] = 0;
-        //}
+        Blends0[0] = BlendA.Blend0;
+        Blends0[1] = BlendB.Blend0;
+        Blends0[2] = BlendC.Blend0;
 
-        //UE_LOG(LogTemp,Warning, TEXT("BlendA: %u %u, BlendB: %u %u, BlendC: %u %u"),
-        //    BlendA.Blend01, BlendA.Blend12,
-        //    BlendB.Blend01, BlendB.Blend12,
-        //    BlendC.Blend01, BlendC.Blend12
-        //    );
+        Blends1[0] = BlendA.Blend1;
+        Blends1[1] = BlendB.Blend1;
+        Blends1[2] = BlendC.Blend1;
 
-        //Blends01[0] = 255;
-        //Blends01[1] = 255;
-        //Blends01[2] = 255;
-
-        //Blends12[0] = 255;
-        //Blends12[1] = 255;
-        //Blends12[2] = 255;
+        Blends2[0] = BlendA.Blend2;
+        Blends2[1] = BlendB.Blend2;
+        Blends2[2] = BlendC.Blend2;
     }
 
     // Generate face material for triple index set
@@ -443,7 +439,6 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
         if (IsBlendsEqual(Blends12, 255))
         {
             FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index2);
-            UE_LOG(LogTemp,Warning, TEXT("IsBlendsEqual(Blends12, 255): %s"), *FaceMaterial.ToString());
         }
         else
         if (IsBlendsEqual(Blends01, 255))
@@ -452,13 +447,11 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
             if (IsBlendsEqual(Blends12, 0))
             {
                 FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1);
-                UE_LOG(LogTemp,Warning, TEXT("IsBlendsEqual(Blends01, 255) IsBlendsEqual(Blends12, 0): %s"), *FaceMaterial.ToString());
             }
             // Double index with material Index1 and Index2
             else
             {
                 FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1, FaceIndexBlend.Index2);
-                UE_LOG(LogTemp,Warning, TEXT("IsBlendsEqual(Blends01, 255): %s"), *FaceMaterial.ToString());
             }
         }
         else
@@ -468,20 +461,17 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
             if (IsBlendsEqual(Blends12, 0))
             {
                 FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1);
-                UE_LOG(LogTemp,Warning, TEXT("IsBlendsEqual(Blends01, 0) IsBlendsEqual(Blends12, 0): %s"), *FaceMaterial.ToString());
             }
             // Double index with material Index1 and Index2
             else
             {
                 FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1, FaceIndexBlend.Index2);
-                UE_LOG(LogTemp,Warning, TEXT("IsBlendsEqual(Blends01, 0): %s"), *FaceMaterial.ToString());
             }
         }
         // Triple index
         else
         {
             FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0, FaceIndexBlend.Index1, FaceIndexBlend.Index2);
-            UE_LOG(LogTemp,Warning, TEXT("TRIPLE INDEX %s"), *FaceMaterial.ToString());
         }
 #else
             FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0, FaceIndexBlend.Index1, FaceIndexBlend.Index2);
@@ -495,14 +485,12 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
         if (IsBlendsEqual(Blends01, 0))
         {
             FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0);
-            UE_LOG(LogTemp,Warning, TEXT("IsBlendsEqual(Blends01, 0): %s"), *FaceMaterial.ToString());
         }
         // Single index with material Index1
         else
         if (IsBlendsEqual(Blends01, 255))
         {
             FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1);
-            UE_LOG(LogTemp,Warning, TEXT("IsBlendsEqual(Blends01, 255): %s"), *FaceMaterial.ToString());
         }
         // Double or single index
         else
@@ -517,20 +505,22 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
             FaceMaterial = (IndexMin == IndexMax)
                 ? FMQCMaterialBlend(IndexMin)
                 : FMQCMaterialBlend(IndexMin, IndexMax);
-
-            UE_LOG(LogTemp,Warning, TEXT("DOUBLE INDEX: %s"), *FaceMaterial.ToString());
         }
     }
 
     // Assign output
 
-    MaterialBlends01[0] = Blends01[0];
-    MaterialBlends01[1] = Blends01[1];
-    MaterialBlends01[2] = Blends01[2];
+    MaterialBlends0[0] = Blends0[0];
+    MaterialBlends0[1] = Blends0[1];
+    MaterialBlends0[2] = Blends0[2];
 
-    MaterialBlends12[0] = Blends12[0];
-    MaterialBlends12[1] = Blends12[1];
-    MaterialBlends12[2] = Blends12[2];
+    MaterialBlends1[0] = Blends1[0];
+    MaterialBlends1[1] = Blends1[1];
+    MaterialBlends1[2] = Blends1[2];
+
+    MaterialBlends2[0] = Blends2[0];
+    MaterialBlends2[1] = Blends2[1];
+    MaterialBlends2[2] = Blends2[2];
 }
 
 FMQCTripleIndexBlend FMQCTripleIndexBlend::GetBlendFor(const FMQCTripleIndexBlend& Other) const
@@ -554,16 +544,7 @@ FMQCTripleIndexBlend FMQCTripleIndexBlend::GetBlendAsDoubleIndexFor(const FMQCTr
     bool bMatchIndex1 = Other.HasAnyIndex(Index1);
     int32 SingleIndex = GetSignificantSingleIndex();
 
-    //UE_LOG(LogTemp,Warning, TEXT("Index: %u %u"), Index0, Index1);
-
-    //if (Index0 == 4 && Index1 == 8 || Index0 == 0 && Index1 == 8 || Index0 == 0 && Index1 == 4 || Index0 == 0 && Index1 == 0 || Index0 == 4 && Index1 == 4)
-    //{
-    //    OutBlend.Blend01 = 0;
-    //    OutBlend.Blend12 = 0;
-    //    return OutBlend;
-    //}
-
-#if 1
+#if 0
     // Double index with only single matching index, treat as single index
     if (SingleIndex < 0 && ((bMatchIndex0 && !bMatchIndex1) || (!bMatchIndex0 && bMatchIndex1)))
     {
@@ -615,6 +596,64 @@ FMQCTripleIndexBlend FMQCTripleIndexBlend::GetBlendAsDoubleIndexFor(const FMQCTr
             OutBlend.Blend12 = 0;
         }
     }
+#else
+    // Double index with only single matching index, treat as single index
+    if (SingleIndex < 0 && ((bMatchIndex0 && !bMatchIndex1) || (!bMatchIndex0 && bMatchIndex1)))
+    {
+        SingleIndex = bMatchIndex0 ? 0 : 1;
+    }
+
+    // Single index blend
+    if (SingleIndex >= 0)
+    {
+        uint8 Index = GetIndex(SingleIndex);
+
+        if (Index == Other.Index0)
+        {
+            OutBlend.Blend0 = 255;
+            OutBlend.Blend1 = 0;
+            OutBlend.Blend2 = 0;
+        }
+        else
+        if (Index == Other.Index1)
+        {
+            OutBlend.Blend0 = 0;
+            OutBlend.Blend1 = 255;
+            OutBlend.Blend2 = 0;
+        }
+        else
+        if (Index == Other.Index2)
+        {
+            OutBlend.Blend0 = 0;
+            OutBlend.Blend1 = 0;
+            OutBlend.Blend2 = 255;
+        }
+    }
+    // Double index blend
+    else
+    if (bMatchIndex0 && bMatchIndex1)
+    {
+        if (! HasAnyIndexAsDouble(Other.Index0))
+        {
+            OutBlend.Blend0 = 0;
+            OutBlend.Blend1 = 255-Blend0;
+            OutBlend.Blend2 = Blend0;
+        }
+        else
+        if (! HasAnyIndexAsDouble(Other.Index1))
+        {
+            OutBlend.Blend0 = 255-Blend0;
+            OutBlend.Blend1 = 0;
+            OutBlend.Blend2 = Blend0;
+        }
+        else
+        if (! HasAnyIndexAsDouble(Other.Index2))
+        {
+            OutBlend.Blend0 = 255-Blend0;
+            OutBlend.Blend1 = Blend0;
+            OutBlend.Blend2 = 0;
+        }
+    }
 #endif
 
     return OutBlend;
@@ -651,18 +690,15 @@ FMQCTripleIndexBlend FMQCTripleIndexBlend::GetBlendAsTripleIndexFor(const FMQCTr
         //if (! IndexMatch.Index0)
         //{
         //    OutBlend.Blend01 = 255;
-        //    UE_LOG(LogTemp,Warning,TEXT("MATCH 2: 011"));
         //}
         //else
         //if (! IndexMatch.Index1)
         //{
         //    OutBlend.Blend01 = 0;
-        //    UE_LOG(LogTemp,Warning,TEXT("MATCH 2: 101"));
         //}
         //else
         //{
         //    OutBlend.Blend12 = 0;
-        //    UE_LOG(LogTemp,Warning,TEXT("MATCH 2: 110"));
         //}
 
         return OutBlend;
@@ -674,20 +710,17 @@ FMQCTripleIndexBlend FMQCTripleIndexBlend::GetBlendAsTripleIndexFor(const FMQCTr
     //    {
     //        OutBlend.Blend01 = 0;
     //        OutBlend.Blend12 = 0;
-    //        UE_LOG(LogTemp,Warning,TEXT("MATCH 1: 100"));
     //    }
     //    else
     //    if (IndexMatch.Index1)
     //    {
     //        OutBlend.Blend01 = 255;
     //        OutBlend.Blend12 = 0;
-    //        UE_LOG(LogTemp,Warning,TEXT("MATCH 1: 010"));
     //    }
     //    else
     //    {
     //        OutBlend.Blend01 = 255;
     //        OutBlend.Blend12 = 255;
-    //        UE_LOG(LogTemp,Warning,TEXT("MATCH 1: 001"));
     //    }
 
     //    return OutBlend;

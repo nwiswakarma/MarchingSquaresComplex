@@ -326,14 +326,37 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
 
             OutMaterial = FMQCMaterial();
 
+            float B0F = (255-Blend);
+            float B1F = Blend;
+            float B2F = TargetBlend;
+
+            B0F /= 255.f;
+            B1F /= 255.f;
+            B2F /= 255.f;
+
+            float Sum = B0F + B1F + B2F;
+            float SumInv = (Sum > 0.f) ? (1.f/Sum) : 0.f;
+
+            uint8 B0 = UMQCMaterialUtility::AlphaToUINT8(B0F*SumInv);
+            uint8 B1 = UMQCMaterialUtility::AlphaToUINT8(B1F*SumInv);
+            uint8 B2 = UMQCMaterialUtility::AlphaToUINT8(B2F*SumInv);
+
             if (TargetIndex > IndexB)
             {
                 OutMaterial.SetIndex0(IndexA);
                 OutMaterial.SetIndex1(IndexB);
                 OutMaterial.SetIndex2(TargetIndex);
 
-                OutMaterial.SetBlend01(Blend);
-                OutMaterial.SetBlend12(TargetBlend);
+                //OutMaterial.SetBlend01(Blend);
+                //OutMaterial.SetBlend12(TargetBlend);
+
+                //OutMaterial.SetBlend0(255-Blend);
+                //OutMaterial.SetBlend1(Blend);
+                //OutMaterial.SetBlend2(TargetBlend);
+
+                OutMaterial.SetBlend0(B0);
+                OutMaterial.SetBlend1(B1);
+                OutMaterial.SetBlend2(B2);
             }
             else
             if (TargetIndex > IndexA)
@@ -342,14 +365,13 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
                 OutMaterial.SetIndex1(TargetIndex);
                 OutMaterial.SetIndex2(IndexB);
 
-                OutMaterial.SetBlend01(TargetBlend);
+                //OutMaterial.SetBlend01(TargetBlend);
                 //OutMaterial.SetBlend12(Blend);
-                OutMaterial.SetBlend12(UMQCMaterialUtility::LerpUINT8(Blend, 0, TargetBlend/255.f));
+                //OutMaterial.SetBlend12(UMQCMaterialUtility::LerpUINT8(Blend, 0, TargetBlend/255.f));
 
-                //OutMaterial.SetBlend01(255);
-                //OutMaterial.SetBlend12(Blend);
-
-                //UE_LOG(LogTemp,Warning, TEXT("Blend: %u, TargetBlend: %u"), Blend, TargetBlend);
+                OutMaterial.SetBlend0(B0);
+                OutMaterial.SetBlend1(B2);
+                OutMaterial.SetBlend2(B1);
             }
             else
             {
@@ -357,8 +379,12 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
                 OutMaterial.SetIndex1(IndexA);
                 OutMaterial.SetIndex2(IndexB);
 
-                OutMaterial.SetBlend01(255-TargetBlend);
-                OutMaterial.SetBlend12(Blend);
+                //OutMaterial.SetBlend01(255-TargetBlend);
+                //OutMaterial.SetBlend12(Blend);
+
+                OutMaterial.SetBlend0(B2);
+                OutMaterial.SetBlend1(B0);
+                OutMaterial.SetBlend2(B1);
             }
 
             OutMaterial.MarkAsTripleIndex();

@@ -436,14 +436,16 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
     else
     if (FaceMatType == EMQCMaterialType::MT_TRIPLE_INDEX)
     {
-        uint8 Blends01[3];
-        uint8 Blends12[3];
+        uint8 Blends0[3];
+        uint8 Blends1[3];
+        uint8 Blends2[3];
 
         UMQCMaterialUtility::FindTripleIndexFaceBlend(
             Materials,
             Material,
-            Blends01,
-            Blends12
+            Blends0,
+            Blends1,
+            Blends2
             );
 
         struct FVertexHelper
@@ -465,8 +467,9 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
 
             inline void AddVertex(
                 const int32 Index,
-                const uint8 Blend01,
-                const uint8 Blend12
+                const uint8 Blend0,
+                const uint8 Blend1,
+                const uint8 Blend2
                 )
             {
                 int32 MappedIndex;
@@ -484,8 +487,9 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
                         );
 
                     // Assign blend value
-                    DstSection.Colors[MappedIndex].R = Blend01;
-                    DstSection.Colors[MappedIndex].G = Blend12;
+                    DstSection.Colors[MappedIndex].R = Blend0;
+                    DstSection.Colors[MappedIndex].G = Blend1;
+                    DstSection.Colors[MappedIndex].B = Blend2;
 
                     // Map duplicated vertex index
                     IndexMap.Add(Index, MappedIndex);
@@ -499,9 +503,9 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
         FIndexMap& IndexMap(MaterialIndexMaps.FindOrAdd(Material));
         FVertexHelper VertexHelper(SrcSection, DstSection, IndexMap);
 
-        VertexHelper.AddVertex(a, Blends01[0], Blends12[0]);
-        VertexHelper.AddVertex(b, Blends01[1], Blends12[1]);
-        VertexHelper.AddVertex(c, Blends01[2], Blends12[2]);
+        VertexHelper.AddVertex(a, Blends0[0], Blends1[0], Blends2[0]);
+        VertexHelper.AddVertex(b, Blends0[1], Blends1[1], Blends2[1]);
+        VertexHelper.AddVertex(c, Blends0[2], Blends1[2], Blends2[2]);
     }
 }
 

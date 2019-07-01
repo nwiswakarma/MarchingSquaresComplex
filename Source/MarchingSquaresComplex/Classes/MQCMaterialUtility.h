@@ -106,7 +106,8 @@ public:
     static void FindTripleIndexFaceBlend(
         const FMQCMaterial VertexMaterials[3],
         FMQCMaterialBlend& FaceMaterial,
-        uint8 MaterialBlends01[3],
-        uint8 MaterialBlends12[3]
+        uint8 MaterialBlends0[3],
+        uint8 MaterialBlends1[3],
+        uint8 MaterialBlends2[3]
         );
 };

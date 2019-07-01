@@ -165,47 +165,55 @@ public:
     {
         if (IsTripleIndexSortRequired())
         {
-            uint8 Index0 = GetIndex0();
-            uint8 Index1 = GetIndex1();
-            uint8 Index2 = GetIndex2();
+            uint8 I0 = GetIndex0();
+            uint8 I1 = GetIndex1();
+            uint8 I2 = GetIndex2();
 
-            uint8 Blend01 = GetBlend01();
-            uint8 Blend12 = GetBlend12();
+            uint8 B01 = GetBlend01();
+            uint8 B12 = GetBlend12();
 
-            if (Index1 > Index2)
+            if (I1 > I2)
             {
-                SetIndex1(Index2);
-                SetIndex2(Index1);
-                SetBlend01(Blend12);
-                SetBlend12(Blend01);
+                SetIndex1(I2);
+                SetIndex2(I1);
+                SetBlend01(B12);
+                SetBlend12(B01);
             }
 
-            if (Index0 > Index2)
+            if (I0 > I2)
             {
-                SetIndex0(Index1);
-                SetIndex1(Index2);
-                SetIndex2(Index0);
-                SetBlend01(Blend12);
-                SetBlend12(255-Blend01);
+                SetIndex0(I1);
+                SetIndex1(I2);
+                SetIndex2(I0);
+                SetBlend01(B12);
+                SetBlend12(255-B01);
             }
             else
-            if (Index0 > Index1)
+            if (I0 > I1)
             {
-                SetIndex0(Index1);
-                SetIndex1(Index0);
-                SetBlend01(255-Blend01);
+                SetIndex0(I1);
+                SetIndex1(I0);
+                SetBlend01(255-B01);
             }
+
+            UE_LOG(LogTemp,Warning, TEXT("SORT REQUIRED"));
+
+            //SetIndex0(I0);
+            //SetIndex1(I1);
+            //SetIndex2(I2);
+            //SetBlend01(B01);
+            //SetBlend12(B12);
         }
     }
 
     inline bool IsMarkedAsTripledIndex() const
     {
-        return (G&0xF0) == 0xF0;
+        return (R&0xC0) == 0xC0;
     }
 
     inline void MarkAsTripleIndex()
     {
-        G |= 0xF0;
+        R |= 0xC0;
     }
 
 public:
@@ -221,11 +229,15 @@ public:
     inline uint8 GetIndexB() const { return G; }
     inline uint8 GetBlend() const { return B; }
 
-    inline uint8 GetIndex0() const { return  R    &0x0F; }
-    inline uint8 GetIndex1() const { return (R>>4)&0x0F; }
-    inline uint8 GetIndex2() const { return  G    &0x0F; }
+    inline uint8 GetIndex0() const { return  R    &0x03; }
+    inline uint8 GetIndex1() const { return (R>>2)&0x03; }
+    inline uint8 GetIndex2() const { return (R>>4)&0x03; }
     inline uint8 GetBlend01() const { return B; }
     inline uint8 GetBlend12() const { return GetIndex(); }
+
+    inline uint8 GetBlend0() const { return G; }
+    inline uint8 GetBlend1() const { return B; }
+    inline uint8 GetBlend2() const { return GetIndex(); }
 
     inline FColor ToFColor() const
     {
@@ -245,11 +257,15 @@ public:
     inline void SetIndexB(uint8 NewIndexB) { G = NewIndexB; }
     inline void SetBlend(uint8 NewBlend) { B = NewBlend; }
 
-    inline void SetIndex0(uint8 NewI0) { R = (R&0xF0)| (NewI0&0x0F);     }
-    inline void SetIndex1(uint8 NewI1) { R = (R&0x0F)|((NewI1&0x0F)<<4); }
-    inline void SetIndex2(uint8 NewI2) { G = (G&0xF0)| (NewI2&0x0F);     }
+    inline void SetIndex0(uint8 NewI0) { R = (R&0xFC)| (NewI0&0x03);     }
+    inline void SetIndex1(uint8 NewI1) { R = (R&0xF3)|((NewI1&0x03)<<2); }
+    inline void SetIndex2(uint8 NewI2) { R = (R&0xCF)|((NewI2&0x03)<<4); }
     inline void SetBlend01(uint8 NewBlend01) { B = NewBlend01; }
     inline void SetBlend12(uint8 NewBlend12) { SetIndex(NewBlend12); }
+
+    inline void SetBlend0(uint8 NewBlend0) { G = NewBlend0; }
+    inline void SetBlend1(uint8 NewBlend1) { B = NewBlend1; }
+    inline void SetBlend2(uint8 NewBlend2) { SetIndex(NewBlend2); }
 
     inline void SetColor(const FColor& Color)
     {
@@ -662,61 +678,144 @@ struct FMQCTripleIndex
 
 struct FMQCTripleIndexBlend : public FMQCTripleIndex
 {
-    uint8 Blend01;
-    uint8 Blend12;
+    //uint8 Blend01;
+    //uint8 Blend12;
+
+    uint8 Blend0;
+    uint8 Blend1;
+    uint8 Blend2;
 
     FMQCTripleIndexBlend() = default;
 
-    explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Blend01)
+    //explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Blend01)
+    //    : FMQCTripleIndex(Index0, Index1)
+    //    , Blend01(Blend01)
+    //    , Blend12(0)
+    //{
+    //}
+
+    explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Blend0)
         : FMQCTripleIndex(Index0, Index1)
-        , Blend01(Blend01)
-        , Blend12(0)
+        , Blend0(Blend0)
+        , Blend1(0)
+        , Blend2(0)
     {
     }
 
-    explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Index2, uint8 Blend01, uint8 Blend12)
+    //explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Index2, uint8 Blend01, uint8 Blend12)
+    //    : FMQCTripleIndex(Index0, Index1, Index2)
+    //    , Blend01(Blend01)
+    //    , Blend12(Blend12)
+    //{
+    //}
+
+    explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Index2, uint8 Blend0, uint8 Blend1, uint8 Blend2)
         : FMQCTripleIndex(Index0, Index1, Index2)
-        , Blend01(Blend01)
-        , Blend12(Blend12)
+        , Blend0(Blend0)
+        , Blend1(Blend1)
+        , Blend2(Blend2)
     {
     }
 
     explicit FMQCTripleIndexBlend(const FMQCMaterial& Material)
         : FMQCTripleIndex(Material)
     {
+        //if (bIsTriple)
+        //{
+        //    Blend01 = Material.GetBlend01();
+        //    Blend12 = Material.GetBlend12();
+        //}
+        //else
+        //{
+        //    Blend01 = Material.GetBlend();
+        //}
+
         if (bIsTriple)
         {
-            Blend01 = Material.GetBlend01();
-            Blend12 = Material.GetBlend12();
+            Blend0 = Material.GetBlend0();
+            Blend1 = Material.GetBlend1();
+            Blend2 = Material.GetBlend2();
         }
         else
         {
-            Blend01 = Material.GetBlend();
+            Blend0 = Material.GetBlend();
         }
     }
 
-    inline uint8 GetBlend0() const { return 255-Blend01; }
-    inline uint8 GetBlend1() const { return Blend01; }
-    inline uint8 GetBlend2() const { return Blend12; }
+    //inline uint8 GetBlend0() const { return 255-Blend01; }
+    //inline uint8 GetBlend1() const { return Blend01; }
+    //inline uint8 GetBlend2() const { return Blend12; }
+
+    inline uint8 GetBlend0() const { return Blend0; }
+    inline uint8 GetBlend1() const { return Blend1; }
+    inline uint8 GetBlend2() const { return Blend2; }
+
+    //inline int32 GetSignificantSingleIndex() const
+    //{
+    //    if (bIsTriple)
+    //    {
+    //        // Significant Index0
+    //        if (Blend01 == 0 && Blend12 == 0)
+    //        {
+    //            return 0;
+    //        }
+    //        // Significant Index1
+    //        else
+    //        if (Blend01 == 255 && Blend12 == 0)
+    //        {
+    //            return 1;
+    //        }
+    //        // Significant Index2
+    //        else
+    //        if (Blend01 == 255 && Blend12 == 255)
+    //        {
+    //            return 2;
+    //        }
+    //        // Does not have single significant index
+    //        else
+    //        {
+    //            return -1;
+    //        }
+    //    }
+    //    else
+    //    {
+    //        // Single index or Significant Index0
+    //        if (Index0 == Index1 || Blend01 == 0)
+    //        {
+    //            return 0;
+    //        }
+    //        // Significant Index1
+    //        else
+    //        if (Blend01 == 255)
+    //        {
+    //            return 1;
+    //        }
+    //        // Does not have single significant index
+    //        else
+    //        {
+    //            return -1;
+    //        }
+    //    }
+    //}
 
     inline int32 GetSignificantSingleIndex() const
     {
         if (bIsTriple)
         {
             // Significant Index0
-            if (Blend01 == 0 && Blend12 == 0)
+            if (Blend0 == 255)
             {
                 return 0;
             }
             // Significant Index1
             else
-            if (Blend01 == 255 && Blend12 == 0)
+            if (Blend1 == 255)
             {
                 return 1;
             }
             // Significant Index2
             else
-            if (Blend01 == 255 && Blend12 == 255)
+            if (Blend2 == 255)
             {
                 return 2;
             }
@@ -729,13 +828,13 @@ struct FMQCTripleIndexBlend : public FMQCTripleIndex
         else
         {
             // Single index or Significant Index0
-            if (Index0 == Index1 || Blend01 == 0)
+            if (Index0 == Index1 || Blend0 == 0)
             {
                 return 0;
             }
             // Significant Index1
             else
-            if (Blend01 == 255)
+            if (Blend1 == 255)
             {
                 return 1;
             }
