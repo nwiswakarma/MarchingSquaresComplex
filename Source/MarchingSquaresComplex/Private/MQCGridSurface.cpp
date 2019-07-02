@@ -371,147 +371,76 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
     Materials[1].SetColor(SrcSection.Colors[b]);
     Materials[2].SetColor(SrcSection.Colors[c]);
 
-    EMQCMaterialType FaceMatType(MaterialType);
+    uint8 Blends0[3];
+    uint8 Blends1[3];
+    uint8 Blends2[3];
 
-#if 0
-    // If material type is MT_TRIPLE_INDEX but the face does not require
-    // triple material index set, revert to double index material face
-    if (FaceMatType == EMQCMaterialType::MT_TRIPLE_INDEX)
+    UMQCMaterialUtility::FindTripleIndexFaceBlend(
+        Materials,
+        Material,
+        Blends0,
+        Blends1,
+        Blends2
+        );
+
+    struct FVertexHelper
     {
-        if (! Materials[0].IsMarkedAsTripledIndex() &&
-            ! Materials[1].IsMarkedAsTripledIndex() &&
-            ! Materials[2].IsMarkedAsTripledIndex()
+        const FPMUMeshSection& SrcSection;
+        FPMUMeshSection& DstSection;
+        FIndexMap& IndexMap;
+
+        FVertexHelper(
+            const FPMUMeshSection& SrcSection,
+            FPMUMeshSection& DstSection,
+            FIndexMap& IndexMap
+            )
+            : SrcSection(SrcSection)
+            , DstSection(DstSection)
+            , IndexMap(IndexMap)
+        {
+        }
+
+        inline void AddVertex(
+            const int32 Index,
+            const uint8 Blend0,
+            const uint8 Blend1,
+            const uint8 Blend2
             )
         {
-            FaceMatType = EMQCMaterialType::MT_DOUBLE_INDEX;
+            int32 MappedIndex;
+
+            if (int32* MappedIndexPtr = IndexMap.Find(Index))
+            {
+                MappedIndex = *MappedIndexPtr;
+            }
+            else
+            {
+                MappedIndex = FMQCGridSurface::DuplicateVertex(
+                    SrcSection,
+                    DstSection,
+                    Index
+                    );
+
+                // Assign blend value
+                DstSection.Colors[MappedIndex].R = Blend0;
+                DstSection.Colors[MappedIndex].G = Blend1;
+                DstSection.Colors[MappedIndex].B = Blend2;
+
+                // Map duplicated vertex index
+                IndexMap.Add(Index, MappedIndex);
+            }
+
+            DstSection.Indices.Emplace(MappedIndex);
         }
-    }
+    };
 
-    if (FaceMatType == EMQCMaterialType::MT_DOUBLE_INDEX)
-    {
-        uint8 Blends[3];
-        UMQCMaterialUtility::FindDoubleIndexFaceBlend(Materials, Material, Blends);
+    FPMUMeshSection& DstSection(MaterialSectionMap.FindOrAdd(Material));
+    FIndexMap& IndexMap(MaterialIndexMaps.FindOrAdd(Material));
 
-        FPMUMeshSection& DstSection(MaterialSectionMap.FindOrAdd(Material));
-        FIndexMap& IndexMap(MaterialIndexMaps.FindOrAdd(Material));
-
-        struct FHelper
-        {
-            inline static void AddVertex(
-                const int32 Index,
-                const uint8 Blend,
-                const FPMUMeshSection& SrcSection,
-                FPMUMeshSection& DstSection,
-                FIndexMap& IndexMap
-                )
-            {
-                int32 MappedIndex;
-
-                if (int32* MappedIndexPtr = IndexMap.Find(Index))
-                {
-                    MappedIndex = *MappedIndexPtr;
-                }
-                else
-                {
-                    MappedIndex = FMQCGridSurface::DuplicateVertex(
-                        SrcSection,
-                        DstSection,
-                        Index
-                        );
-
-                    // Assign blend value
-                    DstSection.Colors[MappedIndex].R = Blend;
-
-                    // Map duplicated vertex index
-                    IndexMap.Add(Index, MappedIndex);
-                }
-
-                DstSection.Indices.Emplace(MappedIndex);
-            }
-        };
-
-        FHelper::AddVertex(a, Blends[0], SrcSection, DstSection, IndexMap);
-        FHelper::AddVertex(b, Blends[1], SrcSection, DstSection, IndexMap);
-        FHelper::AddVertex(c, Blends[2], SrcSection, DstSection, IndexMap);
-    }
-    else
-    if (FaceMatType == EMQCMaterialType::MT_TRIPLE_INDEX)
-#endif
-    {
-        uint8 Blends0[3];
-        uint8 Blends1[3];
-        uint8 Blends2[3];
-
-        UMQCMaterialUtility::FindTripleIndexFaceBlend(
-            Materials,
-            Material,
-            Blends0,
-            Blends1,
-            Blends2
-            );
-
-        struct FVertexHelper
-        {
-            const FPMUMeshSection& SrcSection;
-            FPMUMeshSection& DstSection;
-            FIndexMap& IndexMap;
-
-            FVertexHelper(
-                const FPMUMeshSection& SrcSection,
-                FPMUMeshSection& DstSection,
-                FIndexMap& IndexMap
-                )
-                : SrcSection(SrcSection)
-                , DstSection(DstSection)
-                , IndexMap(IndexMap)
-            {
-            }
-
-            inline void AddVertex(
-                const int32 Index,
-                const uint8 Blend0,
-                const uint8 Blend1,
-                const uint8 Blend2
-                )
-            {
-                int32 MappedIndex;
-
-                if (int32* MappedIndexPtr = IndexMap.Find(Index))
-                {
-                    MappedIndex = *MappedIndexPtr;
-                }
-                else
-                {
-                    MappedIndex = FMQCGridSurface::DuplicateVertex(
-                        SrcSection,
-                        DstSection,
-                        Index
-                        );
-
-                    // Assign blend value
-                    DstSection.Colors[MappedIndex].R = Blend0;
-                    DstSection.Colors[MappedIndex].G = Blend1;
-                    DstSection.Colors[MappedIndex].B = Blend2;
-
-                    // Map duplicated vertex index
-                    IndexMap.Add(Index, MappedIndex);
-                }
-
-                DstSection.Indices.Emplace(MappedIndex);
-            }
-        };
-
-        FPMUMeshSection& DstSection(MaterialSectionMap.FindOrAdd(Material));
-        FIndexMap& IndexMap(MaterialIndexMaps.FindOrAdd(Material));
-        FVertexHelper VertexHelper(SrcSection, DstSection, IndexMap);
-
-        //UE_LOG(LogTemp,Warning, TEXT("Blends0: %u %u %u"),
-        //    Blends0[0], Blends0[1], Blends0[2]);
-
-        VertexHelper.AddVertex(a, Blends0[0], Blends1[0], Blends2[0]);
-        VertexHelper.AddVertex(b, Blends0[1], Blends1[1], Blends2[1]);
-        VertexHelper.AddVertex(c, Blends0[2], Blends1[2], Blends2[2]);
-    }
+    FVertexHelper VertexHelper(SrcSection, DstSection, IndexMap);
+    VertexHelper.AddVertex(a, Blends0[0], Blends1[0], Blends2[0]);
+    VertexHelper.AddVertex(b, Blends0[1], Blends1[1], Blends2[1]);
+    VertexHelper.AddVertex(c, Blends0[2], Blends1[2], Blends2[2]);
 }
 
 int32 FMQCGridSurface::DuplicateVertex(

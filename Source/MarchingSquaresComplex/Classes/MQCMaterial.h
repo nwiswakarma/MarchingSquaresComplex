@@ -124,18 +124,6 @@ public:
             || (InIndex == GetIndex2());
     }
 
-    inline int32 IsTripleIndexRequiredFor(uint8 InIndex) const
-    {
-        if (! IsMarkedAsTripledIndex())
-        {
-            return GetIndexA() != GetIndexB()
-                && ! HasOpaqueBlend()
-                && ! HasIndexAsDouble(InIndex);
-        }
-
-        return true;
-    }
-
     inline bool IsDoubleIndexSortRequired() const
     {
         return GetIndexA() > GetIndexB();
@@ -163,53 +151,53 @@ public:
 
     inline void SortTripleIndex()
     {
-        if (IsMarkedAsTripledIndex() && IsTripleIndexSortRequired())
+        uint8 I0 = GetIndex0();
+        uint8 I1 = GetIndex1();
+        uint8 I2 = GetIndex2();
+
+        uint8 B0 = GetBlend0();
+        uint8 B1 = GetBlend1();
+        uint8 B2 = GetBlend2();
+
+        if (I1 > I2)
         {
-            uint8 I0 = GetIndex0();
-            uint8 I1 = GetIndex1();
-            uint8 I2 = GetIndex2();
+            Swap(I1, I2);
+            Swap(B1, B2);
 
-            uint8 B0 = GetBlend0();
-            uint8 B1 = GetBlend1();
-            uint8 B2 = GetBlend2();
+            SetIndex1(I1);
+            SetIndex2(I2);
 
-            if (I1 > I2)
-            {
-                Swap(I1, I2);
-                Swap(B1, I2);
-            }
+            SetBlend1(B1);
+            SetBlend2(B2);
+        }
 
-            if (I0 > I2)
-            {
-                Swap(I0, I2);
-                Swap(I1, I2);
-                Swap(B0, I2);
-                Swap(B1, I2);
-            }
-            else
-            if (I0 > I1)
-            {
-                Swap(I0, I1);
-                Swap(B0, I1);
-            }
+        if (I0 > I2)
+        {
+            Swap(I0, I1);
+            Swap(I1, I2);
+            Swap(B0, B1);
+            Swap(B1, B2);
 
             SetIndex0(I0);
             SetIndex1(I1);
             SetIndex2(I2);
+
             SetBlend0(B0);
             SetBlend1(B1);
             SetBlend2(B2);
         }
-    }
+        else
+        if (I0 > I1)
+        {
+            Swap(I0, I1);
+            Swap(B0, B1);
 
-    inline bool IsMarkedAsTripledIndex() const
-    {
-        return (R&0xC0) == 0xC0;
-    }
+            SetIndex0(I0);
+            SetIndex1(I1);
 
-    inline void MarkAsTripleIndex()
-    {
-        R |= 0xC0;
+            SetBlend0(B0);
+            SetBlend1(B1);
+        }
     }
 
 public:
@@ -602,42 +590,30 @@ struct FMQCTripleIndex
 
     explicit FMQCTripleIndex(const FMQCMaterial& Material)
     {
-        if (Material.IsMarkedAsTripledIndex())
+        // Assign index
+        Index0 = Material.GetIndex0();
+        Index1 = Material.GetIndex1();
+        Index2 = Material.GetIndex2();
+
+        if (Index1 != Index2)
         {
-            // Assign index
-            Index0 = Material.GetIndex0();
-            Index1 = Material.GetIndex1();
-            Index2 = Material.GetIndex2();
-
-            if (Index1 != Index2)
-            {
-                IndexCount = 3;
-            }
-            else
-            if (Index0 != Index1)
-            {
-                IndexCount = 2;
-            }
-            else
-            {
-                IndexCount = 1;
-            }
-
-            check(Index0 <= Index1);
-            check(Index0 <= Index2);
-            check(Index1 <= Index2);
-            // Make sure Index1 equals Index2 if Index0 equals Index1
-            check(Index0 != Index1 || Index1 == Index2);
+            IndexCount = 3;
+        }
+        else
+        if (Index0 != Index1)
+        {
+            IndexCount = 2;
         }
         else
         {
-            Index0 = Material.GetIndexA();
-            Index1 = Material.GetIndexB();
-            Index2 = Index1;
-            IndexCount = (Index0 == Index1) ? 1 : 2;
-
-            check(Index0 <= Index1);
+            IndexCount = 1;
         }
+
+        check(Index0 <= Index1);
+        check(Index0 <= Index2);
+        check(Index1 <= Index2);
+        // Make sure Index1 equals Index2 if Index0 equals Index1
+        check(Index0 != Index1 || Index1 == Index2);
     }
 
     inline bool HasAnyIndex(uint8 Index) const
@@ -655,11 +631,6 @@ struct FMQCTripleIndex
         return IndexCount;
     }
 
-    FORCEINLINE bool HasEqualIndexCount(const FMQCTripleIndex& Other) const
-    {
-        return IndexCount == Other.IndexCount;
-    }
-
     inline bool HasEqualIndex(int32 InIndexCount, uint8 InIndex0, uint8 InIndex1, uint8 InIndex2) const
     {
         return Index0 == InIndex0
@@ -672,38 +643,6 @@ struct FMQCTripleIndex
         return HasEqualIndexCount(Other)
             ? HasEqualIndex(IndexCount, Other.Index0, Other.Index1, Other.Index2)
             : false;
-    }
-
-    inline uint8 GetIndex(int32 Index) const
-    {
-        switch (Index)
-        {
-            case 0: return Index0;
-            case 1: return Index1;
-            case 2: return Index2;
-
-            default:
-                return 0xFF;
-        }
-    }
-
-    inline FMQCTripleIndex GetMatchingIndex(const FMQCTripleIndex& Other) const
-    {
-        FMQCTripleIndex Match;
-        Match.Index0 = Index0 == Other.Index0;
-        Match.Index1 = Index1 == Other.Index1;
-        Match.Index2 = Index2 == Other.Index2;
-        return Match;
-    }
-
-    inline bool HasNonZeroIndex() const
-    {
-        return Index0 || Index1 || Index2;
-    }
-
-    inline int32 GetNonZeroIndexCount() const
-    {
-        return Index0 + Index1 + Index2;
     }
 };
 
@@ -742,29 +681,14 @@ struct FMQCTripleIndexBlend : public FMQCTripleIndex
     explicit FMQCTripleIndexBlend(const FMQCMaterial& Material)
         : FMQCTripleIndex(Material)
     {
-        if (Material.IsMarkedAsTripledIndex())
-        {
-            Blend0 = Material.GetBlend0();
-            Blend1 = Material.GetBlend1();
-            Blend2 = Material.GetBlend2();
-        }
-        else
-        {
-            //Blend1 = Material.GetBlend();
-            //Blend0 = 255-Blend1;
-            //Blend2 = 0;
-
-            Blend1 = 0;
-            Blend0 = 0;
-            Blend2 = 0;
-        }
+        Blend0 = Material.GetBlend0();
+        Blend1 = Material.GetBlend1();
+        Blend2 = Material.GetBlend2();
     }
 
     inline uint8 GetBlend0() const { return Blend0; }
     inline uint8 GetBlend1() const { return Blend1; }
     inline uint8 GetBlend2() const { return Blend2; }
-
-    uint8 GetMatchFlags(const FMQCTripleIndexBlend& Other) const;
     uint8 GetMatchFlags(uint8 InIndex) const;
 
     void SetBlendMasked(uint8 Mask, uint8 InBlend);

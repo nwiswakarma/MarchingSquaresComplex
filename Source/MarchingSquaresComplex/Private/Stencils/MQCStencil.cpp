@@ -299,245 +299,154 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
     uint8 TargetIndex = Material.GetIndex();
     uint8 TargetBlend = UMQCMaterialUtility::LerpUINT8(0, 255, BlendAlpha);
 
+    uint8 Index0 = BaseMaterial.GetIndex0();
+    uint8 Index1 = BaseMaterial.GetIndex1();
+    uint8 Index2 = BaseMaterial.GetIndex2();
+
+    uint8 Blend0 = BaseMaterial.GetBlend0();
+    uint8 Blend1 = BaseMaterial.GetBlend1();
+    uint8 Blend2 = BaseMaterial.GetBlend2();
+
     OutMaterial = BaseMaterial;
 
-    // Base material has been marked as triple index
-    if (BaseMaterial.IsMarkedAsTripledIndex())
+    // Update existing index
+    if (BaseMaterial.HasIndexAsTriple(TargetIndex))
     {
-        uint8 Index0 = BaseMaterial.GetIndex0();
-        uint8 Index1 = BaseMaterial.GetIndex1();
-        uint8 Index2 = BaseMaterial.GetIndex2();
+        uint8 MatchingIndex = 255;
+        uint8 OldBlend = 255;
 
-        uint8 Blend0 = BaseMaterial.GetBlend0();
-        uint8 Blend1 = BaseMaterial.GetBlend1();
-        uint8 Blend2 = BaseMaterial.GetBlend2();
+        // Find matching index and old blend
 
-        // Existing index, update
-        if (BaseMaterial.HasIndexAsTriple(TargetIndex))
+        if (Index0 == TargetIndex)
         {
-            uint8 MatchingIndex = 255;
-            uint8 OldBlend = 255;
-
-            // Find matching index and old blend
-
-            if (Index0 == TargetIndex)
-            {
-                MatchingIndex = 0;
-                OldBlend = Blend0;
-            }
-            else
-            if (Index1 == TargetIndex)
-            {
-                MatchingIndex = 1;
-                OldBlend = Blend1;
-            }
-            else
-            {
-                MatchingIndex = 2;
-                OldBlend = Blend2;
-            }
-
-            // Calculate target blending
-            switch (MaterialBlendType)
-            {
-                case EMQCMaterialBlendType::MBT_DEFAULT:
-                case EMQCMaterialBlendType::MBT_MAX:
-                    TargetBlend = FMath::Max(OldBlend, TargetBlend);
-                    break;
-
-                case EMQCMaterialBlendType::MBT_LERP:
-                    TargetBlend = UMQCMaterialUtility::LerpUINT8(
-                        OldBlend,
-                        TargetBlend,
-                        BlendAlpha
-                        );
-                    break;
-
-                case EMQCMaterialBlendType::MBT_COPY:
-                default:
-                    break;
-            }
-
-            // Assign target blend
-            switch (MatchingIndex)
-            {
-                case 0: OutMaterial.SetBlend0(TargetBlend); break;
-                case 1: OutMaterial.SetBlend1(TargetBlend); break;
-                case 2: OutMaterial.SetBlend2(TargetBlend); break;
-
-                default:
-                    // Check no-entry
-                    check(false);
-                    break;
-            }
+            MatchingIndex = 0;
+            OldBlend = Blend0;
         }
-        // Add new index
+        else
+        if (Index1 == TargetIndex)
+        {
+            MatchingIndex = 1;
+            OldBlend = Blend1;
+        }
         else
         {
-            // Single index material
-            if (Index0 == Index1)
-            {
-                check(Index1 == Index2);
+            MatchingIndex = 2;
+            OldBlend = Blend2;
+        }
 
-                // Immediate sort to fill unused index with zero blend
+        // Calculate target blending
+        switch (MaterialBlendType)
+        {
+            case EMQCMaterialBlendType::MBT_DEFAULT:
+            case EMQCMaterialBlendType::MBT_MAX:
+                TargetBlend = FMath::Max(OldBlend, TargetBlend);
+                break;
 
-                if (Index0 > TargetIndex)
-                {
-                    Index1 = Index0;
-                    Index2 = Index0;
-                    Blend1 = Blend0;
-                    Blend2 = 0;
+            case EMQCMaterialBlendType::MBT_LERP:
+                TargetBlend = UMQCMaterialUtility::LerpUINT8(
+                    OldBlend,
+                    TargetBlend,
+                    BlendAlpha
+                    );
+                break;
 
-                    Index0 = TargetIndex;
-                    Blend0 = TargetBlend;
-                }
-                else
-                {
-                    Index1 = TargetIndex;
-                    Index2 = TargetIndex;
-                    Blend1 = TargetBlend;
-                    Blend2 = 0;
-                }
-            }
-            // Double index material
-            else
-            if (Index1 == Index2)
-            {
-                Index2 = TargetIndex;
-                Blend2 = TargetBlend;
+            case EMQCMaterialBlendType::MBT_COPY:
+            default:
+                break;
+        }
 
-                // Sort index
-                if (Index1 > Index2)
-                {
-                    Swap(Index1, Index2);
-                    Swap(Blend1, Blend2);
-                }
-                if (Index0 > Index2)
-                {
-                    Swap(Index0, Index1);
-                    Swap(Blend0, Blend1);
-                    Swap(Index1, Index2);
-                    Swap(Blend1, Blend2);
-                }
-                else
-                if (Index0 > Index1)
-                {
-                    Swap(Index0, Index1);
-                    Swap(Blend0, Blend1);
-                }
-            }
-            // Triple index material, replace least significant index
-            // Replace index immediately and defer index sorting
-            else
-            {
-                // Replace Index2
-                if (Blend2 <= Blend1 && Blend2 <= Blend0)
-                {
-                    Index2 = TargetIndex;
-                    Blend2 = TargetBlend;
-                }
-                // Replace Index1
-                else
-                if (Blend1 <= Blend2 && Blend1 <= Blend0)
-                {
-                    Index1 = TargetIndex;
-                    Blend1 = TargetBlend;
-                }
-                // Replace Index0
-                else
-                if (Blend0 <= Blend2 && Blend0 <= Blend1)
-                {
-                    Index0 = TargetIndex;
-                    Blend0 = TargetBlend;
-                }
-                // Otherwise, replace last index (Index2)
-                else
-                {
-                    Index2 = TargetIndex;
-                    Blend2 = TargetBlend;
-                }
-            }
+        // Assign target blend
+        switch (MatchingIndex)
+        {
+            case 0: OutMaterial.SetBlend0(TargetBlend); break;
+            case 1: OutMaterial.SetBlend1(TargetBlend); break;
+            case 2: OutMaterial.SetBlend2(TargetBlend); break;
 
-            OutMaterial.SetIndex0(Index0);
-            OutMaterial.SetIndex1(Index1);
-            OutMaterial.SetIndex2(Index2);
-            OutMaterial.SetBlend0(Blend0);
-            OutMaterial.SetBlend1(Blend1);
-            OutMaterial.SetBlend2(Blend2);
+            default:
+                // Check no-entry
+                check(false);
+                break;
         }
     }
-    // Base material has not been marked as triple index
+    // Add new index
     else
     {
-        uint8 IndexA = BaseMaterial.GetIndexA();
-        uint8 IndexB = BaseMaterial.GetIndexB();
-        uint8 BaseBlend = BaseMaterial.GetBlend();
-
-        check(IndexA <= IndexB);
-
-        // Single index
-        if (IndexA == IndexB)
+        // Add to single index material
+        if (Index0 == Index1)
         {
-            uint8 Index0 = IndexA;
-            uint8 Index1 = TargetIndex;
+            check(Index1 == Index2);
 
-            uint8 Blend0 = BaseBlend;
-            uint8 Blend1 = TargetBlend;
-
-            // Existing index, assign target blend
-            if (Index0 == TargetIndex)
-            {
-                Blend0 = TargetBlend;
-                Blend1 = 0;
-            }
             // Immediate sort to fill unused index with zero blend
-            else
+
             if (Index0 > TargetIndex)
             {
                 Index1 = Index0;
-                Index0 = TargetIndex;
-
+                Index2 = Index0;
                 Blend1 = Blend0;
+                Blend2 = 0;
+
+                Index0 = TargetIndex;
                 Blend0 = TargetBlend;
             }
-
-            OutMaterial.SetIndex0(Index0);
-            OutMaterial.SetIndex1(Index1);
-            OutMaterial.SetIndex2(Index1);
-            OutMaterial.SetBlend0(Blend0);
-            OutMaterial.SetBlend1(Blend1);
-            OutMaterial.SetBlend2(0);
-        }
-        // Double index
-        else
-        {
-            uint8 Index0 = IndexA;
-            uint8 Index1 = IndexB;
-            uint8 Index2 = TargetIndex;
-
-            uint8 Blend0 = 255-BaseBlend;
-            uint8 Blend1 = BaseBlend;
-            uint8 Blend2 = TargetBlend;
-
-            // Existing index, assign target blend
-            if (Index1 == Index2)
+            else
             {
-                Blend1 = Blend2;
+                Index1 = TargetIndex;
+                Index2 = TargetIndex;
+                Blend1 = TargetBlend;
                 Blend2 = 0;
             }
-
-            OutMaterial.SetIndex0(Index0);
-            OutMaterial.SetIndex1(Index1);
-            OutMaterial.SetIndex2(Index2);
-            OutMaterial.SetBlend0(Blend0);
-            OutMaterial.SetBlend1(Blend1);
-            OutMaterial.SetBlend2(Blend2);
+        }
+        // Add to double index material, defer sorting
+        else
+        if (Index1 == Index2)
+        {
+            Index2 = TargetIndex;
+            Blend2 = TargetBlend;
+        }
+        // Triple index material, replace least significant index
+        // Replace index immediately and defer index sorting
+        else
+        {
+            // Replace Index2
+            if (Blend2 <= Blend1 && Blend2 <= Blend0)
+            {
+                Index2 = TargetIndex;
+                Blend2 = TargetBlend;
+            }
+            // Replace Index1
+            else
+            if (Blend1 <= Blend2 && Blend1 <= Blend0)
+            {
+                Index1 = TargetIndex;
+                Blend1 = TargetBlend;
+            }
+            // Replace Index0
+            else
+            if (Blend0 <= Blend2 && Blend0 <= Blend1)
+            {
+                Index0 = TargetIndex;
+                Blend0 = TargetBlend;
+            }
+            // Otherwise, replace last index (Index2)
+            else
+            {
+                Index2 = TargetIndex;
+                Blend2 = TargetBlend;
+            }
         }
 
-        OutMaterial.MarkAsTripleIndex();
+        OutMaterial.SetIndex0(Index0);
+        OutMaterial.SetIndex1(Index1);
+        OutMaterial.SetIndex2(Index2);
+        OutMaterial.SetBlend0(Blend0);
+        OutMaterial.SetBlend1(Blend1);
+        OutMaterial.SetBlend2(Blend2);
     }
 
-    OutMaterial.SortTripleIndex();
+    if (OutMaterial.IsTripleIndexSortRequired())
+    {
+        OutMaterial.SortTripleIndex();
+    }
 }
 
 void FMQCStencil::Initialize(const FMQCMap& VoxelMap)
