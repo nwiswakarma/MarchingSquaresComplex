@@ -631,6 +631,11 @@ struct FMQCTripleIndex
         return IndexCount;
     }
 
+    FORCEINLINE bool HasEqualIndexCount(const FMQCTripleIndex& Other) const
+    {
+        return IndexCount == Other.IndexCount;
+    }
+
     inline bool HasEqualIndex(int32 InIndexCount, uint8 InIndex0, uint8 InIndex1, uint8 InIndex2) const
     {
         return Index0 == InIndex0
