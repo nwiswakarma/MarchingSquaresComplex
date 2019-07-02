@@ -373,6 +373,7 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
 
     EMQCMaterialType FaceMatType(MaterialType);
 
+#if 0
     // If material type is MT_TRIPLE_INDEX but the face does not require
     // triple material index set, revert to double index material face
     if (FaceMatType == EMQCMaterialType::MT_TRIPLE_INDEX)
@@ -435,6 +436,7 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
     }
     else
     if (FaceMatType == EMQCMaterialType::MT_TRIPLE_INDEX)
+#endif
     {
         uint8 Blends0[3];
         uint8 Blends1[3];
@@ -502,6 +504,9 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
         FPMUMeshSection& DstSection(MaterialSectionMap.FindOrAdd(Material));
         FIndexMap& IndexMap(MaterialIndexMaps.FindOrAdd(Material));
         FVertexHelper VertexHelper(SrcSection, DstSection, IndexMap);
+
+        //UE_LOG(LogTemp,Warning, TEXT("Blends0: %u %u %u"),
+        //    Blends0[0], Blends0[1], Blends0[2]);
 
         VertexHelper.AddVertex(a, Blends0[0], Blends1[0], Blends2[0]);
         VertexHelper.AddVertex(b, Blends0[1], Blends1[1], Blends2[1]);

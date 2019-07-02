@@ -63,15 +63,15 @@ void FMQCMap::Triangulate()
 
     ResolveChunkEdgeData();
 
-    //TSet<FMQCMaterialBlend> MaterialSet;
-    //for (FMQCGridChunk* Chunk : chunks)
-    //{
-    //    Chunk->GetMaterialSet(MaterialSet);
-    //}
-    //for (const FMQCMaterialBlend& M : MaterialSet)
-    //{
-    //    UE_LOG(LogTemp,Warning, TEXT("M: %s"), *M.ToString());
-    //}
+    TSet<FMQCMaterialBlend> MaterialSet;
+    for (FMQCGridChunk* Chunk : chunks)
+    {
+        Chunk->GetMaterialSet(MaterialSet);
+    }
+    for (const FMQCMaterialBlend& M : MaterialSet)
+    {
+        UE_LOG(LogTemp,Warning, TEXT("M: %s"), *M.ToString());
+    }
 }
 
 void FMQCMap::TriangulateAsync()

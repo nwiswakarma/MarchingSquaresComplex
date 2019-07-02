@@ -163,46 +163,42 @@ public:
 
     inline void SortTripleIndex()
     {
-        if (IsTripleIndexSortRequired())
+        if (IsMarkedAsTripledIndex() && IsTripleIndexSortRequired())
         {
             uint8 I0 = GetIndex0();
             uint8 I1 = GetIndex1();
             uint8 I2 = GetIndex2();
 
-            uint8 B01 = GetBlend01();
-            uint8 B12 = GetBlend12();
+            uint8 B0 = GetBlend0();
+            uint8 B1 = GetBlend1();
+            uint8 B2 = GetBlend2();
 
             if (I1 > I2)
             {
-                SetIndex1(I2);
-                SetIndex2(I1);
-                SetBlend01(B12);
-                SetBlend12(B01);
+                Swap(I1, I2);
+                Swap(B1, I2);
             }
 
             if (I0 > I2)
             {
-                SetIndex0(I1);
-                SetIndex1(I2);
-                SetIndex2(I0);
-                SetBlend01(B12);
-                SetBlend12(255-B01);
+                Swap(I0, I2);
+                Swap(I1, I2);
+                Swap(B0, I2);
+                Swap(B1, I2);
             }
             else
             if (I0 > I1)
             {
-                SetIndex0(I1);
-                SetIndex1(I0);
-                SetBlend01(255-B01);
+                Swap(I0, I1);
+                Swap(B0, I1);
             }
 
-            UE_LOG(LogTemp,Warning, TEXT("SORT REQUIRED"));
-
-            //SetIndex0(I0);
-            //SetIndex1(I1);
-            //SetIndex2(I2);
-            //SetBlend01(B01);
-            //SetBlend12(B12);
+            SetIndex0(I0);
+            SetIndex1(I1);
+            SetIndex2(I2);
+            SetBlend0(B0);
+            SetBlend1(B1);
+            SetBlend2(B2);
         }
     }
 
@@ -568,24 +564,33 @@ struct FMQCDoubleIndexBlend : public FMQCDoubleIndex
 
 struct FMQCTripleIndex
 {
-    bool bIsTriple;
+    int32 IndexCount;
     uint8 Index0;
     uint8 Index1;
     uint8 Index2;
 
     FMQCTripleIndex() = default;
 
+    explicit FMQCTripleIndex(uint8 Index0)
+        : IndexCount(1)
+        , Index0(Index0)
+        , Index1(Index0)
+        , Index2(Index0)
+    {
+        check(Index0 <= Index1);
+    }
+
     explicit FMQCTripleIndex(uint8 Index0, uint8 Index1)
-        : bIsTriple(false)
+        : IndexCount(2)
         , Index0(Index0)
         , Index1(Index1)
-        , Index2(255)
+        , Index2(Index1)
     {
         check(Index0 <= Index1);
     }
 
     explicit FMQCTripleIndex(uint8 Index0, uint8 Index1, uint8 Index2)
-        : bIsTriple(true)
+        : IndexCount(3)
         , Index0(Index0)
         , Index1(Index1)
         , Index2(Index2)
@@ -596,51 +601,77 @@ struct FMQCTripleIndex
     }
 
     explicit FMQCTripleIndex(const FMQCMaterial& Material)
-        : bIsTriple(Material.IsMarkedAsTripledIndex())
     {
-        if (bIsTriple)
+        if (Material.IsMarkedAsTripledIndex())
         {
+            // Assign index
             Index0 = Material.GetIndex0();
             Index1 = Material.GetIndex1();
             Index2 = Material.GetIndex2();
+
+            if (Index1 != Index2)
+            {
+                IndexCount = 3;
+            }
+            else
+            if (Index0 != Index1)
+            {
+                IndexCount = 2;
+            }
+            else
+            {
+                IndexCount = 1;
+            }
+
             check(Index0 <= Index1);
             check(Index0 <= Index2);
             check(Index1 <= Index2);
+            // Make sure Index1 equals Index2 if Index0 equals Index1
+            check(Index0 != Index1 || Index1 == Index2);
         }
         else
         {
             Index0 = Material.GetIndexA();
             Index1 = Material.GetIndexB();
+            Index2 = Index1;
+            IndexCount = (Index0 == Index1) ? 1 : 2;
+
             check(Index0 <= Index1);
         }
     }
 
     inline bool HasAnyIndex(uint8 Index) const
     {
-        return Index0 == Index || Index1 == Index || Index2 == Index;
+        return Index == Index0 || Index == Index1 || Index == Index2;
     }
 
     inline bool HasAnyIndexAsDouble(uint8 Index) const
     {
-        return Index0 == Index || Index == Index1;
+        return Index == Index0 || Index == Index1;
     }
 
-    inline bool HasEqualIndex(bool bInIsTriple, uint8 InIndex0, uint8 InIndex1, uint8 InIndex2) const
+    inline uint8 GetIndexCount() const
     {
-        return bIsTriple == bInIsTriple
-            && Index0 == InIndex0
-            && Index1 == InIndex1
-            && Index2 == InIndex2;
+        return IndexCount;
+    }
+
+    FORCEINLINE bool HasEqualIndexCount(const FMQCTripleIndex& Other) const
+    {
+        return IndexCount == Other.IndexCount;
+    }
+
+    inline bool HasEqualIndex(int32 InIndexCount, uint8 InIndex0, uint8 InIndex1, uint8 InIndex2) const
+    {
+        return Index0 == InIndex0
+            && (InIndexCount > 1 && Index1 == InIndex1)
+            && (InIndexCount > 2 && Index2 == InIndex2);
     }
 
     FORCEINLINE bool HasEqualIndex(const FMQCTripleIndex& Other) const
     {
-        return HasEqualIndex(
-            Other.bIsTriple,
-            Other.Index0,
-            Other.Index1,
-            Other.Index2
-            );
+        return HasEqualIndexCount(Other)
+            ? HasEqualIndex(IndexCount, Other.Index0, Other.Index1, Other.Index2)
+            : false;
     }
 
     inline uint8 GetIndex(int32 Index) const
@@ -678,36 +709,27 @@ struct FMQCTripleIndex
 
 struct FMQCTripleIndexBlend : public FMQCTripleIndex
 {
-    //uint8 Blend01;
-    //uint8 Blend12;
-
     uint8 Blend0;
     uint8 Blend1;
     uint8 Blend2;
 
     FMQCTripleIndexBlend() = default;
 
-    //explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Blend01)
-    //    : FMQCTripleIndex(Index0, Index1)
-    //    , Blend01(Blend01)
-    //    , Blend12(0)
-    //{
-    //}
-
-    explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Blend0)
-        : FMQCTripleIndex(Index0, Index1)
+    explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Blend0)
+        : FMQCTripleIndex(Index0)
         , Blend0(Blend0)
         , Blend1(0)
         , Blend2(0)
     {
     }
 
-    //explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Index2, uint8 Blend01, uint8 Blend12)
-    //    : FMQCTripleIndex(Index0, Index1, Index2)
-    //    , Blend01(Blend01)
-    //    , Blend12(Blend12)
-    //{
-    //}
+    explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Blend0, uint8 Blend1)
+        : FMQCTripleIndex(Index0, Index1)
+        , Blend0(Blend0)
+        , Blend1(Blend1)
+        , Blend2(0)
+    {
+    }
 
     explicit FMQCTripleIndexBlend(uint8 Index0, uint8 Index1, uint8 Index2, uint8 Blend0, uint8 Blend1, uint8 Blend2)
         : FMQCTripleIndex(Index0, Index1, Index2)
@@ -720,17 +742,7 @@ struct FMQCTripleIndexBlend : public FMQCTripleIndex
     explicit FMQCTripleIndexBlend(const FMQCMaterial& Material)
         : FMQCTripleIndex(Material)
     {
-        //if (bIsTriple)
-        //{
-        //    Blend01 = Material.GetBlend01();
-        //    Blend12 = Material.GetBlend12();
-        //}
-        //else
-        //{
-        //    Blend01 = Material.GetBlend();
-        //}
-
-        if (bIsTriple)
+        if (Material.IsMarkedAsTripledIndex())
         {
             Blend0 = Material.GetBlend0();
             Blend1 = Material.GetBlend1();
@@ -738,115 +750,24 @@ struct FMQCTripleIndexBlend : public FMQCTripleIndex
         }
         else
         {
-            Blend0 = Material.GetBlend();
+            //Blend1 = Material.GetBlend();
+            //Blend0 = 255-Blend1;
+            //Blend2 = 0;
+
+            Blend1 = 0;
+            Blend0 = 0;
+            Blend2 = 0;
         }
     }
-
-    //inline uint8 GetBlend0() const { return 255-Blend01; }
-    //inline uint8 GetBlend1() const { return Blend01; }
-    //inline uint8 GetBlend2() const { return Blend12; }
 
     inline uint8 GetBlend0() const { return Blend0; }
     inline uint8 GetBlend1() const { return Blend1; }
     inline uint8 GetBlend2() const { return Blend2; }
 
-    //inline int32 GetSignificantSingleIndex() const
-    //{
-    //    if (bIsTriple)
-    //    {
-    //        // Significant Index0
-    //        if (Blend01 == 0 && Blend12 == 0)
-    //        {
-    //            return 0;
-    //        }
-    //        // Significant Index1
-    //        else
-    //        if (Blend01 == 255 && Blend12 == 0)
-    //        {
-    //            return 1;
-    //        }
-    //        // Significant Index2
-    //        else
-    //        if (Blend01 == 255 && Blend12 == 255)
-    //        {
-    //            return 2;
-    //        }
-    //        // Does not have single significant index
-    //        else
-    //        {
-    //            return -1;
-    //        }
-    //    }
-    //    else
-    //    {
-    //        // Single index or Significant Index0
-    //        if (Index0 == Index1 || Blend01 == 0)
-    //        {
-    //            return 0;
-    //        }
-    //        // Significant Index1
-    //        else
-    //        if (Blend01 == 255)
-    //        {
-    //            return 1;
-    //        }
-    //        // Does not have single significant index
-    //        else
-    //        {
-    //            return -1;
-    //        }
-    //    }
-    //}
+    uint8 GetMatchFlags(const FMQCTripleIndexBlend& Other) const;
+    uint8 GetMatchFlags(uint8 InIndex) const;
 
-    inline int32 GetSignificantSingleIndex() const
-    {
-        if (bIsTriple)
-        {
-            // Significant Index0
-            if (Blend0 == 255)
-            {
-                return 0;
-            }
-            // Significant Index1
-            else
-            if (Blend1 == 255)
-            {
-                return 1;
-            }
-            // Significant Index2
-            else
-            if (Blend2 == 255)
-            {
-                return 2;
-            }
-            // Does not have single significant index
-            else
-            {
-                return -1;
-            }
-        }
-        else
-        {
-            // Single index or Significant Index0
-            if (Index0 == Index1 || Blend0 == 0)
-            {
-                return 0;
-            }
-            // Significant Index1
-            else
-            if (Blend1 == 255)
-            {
-                return 1;
-            }
-            // Does not have single significant index
-            else
-            {
-                return -1;
-            }
-        }
-    }
+    void SetBlendMasked(uint8 Mask, uint8 InBlend);
 
-    FMQCTripleIndexBlend GetBlendAsDoubleIndexFor(const FMQCTripleIndexBlend& Other) const;
-    FMQCTripleIndexBlend GetBlendAsTripleIndexFor(const FMQCTripleIndexBlend& Other) const;
     FMQCTripleIndexBlend GetBlendFor(const FMQCTripleIndexBlend& Other) const;
 };

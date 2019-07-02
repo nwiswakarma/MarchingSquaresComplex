@@ -121,116 +121,122 @@ FMQCTripleIndexBlend UMQCMaterialUtility::FindTripleIndexBlend(
 {
     typedef TArray<uint8, TFixedAllocator<9>> FIndexList;
 
-    uint8 Strengths[256];
+    uint8 BlendsLUT[256];
     FIndexList UsedIds;
 
     struct FHelper
     {
         static void AddIndex(
             uint8 Index,
-            uint8 Strength,
-            uint8 Strengths[256],
+            uint8 Blend,
+            uint8 BlendsLUT[256],
             FIndexList& UsedIds
             )
         {
             if (! UsedIds.Contains(Index))
             {
                 UsedIds.Add(Index);
-                Strengths[Index] = 0;
+                BlendsLUT[Index] = 0;
             }
 
-            Strengths[Index] = FMath::Max(Strengths[Index], Strength);
+            BlendsLUT[Index] = FMath::Max(BlendsLUT[Index], Blend);
         }
 
         static void AddTripleIndexBlend(
             const FMQCTripleIndexBlend& A,
-            uint8 Strengths[256],
+            uint8 BlendsLUT[256],
             FIndexList& UsedIds
             )
         {
-            AddIndex(A.Index0, A.GetBlend0(), Strengths, UsedIds);
-            AddIndex(A.Index1, A.GetBlend1(), Strengths, UsedIds);
+            int32 IndexCount = A.GetIndexCount();
 
-            if (A.bIsTriple)
+            if (IndexCount == 3)
             {
-                AddIndex(A.Index2, A.GetBlend2(), Strengths, UsedIds);
+                AddIndex(A.Index0, A.GetBlend0(), BlendsLUT, UsedIds);
+                AddIndex(A.Index1, A.GetBlend1(), BlendsLUT, UsedIds);
+                AddIndex(A.Index2, A.GetBlend2(), BlendsLUT, UsedIds);
+            }
+            else
+            if (IndexCount == 2)
+            {
+                AddIndex(A.Index0, A.GetBlend0(), BlendsLUT, UsedIds);
+                AddIndex(A.Index1, A.GetBlend1(), BlendsLUT, UsedIds);
+            }
+            if (IndexCount == 1)
+            {
+                AddIndex(A.Index0, A.GetBlend0(), BlendsLUT, UsedIds);
             }
         }
     };
 
-    FHelper::AddTripleIndexBlend(A, Strengths, UsedIds);
-    FHelper::AddTripleIndexBlend(B, Strengths, UsedIds);
-    FHelper::AddTripleIndexBlend(C, Strengths, UsedIds);
+    FHelper::AddTripleIndexBlend(A, BlendsLUT, UsedIds);
+    FHelper::AddTripleIndexBlend(B, BlendsLUT, UsedIds);
+    FHelper::AddTripleIndexBlend(C, BlendsLUT, UsedIds);
 
     uint8 MaxIndex0 = 0;
-    int32 MaxIndex0Strength = -1;
+    int32 MaxBlend0 = -1;
     uint8 MaxIndex1 = 0;
-    int32 MaxIndex1Strength = -1;
+    int32 MaxBlend1 = -1;
     uint8 MaxIndex2 = 0;
-    int32 MaxIndex2Strength = -1;
+    int32 MaxBlend2 = -1;
 
     for (uint8 Id : UsedIds)
     {
-        uint8 Strength = Strengths[Id];
+        uint8 Blend = BlendsLUT[Id];
 
         // Assign index by strength, swap order if necessary
-        if (Strength >= MaxIndex0Strength)
+        if (Blend >= MaxBlend0)
         {
             MaxIndex2 = MaxIndex1;
-            MaxIndex2Strength = MaxIndex1Strength;
+            MaxBlend2 = MaxBlend1;
             MaxIndex1 = MaxIndex0;
-            MaxIndex1Strength = MaxIndex0Strength;
+            MaxBlend1 = MaxBlend0;
             MaxIndex0 = Id;
-            MaxIndex0Strength = Strength;
+            MaxBlend0 = Blend;
         }
         else
-        if (Strength > MaxIndex1Strength)
+        if (Blend > MaxBlend1)
         {
             MaxIndex2 = MaxIndex1;
-            MaxIndex2Strength = MaxIndex1Strength;
+            MaxBlend2 = MaxBlend1;
             MaxIndex1 = Id;
-            MaxIndex1Strength = Strength;
+            MaxBlend1 = Blend;
         }
         else
-        if (Strength > MaxIndex2Strength)
+        if (Blend > MaxBlend2)
         {
             MaxIndex2 = Id;
-            MaxIndex2Strength = Strength;
+            MaxBlend2 = Blend;
         }
     }
 
-    // Make sure Index 0 have any strength
-    check(MaxIndex0Strength >= 0);
+    // Make sure Index 0 is valid
+    check(MaxBlend0 >= 0);
 
     // Index set blend output
-    FMQCTripleIndexBlend Blend;
+    FMQCTripleIndexBlend MatBlend;
 
     // Max index 1 is invalid, use single index
-    if (MaxIndex1Strength < 0)
+    if (MaxBlend1 < 0)
     {
         // Make sure Index 2 is also invalid
-        check(MaxIndex2Strength < 0);
+        check(MaxBlend2 < 0);
 
-        Blend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex0, 0);
+        MatBlend = FMQCTripleIndexBlend(MaxIndex0, MaxBlend0);
     }
     // Max index 2 is invalid, use double index
     else
-    if (MaxIndex2Strength < 0)
+    if (MaxBlend2 < 0)
     {
-        // Find blend strength average
-        int32 Strength = ((255-MaxIndex0Strength) + MaxIndex1Strength) / 2;
-
-        // Make sure strength is withing byte range
-        check(0 <= Strength && Strength < 256);
-
-        // Index order is reversed, invert order
+        // Sort index order
         if (MaxIndex0 > MaxIndex1)
         {
             Swap(MaxIndex0, MaxIndex1);
-            Strength = 255-Strength;
         }
 
-        Blend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex1, Strength);
+        check(MaxIndex0 <= MaxIndex1);
+
+        MatBlend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex1, MaxBlend0, MaxBlend1);
     }
     // Otherwise, all index is valid, use triple index
     else
@@ -241,62 +247,35 @@ FMQCTripleIndexBlend UMQCMaterialUtility::FindTripleIndexBlend(
         {
             // 1 <-> 2
             Swap(MaxIndex1, MaxIndex2);
-            Swap(MaxIndex1Strength, MaxIndex2Strength);
+            Swap(MaxBlend1, MaxBlend2);
         }
 
         if (MaxIndex0 > MaxIndex2)
         {
             // 0 <-> 1
             Swap(MaxIndex0, MaxIndex1);
-            Swap(MaxIndex0Strength, MaxIndex1Strength);
+            Swap(MaxBlend0, MaxBlend1);
 
             // 1 <-> 2
             Swap(MaxIndex1, MaxIndex2);
-            Swap(MaxIndex1Strength, MaxIndex2Strength);
+            Swap(MaxBlend1, MaxBlend2);
         }
         else
         if (MaxIndex0 > MaxIndex1)
         {
             // 0 <-> 1
             Swap(MaxIndex0, MaxIndex1);
-            Swap(MaxIndex0Strength, MaxIndex1Strength);
+            Swap(MaxBlend0, MaxBlend1);
         }
 
         check(MaxIndex0 <= MaxIndex1);
         check(MaxIndex0 <= MaxIndex2);
         check(MaxIndex1 <= MaxIndex2);
 
-        float Sum3 = MaxIndex0Strength + MaxIndex1Strength + MaxIndex2Strength;
-
-        check(Sum3 > 0.f);
-
-        float Sum3Inv = 1.f / Sum3;
-
-        float Blend0F = MaxIndex0Strength * Sum3Inv;
-        float Blend1F = MaxIndex1Strength * Sum3Inv;
-        float Blend2F = MaxIndex2Strength * Sum3Inv;
-
-        uint8 Blend0 = AlphaToUINT8(Blend0F);
-        uint8 Blend1 = AlphaToUINT8(Blend1F);
-        uint8 Blend2 = AlphaToUINT8(Blend2F);
-
-        //float Blend01F = (Blend0>0.f || Blend1>0.f) ? (Blend1/(Blend0+Blend1)) : 0.f;
-        //float Blend12F = Blend2;
-
-        //uint8 Blend01 = AlphaToUINT8(Blend01F);
-        //uint8 Blend12 = AlphaToUINT8(Blend12F);
-
-        //int32 Blend01I = ((255-MaxIndex0Strength) + MaxIndex1Strength) / 2;
-        //int32 Blend12I = ((255-MaxIndex1Strength) + MaxIndex2Strength) / 2;
-          
-        //uint8 Blend01 = FMath::Clamp<uint8>(Blend01I, 0, 255);
-        //uint8 Blend12 = FMath::Clamp<uint8>(Blend12I, 0, 255);
-
-        //Blend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex1, MaxIndex2, Blend01, Blend12);
-        Blend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex1, MaxIndex2, Blend0, Blend1, Blend2);
+        MatBlend = FMQCTripleIndexBlend(MaxIndex0, MaxIndex1, MaxIndex2, MaxBlend0, MaxBlend1, MaxBlend2);
     }
 
-    return Blend;
+    return MatBlend;
 }
 
 void UMQCMaterialUtility::FindDoubleIndexFaceBlend(
@@ -401,18 +380,6 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
         FMQCTripleIndexBlend BlendB = MaterialB.GetBlendFor(FaceIndexBlend);
         FMQCTripleIndexBlend BlendC = MaterialC.GetBlendFor(FaceIndexBlend);
 
-        //Blends0[0] = BlendA.Blend01;
-        //Blends0[1] = BlendB.Blend01;
-        //Blends0[2] = BlendC.Blend01;
-
-        //Blends1[0] = BlendA.Blend12;
-        //Blends1[1] = BlendB.Blend12;
-        //Blends1[2] = BlendC.Blend12;
-
-        //Blends2[0] = 0;
-        //Blends2[1] = 0;
-        //Blends2[2] = 0;
-
         Blends0[0] = BlendA.Blend0;
         Blends0[1] = BlendB.Blend0;
         Blends0[2] = BlendC.Blend0;
@@ -426,86 +393,31 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
         Blends2[2] = BlendC.Blend2;
     }
 
-    // Generate face material for triple index set
-    if (FaceIndexBlend.bIsTriple)
+    int32 FaceIndexCount = FaceIndexBlend.GetIndexCount();
+
+    // Triple index material id
+    if (FaceIndexCount == 3)
     {
-        // Make sure there are three unique material index
+        // Make sure all material index are unique
         check(FaceIndexBlend.Index0 != FaceIndexBlend.Index1);
         check(FaceIndexBlend.Index0 != FaceIndexBlend.Index2);
         check(FaceIndexBlend.Index1 != FaceIndexBlend.Index2);
 
-#if 0
-        // Single index with material Index2
-        if (IsBlendsEqual(Blends12, 255))
-        {
-            FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index2);
-        }
-        else
-        if (IsBlendsEqual(Blends01, 255))
-        {
-            // Single index with material Index1
-            if (IsBlendsEqual(Blends12, 0))
-            {
-                FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1);
-            }
-            // Double index with material Index1 and Index2
-            else
-            {
-                FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1, FaceIndexBlend.Index2);
-            }
-        }
-        else
-        if (IsBlendsEqual(Blends01, 0))
-        {
-            // Single index with material Index0
-            if (IsBlendsEqual(Blends12, 0))
-            {
-                FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1);
-            }
-            // Double index with material Index1 and Index2
-            else
-            {
-                FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1, FaceIndexBlend.Index2);
-            }
-        }
-        // Triple index
-        else
-        {
-            FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0, FaceIndexBlend.Index1, FaceIndexBlend.Index2);
-        }
-#else
-            FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0, FaceIndexBlend.Index1, FaceIndexBlend.Index2);
-#endif
+        FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0, FaceIndexBlend.Index1, FaceIndexBlend.Index2);
     }
-    // Generate face material for single or double index set
+    // Double index material id
+    else
+    if (FaceIndexCount == 2)
+    {
+        // Make sure all material index are unique
+        check(FaceIndexBlend.Index0 != FaceIndexBlend.Index1);
+
+        FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0, FaceIndexBlend.Index1);
+    }
+    // Single index material id
     else
     {
-#if 0
-        // Single index with material Index0
-        if (IsBlendsEqual(Blends01, 0))
-        {
-            FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0);
-        }
-        // Single index with material Index1
-        else
-        if (IsBlendsEqual(Blends01, 255))
-        {
-            FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index1);
-        }
-        // Double or single index
-        else
-#endif
-        {
-            uint8 IndexMin = FaceIndexBlend.Index0;
-            uint8 IndexMax = FaceIndexBlend.Index1;
-
-            // Make sure index order is not reversed
-            check(IndexMin <= IndexMax);
-
-            FaceMaterial = (IndexMin == IndexMax)
-                ? FMQCMaterialBlend(IndexMin)
-                : FMQCMaterialBlend(IndexMin, IndexMax);
-        }
+        FaceMaterial = FMQCMaterialBlend(FaceIndexBlend.Index0);
     }
 
     // Assign output
@@ -525,245 +437,219 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
 
 FMQCTripleIndexBlend FMQCTripleIndexBlend::GetBlendFor(const FMQCTripleIndexBlend& Other) const
 {
-    return bIsTriple
-        ? GetBlendAsTripleIndexFor(Other)
-        : GetBlendAsDoubleIndexFor(Other);
-}
-
-FMQCTripleIndexBlend FMQCTripleIndexBlend::GetBlendAsDoubleIndexFor(const FMQCTripleIndexBlend& Other) const
-{
-    // Make sure index order is sorted on both index set
-    check(!bIsTriple);
-    check(Index0 <= Index1);
-    check(Other.Index0 <= Other.Index1);
-    check(!Other.bIsTriple || Other.Index0 <= Other.Index2);
-    check(!Other.bIsTriple || Other.Index1 <= Other.Index2);
-
-    FMQCTripleIndexBlend OutBlend = Other;
-    bool bMatchIndex0 = Other.HasAnyIndex(Index0);
-    bool bMatchIndex1 = Other.HasAnyIndex(Index1);
-    int32 SingleIndex = GetSignificantSingleIndex();
-
-#if 0
-    // Double index with only single matching index, treat as single index
-    if (SingleIndex < 0 && ((bMatchIndex0 && !bMatchIndex1) || (!bMatchIndex0 && bMatchIndex1)))
+    if (HasEqualIndex(Other))
     {
-        SingleIndex = bMatchIndex0 ? 0 : 1;
+        return *this;
     }
 
-    // Single index blend
-    if (SingleIndex >= 0)
-    {
-        uint8 Index = GetIndex(SingleIndex);
+    FMQCTripleIndexBlend OutBlend(Other);
 
-        if (Index == Other.Index0)
+    if (IndexCount == 3)
+    {
+        check(Index0 != Index1);
+        check(Index0 != Index2);
+        check(Index1 != Index2);
+
+        uint8 MatchFlags0 = Other.GetMatchFlags(Index0);
+        uint8 MatchFlags1 = Other.GetMatchFlags(Index1);
+        uint8 MatchFlags2 = Other.GetMatchFlags(Index2);
+        uint8 OutputMask = MatchFlags0 | MatchFlags1 | MatchFlags2;
+
+        if (OutputMask != 0)
         {
-            OutBlend.Blend01 = 0;
-            OutBlend.Blend12 = 0;
-        }
-        else
-        if (Index == Other.Index1)
-        {
-            OutBlend.Blend01 = 255;
-            OutBlend.Blend12 = 0;
-        }
-        else
-        if (Index == Other.Index2)
-        {
-            OutBlend.Blend01 = 0;
-            OutBlend.Blend12 = 255;
+            OutBlend.SetBlendMasked(MatchFlags0, Blend0);
+            OutBlend.SetBlendMasked(MatchFlags1, Blend1);
+            OutBlend.SetBlendMasked(MatchFlags2, Blend2);
+            OutBlend.SetBlendMasked(~OutputMask, 0);
         }
     }
-    // Double index blend
     else
-    if (bMatchIndex0 && bMatchIndex1)
+    if (IndexCount == 2)
     {
-        if (! HasAnyIndexAsDouble(Other.Index0))
-        {
-            OutBlend.Blend01 = 255;
-            OutBlend.Blend12 = Blend01;
-        }
-        else
-        if (! HasAnyIndexAsDouble(Other.Index1))
-        {
-            OutBlend.Blend01 = 0;
-            OutBlend.Blend12 = Blend01;
-        }
-        else
-        if (! HasAnyIndexAsDouble(Other.Index2))
-        {
-            OutBlend.Blend01 = Blend01;
-            OutBlend.Blend12 = 0;
-        }
-    }
-#else
-    // Double index with only single matching index, treat as single index
-    if (SingleIndex < 0 && ((bMatchIndex0 && !bMatchIndex1) || (!bMatchIndex0 && bMatchIndex1)))
-    {
-        SingleIndex = bMatchIndex0 ? 0 : 1;
-    }
+        check(Index0 != Index1);
 
-    // Single index blend
-    if (SingleIndex >= 0)
-    {
-        uint8 Index = GetIndex(SingleIndex);
+        uint8 MatchFlags0 = Other.GetMatchFlags(Index0);
+        uint8 MatchFlags1 = Other.GetMatchFlags(Index1);
+        uint8 OutputMask = MatchFlags0 | MatchFlags1;
 
-        if (Index == Other.Index0)
+        if (OutputMask != 0)
         {
-            OutBlend.Blend0 = 255;
-            OutBlend.Blend1 = 0;
-            OutBlend.Blend2 = 0;
-        }
-        else
-        if (Index == Other.Index1)
-        {
-            OutBlend.Blend0 = 0;
-            OutBlend.Blend1 = 255;
-            OutBlend.Blend2 = 0;
-        }
-        else
-        if (Index == Other.Index2)
-        {
-            OutBlend.Blend0 = 0;
-            OutBlend.Blend1 = 0;
-            OutBlend.Blend2 = 255;
+            OutBlend.SetBlendMasked(MatchFlags0, Blend0);
+            OutBlend.SetBlendMasked(MatchFlags1, Blend1);
+            OutBlend.SetBlendMasked(~OutputMask, 0);
         }
     }
-    // Double index blend
     else
-    if (bMatchIndex0 && bMatchIndex1)
     {
-        if (! HasAnyIndexAsDouble(Other.Index0))
+        uint8 OutputMask = Other.GetMatchFlags(Index0);
+
+        if (OutputMask != 0)
         {
-            OutBlend.Blend0 = 0;
-            OutBlend.Blend1 = 255-Blend0;
-            OutBlend.Blend2 = Blend0;
-        }
-        else
-        if (! HasAnyIndexAsDouble(Other.Index1))
-        {
-            OutBlend.Blend0 = 255-Blend0;
-            OutBlend.Blend1 = 0;
-            OutBlend.Blend2 = Blend0;
-        }
-        else
-        if (! HasAnyIndexAsDouble(Other.Index2))
-        {
-            OutBlend.Blend0 = 255-Blend0;
-            OutBlend.Blend1 = Blend0;
-            OutBlend.Blend2 = 0;
+            OutBlend.SetBlendMasked(OutputMask, Blend0);
+            OutBlend.SetBlendMasked(~OutputMask, 0);
         }
     }
-#endif
 
     return OutBlend;
 }
 
-FMQCTripleIndexBlend FMQCTripleIndexBlend::GetBlendAsTripleIndexFor(const FMQCTripleIndexBlend& Other) const
+uint8 FMQCTripleIndexBlend::GetMatchFlags(const FMQCTripleIndexBlend& Other) const
 {
-    // Make sure index order is sorted on both index set
-    check(bIsTriple);
-    check(Index0 <= Index1);
-    check(Index0 <= Index2);
-    check(Index1 <= Index2);
-    check(Other.Index0 <= Other.Index1);
-    check(!Other.bIsTriple || Other.Index0 <= Other.Index2);
-    check(!Other.bIsTriple || Other.Index1 <= Other.Index2);
+    int32 TargetIndexCount = Other.GetIndexCount();
+    uint8 OutFlags = 0;
 
-    FMQCTripleIndexBlend OutBlend(*this);
-
-    if (HasEqualIndex(Other))
+    if (IndexCount == 3)
     {
-        return OutBlend;
+        check(Index0 != Index1);
+        check(Index0 != Index2);
+        check(Index1 != Index2);
+
+        if (TargetIndexCount == 3)
+        {
+            OutFlags |= Other.HasAnyIndex(Index0) ? 0x01 : 0;
+            OutFlags |= Other.HasAnyIndex(Index1) ? 0x02 : 0;
+            OutFlags |= Other.HasAnyIndex(Index2) ? 0x04 : 0;
+        }
+        else
+        if (TargetIndexCount == 2)
+        {
+            OutFlags |= Other.HasAnyIndexAsDouble(Index0) ? 0x01 : 0;
+            OutFlags |= Other.HasAnyIndexAsDouble(Index1) ? 0x02 : 0;
+            OutFlags |= Other.HasAnyIndexAsDouble(Index2) ? 0x04 : 0;
+        }
+        else
+        {
+            if (Index0 == Other.Index0)
+            {
+                OutFlags = 0x01;
+            }
+            else
+            if (Index1 == Other.Index0)
+            {
+                OutFlags = 0x02;
+            }
+            else
+            if (Index2 == Other.Index0)
+            {
+                OutFlags = 0x04;
+            }
+        }
+    }
+    else
+    if (IndexCount == 2)
+    {
+        check(Index0 != Index1);
+
+        if (TargetIndexCount == 3)
+        {
+            OutFlags |= Other.HasAnyIndex(Index0) ? 0x01 : 0;
+            OutFlags |= Other.HasAnyIndex(Index1) ? 0x02 : 0;
+        }
+        else
+        if (TargetIndexCount == 2)
+        {
+            OutFlags |= Other.HasAnyIndexAsDouble(Index0) ? 0x01 : 0;
+            OutFlags |= Other.HasAnyIndexAsDouble(Index1) ? 0x02 : 0;
+        }
+        else
+        {
+            if (Index0 == Other.Index0)
+            {
+                OutFlags = 0x01;
+            }
+            else
+            if (Index1 == Other.Index0)
+            {
+                OutFlags = 0x02;
+            }
+        }
     }
     else
     {
-        return Other;
-    }
-
-#if 0
-    FMQCTripleIndex IndexMatch = GetMatchingIndex(Other);
-    int32 MatchingIndexCount = IndexMatch.GetNonZeroIndexCount();
-
-    if (MatchingIndexCount == 2)
-    {
-        //if (! IndexMatch.Index0)
-        //{
-        //    OutBlend.Blend01 = 255;
-        //}
-        //else
-        //if (! IndexMatch.Index1)
-        //{
-        //    OutBlend.Blend01 = 0;
-        //}
-        //else
-        //{
-        //    OutBlend.Blend12 = 0;
-        //}
-
-        return OutBlend;
-    }
-    //else
-    //if (MatchingIndexCount == 1)
-    //{
-    //    if (IndexMatch.Index0)
-    //    {
-    //        OutBlend.Blend01 = 0;
-    //        OutBlend.Blend12 = 0;
-    //    }
-    //    else
-    //    if (IndexMatch.Index1)
-    //    {
-    //        OutBlend.Blend01 = 255;
-    //        OutBlend.Blend12 = 0;
-    //    }
-    //    else
-    //    {
-    //        OutBlend.Blend01 = 255;
-    //        OutBlend.Blend12 = 255;
-    //    }
-
-    //    return OutBlend;
-    //}
-#endif
-
-#if 0
-    // Check equals
-    if (HasEqualIndex(Other))
-    {
-        return OutBlend;
-    }
-
-    int32 SingleIndex = GetSignificantSingleIndex();
-
-    // Check for single significant index
-    if (SingleIndex >= 0)
-    {
-        uint8 Index = GetIndex(SingleIndex);
-
-        if (Index == Other.Index0)
+        if (TargetIndexCount == 3)
         {
-            OutBlend.Blend01 = 0;
-            OutBlend.Blend12 = 0;
-            return OutBlend;
+            OutFlags |= Other.HasAnyIndex(Index0) ? 0x01 : 0;
         }
         else
-        if (Index == Other.Index1)
+        if (TargetIndexCount == 2)
         {
-            OutBlend.Blend01 = 255;
-            OutBlend.Blend12 = 0;
-            return OutBlend;
+            OutFlags |= Other.HasAnyIndexAsDouble(Index0) ? 0x01 : 0;
         }
         else
-        if (Other.bIsTriple && Index == Other.Index2)
         {
-            OutBlend.Blend01 = 0;
-            OutBlend.Blend12 = 255;
-            return OutBlend;
+            if (Index0 == Other.Index0)
+            {
+                OutFlags = 0x01;
+            }
         }
     }
-#endif
 
-    // Otherwise, return other blend
-    //return Other;
+    return OutFlags;
+}
+
+uint8 FMQCTripleIndexBlend::GetMatchFlags(uint8 InIndex) const
+{
+    uint8 OutFlags = 0;
+
+    if (IndexCount == 3)
+    {
+        check(Index0 != Index1);
+        check(Index0 != Index2);
+        check(Index1 != Index2);
+
+        if (Index0 == InIndex)
+        {
+            OutFlags = 0x01;
+        }
+        else
+        if (Index1 == InIndex)
+        {
+            OutFlags = 0x02;
+        }
+        else
+        if (Index2 == InIndex)
+        {
+            OutFlags = 0x04;
+        }
+    }
+    else
+    if (IndexCount == 2)
+    {
+        check(Index0 != Index1);
+
+        if (Index0 == InIndex)
+        {
+            OutFlags = 0x01;
+        }
+        else
+        if (Index1 == InIndex)
+        {
+            OutFlags = 0x02;
+        }
+    }
+    else
+    {
+        if (Index0 == InIndex)
+        {
+            OutFlags = 0x01;
+        }
+    }
+
+    return OutFlags;
+}
+
+void FMQCTripleIndexBlend::SetBlendMasked(uint8 Mask, uint8 InBlend)
+{
+    if (Mask & 0x01)
+    {
+        Blend0 = InBlend;
+    }
+    if (Mask & 0x02)
+    {
+        Blend1 = InBlend;
+    }
+    if (Mask & 0x04)
+    {
+        Blend2 = InBlend;
+    }
 }
