@@ -87,7 +87,7 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         yEdge = -1.f;
         voxelState = 0;
         pointState = 0;
-        Material = FMQCMaterial();
+        Material = FMQCMaterial(ForceInitToZero);
     }
 
     FORCEINLINE void Set(int32 x, int32 y)

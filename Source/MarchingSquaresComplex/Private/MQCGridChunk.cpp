@@ -371,7 +371,13 @@ void FMQCGridChunk::SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X
     EnqueueTask(
         [this, Param]()
         {
-            SetStatesInternal(*Param.Stencil, Param.X0, Param.X1, Param.Y0, Param.Y1);
+            SetStatesInternal(
+                *Param.Stencil,
+                Param.X0,
+                Param.X1,
+                Param.Y0,
+                Param.Y1
+                );
         } );
 }
 

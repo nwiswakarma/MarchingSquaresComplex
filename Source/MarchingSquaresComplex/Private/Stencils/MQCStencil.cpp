@@ -176,7 +176,7 @@ void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVe
 
 FMQCMaterial FMQCStencil::GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
 {
-    return FMQCMaterial();
+    return FMQCMaterial::Zero;
 }
 
 void FMQCStencil::GetMaterialBlendTyped(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const
@@ -396,7 +396,7 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
                 Blend2 = 0;
             }
         }
-        // Add to double index material, defer sorting
+        // Add to double index material, defer index sorting
         else
         if (Index1 == Index2)
         {
@@ -435,6 +435,7 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
             }
         }
 
+        // Assign output
         OutMaterial.SetIndex0(Index0);
         OutMaterial.SetIndex1(Index1);
         OutMaterial.SetIndex2(Index2);
@@ -443,6 +444,7 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
         OutMaterial.SetBlend2(Blend2);
     }
 
+    // Sort index order if required
     if (OutMaterial.IsTripleIndexSortRequired())
     {
         OutMaterial.SortTripleIndex();

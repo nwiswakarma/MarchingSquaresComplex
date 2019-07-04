@@ -75,6 +75,12 @@ private:
         FGuid Id;
     };
 
+    struct FMeshData
+    {
+        FPMUMeshSection Section;
+        TArray<FMQCMaterial> Materials;
+    };
+
 	const FName SHAPE_HEIGHT_MAP_NAME   = TEXT("PMU_VOXEL_SHAPE_HEIGHT_MAP");
 	const FName SURFACE_HEIGHT_MAP_NAME = TEXT("PMU_VOXEL_SURFACE_HEIGHT_MAP");
 	const FName EXTRUDE_HEIGHT_MAP_NAME = TEXT("PMU_VOXEL_EXTRUDE_HEIGHT_MAP");
@@ -103,9 +109,9 @@ private:
     TArray<FEdgeListData> EdgeLists;
     TArray<FEdgeSyncData> EdgeSyncList;
 
-    FPMUMeshSection SurfaceSection;
-    FPMUMeshSection ExtrudeSection;
-    FPMUMeshSection EdgeSection;
+    FMeshData SurfaceMeshData;
+    FMeshData ExtrudeMeshData;
+    FMeshData EdgeMeshData;
 
     TMap<FMQCMaterialBlend, FIndexMap> MaterialIndexMaps;
     TMap<FMQCMaterialBlend, FPMUMeshSection> MaterialSectionMap;
@@ -113,8 +119,8 @@ private:
     void ReserveGeometry();
     void CompactGeometry();
 
-    void ReserveGeometry(FPMUMeshSection& Section);
-    void CompactGeometry(FPMUMeshSection& Section);
+    void ReserveGeometry(FMeshData& MeshData);
+    void CompactGeometry(FMeshData& MeshData);
 
     void GenerateEdgeGeometry();
 
@@ -130,23 +136,23 @@ public:
     FORCEINLINE int32 GetVertexCount() const
     {
         return !bExtrusionSurface
-            ? SurfaceSection.Positions.Num()
-            : ExtrudeSection.Positions.Num();
+            ? SurfaceMeshData.Section.Positions.Num()
+            : ExtrudeMeshData.Section.Positions.Num();
     }
 
     FORCEINLINE FPMUMeshSection& GetSurfaceSection()
     {
-        return SurfaceSection;
+        return SurfaceMeshData.Section;
     }
 
     FORCEINLINE FPMUMeshSection& GetExtrudeSection()
     {
-        return ExtrudeSection;
+        return ExtrudeMeshData.Section;
     }
 
     FORCEINLINE FPMUMeshSection& GetEdgeSection()
     {
-        return EdgeSection;
+        return EdgeMeshData.Section;
     }
 
     FORCEINLINE int32 AppendEdgeSyncData(TArray<FEdgeSyncData>& OutSyncData) const
@@ -446,6 +452,12 @@ private:
 	void AddQuad(int32 a, int32 b, int32 c, int32 d);
 	void AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e);
 	void AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, int32 f);
+
+    static int32 DuplicateVertex(
+        const FMeshData& SrcMeshData,
+        FMeshData& DstMeshData,
+        int32 VertexIndex
+        );
 
     static int32 DuplicateVertex(
         const FPMUMeshSection& SrcSection,

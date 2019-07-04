@@ -54,9 +54,9 @@ public:
         return LerpUINT8(0, 255, FMath::Clamp(Alpha, 0.f, 1.f));
     }
 
-    inline static FMQCMaterial GetTypedMaterial(EMQCMaterialType MaterialType, uint8 MaterialIndex, const FColor& MaterialColor)
+    inline static FMQCMaterial GetTypedInputMaterial(EMQCMaterialType MaterialType, uint8 MaterialIndex, const FColor& MaterialColor)
     {
-        FMQCMaterial Material;
+        FMQCMaterial Material(ForceInitToZero);
 
         if (MaterialType == EMQCMaterialType::MT_COLOR)
         {
@@ -70,14 +70,14 @@ public:
         return Material;
     }
 
-    FORCEINLINE static FMQCMaterial GetTypedMaterial(EMQCMaterialType MaterialType, uint8 MaterialIndex, const FLinearColor& MaterialColor)
+    FORCEINLINE static FMQCMaterial GetTypedInputMaterial(EMQCMaterialType MaterialType, uint8 MaterialIndex, const FLinearColor& MaterialColor)
     {
-        return GetTypedMaterial(MaterialType, MaterialIndex, MaterialColor.ToFColor(true));
+        return GetTypedInputMaterial(MaterialType, MaterialIndex, MaterialColor.ToFColor(true));
     }
 
-    FORCEINLINE static FMQCMaterial GetTypedMaterial(FMQCMaterialInput Input)
+    FORCEINLINE static FMQCMaterial GetTypedInputMaterial(FMQCMaterialInput Input)
     {
-        return GetTypedMaterial(Input.Type, Input.Index, Input.Color);
+        return GetTypedInputMaterial(Input.Type, Input.Index, Input.Color);
     }
 
     inline static bool IsBlendsEqual(uint8 Blends[3], uint8 Blend)

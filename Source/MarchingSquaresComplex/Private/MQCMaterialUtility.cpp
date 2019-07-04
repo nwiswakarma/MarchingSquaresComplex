@@ -27,6 +27,14 @@
 
 #include "MQCMaterialUtility.h"
 
+// Globals 
+
+MARCHINGSQUARESCOMPLEX_API const FMQCMaterial FMQCMaterial::Zero(0, 0, 0, 0, 0, 0);
+MARCHINGSQUARESCOMPLEX_API const FMQCMaterial FMQCMaterial::Opaque(255, 255, 255, 255, 255, 255);
+MARCHINGSQUARESCOMPLEX_API const FMQCMaterial FMQCMaterial::BlendOpaque(255, 255, 255, 0, 0, 0);
+
+// UMQCMaterialUtility
+
 void UMQCMaterialUtility::FindDoubleIndexFaceBlend(
     const FMQCMaterial VertexMaterials[3],
     FMQCMaterialBlend& FaceMaterial,

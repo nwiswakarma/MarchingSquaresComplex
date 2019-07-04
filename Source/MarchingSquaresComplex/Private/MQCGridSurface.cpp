@@ -63,43 +63,45 @@ void FMQCGridSurface::ReserveGeometry()
 {
     if (bGenerateExtrusion)
     {
-        ReserveGeometry(SurfaceSection);
-        ReserveGeometry(ExtrudeSection);
+        ReserveGeometry(SurfaceMeshData);
+        ReserveGeometry(ExtrudeMeshData);
     }
     else
     if (bExtrusionSurface)
     {
-        ReserveGeometry(ExtrudeSection);
+        ReserveGeometry(ExtrudeMeshData);
     }
     else
     {
-        ReserveGeometry(SurfaceSection);
+        ReserveGeometry(SurfaceMeshData);
     }
 }
 
 void FMQCGridSurface::CompactGeometry()
 {
-    CompactGeometry(SurfaceSection);
-    CompactGeometry(ExtrudeSection);
-    CompactGeometry(EdgeSection);
+    CompactGeometry(SurfaceMeshData);
+    CompactGeometry(ExtrudeMeshData);
+    CompactGeometry(EdgeMeshData);
 }
 
-void FMQCGridSurface::ReserveGeometry(FPMUMeshSection& Section)
+void FMQCGridSurface::ReserveGeometry(FMeshData& MeshData)
 {
-    Section.Positions.Reserve(VoxelCount);
-    Section.UVs.Reserve(VoxelCount);
-    Section.Colors.Reserve(VoxelCount);
-    Section.Tangents.Reserve(VoxelCount*2);
-    Section.Indices.Reserve(VoxelCount * 6);
+    MeshData.Section.Positions.Reserve(VoxelCount);
+    MeshData.Section.UVs.Reserve(VoxelCount);
+    MeshData.Section.Colors.Reserve(VoxelCount);
+    MeshData.Section.Tangents.Reserve(VoxelCount*2);
+    MeshData.Section.Indices.Reserve(VoxelCount * 6);
+    MeshData.Materials.Reserve(VoxelCount);
 }
 
-void FMQCGridSurface::CompactGeometry(FPMUMeshSection& Section)
+void FMQCGridSurface::CompactGeometry(FMeshData& MeshData)
 {
-    Section.Positions.Shrink();
-    Section.UVs.Shrink();
-    Section.Colors.Shrink();
-    Section.Tangents.Shrink();
-    Section.Indices.Shrink();
+    MeshData.Section.Positions.Shrink();
+    MeshData.Section.UVs.Shrink();
+    MeshData.Section.Colors.Shrink();
+    MeshData.Section.Tangents.Shrink();
+    MeshData.Section.Indices.Shrink();
+    MeshData.Materials.Shrink();
 }
 
 void FMQCGridSurface::Finalize()
@@ -172,9 +174,9 @@ void FMQCGridSurface::Finalize()
 
 void FMQCGridSurface::Clear()
 {
-    SurfaceSection.Reset();
-    ExtrudeSection.Reset();
-    EdgeSection.Reset();
+    GetSurfaceSection().Reset();
+    GetExtrudeSection().Reset();
+    GetEdgeSection().Reset();
 }
 
 void FMQCGridSurface::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
@@ -193,22 +195,22 @@ void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Mat
     float Height;
     float FaceSign;
 
-    FPMUMeshSection* SectionPtr;
+    FMeshData* TargetMeshData;
 
     if (bIsExtrusion)
     {
-        SectionPtr = &ExtrudeSection;
+        TargetMeshData = &ExtrudeMeshData;
         Height = ExtrusionHeight;
         FaceSign = -1.f;
     }
     else
     {
-        SectionPtr = &SurfaceSection;
+        TargetMeshData = &SurfaceMeshData;
         Height = 0.f;
         FaceSign = 1.f;
     }
 
-    FPMUMeshSection& Section(*SectionPtr);
+    FPMUMeshSection& Section(TargetMeshData->Section);
     FVector Pos(XY, Height);
     FPackedNormal TangentX(FVector(1,0,0));
     FPackedNormal TangentZ(FVector4(0,0,FaceSign,FaceSign));
@@ -221,6 +223,8 @@ void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Mat
     Section.Tangents.Emplace(TangentX.Vector.Packed);
     Section.Tangents.Emplace(TangentZ.Vector.Packed);
     Section.SectionLocalBox += Pos;
+
+    TargetMeshData->Materials.Emplace(Material);
 }
 
 void FMQCGridSurface::AddEdgeFace(int32 a, int32 b)
@@ -358,22 +362,22 @@ void FMQCGridSurface::AddEdgeFace(int32 a, int32 b)
 
 void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
 {
-    const FPMUMeshSection& SrcSection(SurfaceSection);
+    const FMeshData& SrcMeshData(SurfaceMeshData);
 
-    check(SrcSection.Colors.IsValidIndex(a));
-    check(SrcSection.Colors.IsValidIndex(b));
-    check(SrcSection.Colors.IsValidIndex(c));
-
-    FMQCMaterialBlend Material;
+    check(SrcMeshData.Materials.IsValidIndex(a));
+    check(SrcMeshData.Materials.IsValidIndex(b));
+    check(SrcMeshData.Materials.IsValidIndex(c));
 
     FMQCMaterial Materials[3];
-    Materials[0].SetColor(SrcSection.Colors[a]);
-    Materials[1].SetColor(SrcSection.Colors[b]);
-    Materials[2].SetColor(SrcSection.Colors[c]);
+    Materials[0] = SrcMeshData.Materials[a];
+    Materials[1] = SrcMeshData.Materials[b];
+    Materials[2] = SrcMeshData.Materials[c];
 
     uint8 Blends0[3];
     uint8 Blends1[3];
     uint8 Blends2[3];
+
+    FMQCMaterialBlend Material;
 
     UMQCMaterialUtility::FindTripleIndexFaceBlend(
         Materials,
@@ -437,10 +441,28 @@ void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
     FPMUMeshSection& DstSection(MaterialSectionMap.FindOrAdd(Material));
     FIndexMap& IndexMap(MaterialIndexMaps.FindOrAdd(Material));
 
-    FVertexHelper VertexHelper(SrcSection, DstSection, IndexMap);
+    FVertexHelper VertexHelper(SrcMeshData.Section, DstSection, IndexMap);
     VertexHelper.AddVertex(a, Blends0[0], Blends1[0], Blends2[0]);
     VertexHelper.AddVertex(b, Blends0[1], Blends1[1], Blends2[1]);
     VertexHelper.AddVertex(c, Blends0[2], Blends1[2], Blends2[2]);
+}
+
+int32 FMQCGridSurface::DuplicateVertex(
+    const FMeshData& SrcMeshData,
+    FMeshData& DstMeshData,
+    int32 VertexIndex
+    )
+{
+    const FPMUMeshSection& SrcSection(SrcMeshData.Section);
+    FPMUMeshSection& DstSection(DstMeshData.Section);
+
+    // Duplicate section geometry
+    int32 OutIndex = DuplicateVertex(SrcSection, DstSection, VertexIndex);
+
+    // Duplicate voxel material
+    DstMeshData.Materials.Emplace(SrcMeshData.Materials[VertexIndex]);
+
+    return OutIndex;
 }
 
 int32 FMQCGridSurface::DuplicateVertex(
@@ -470,10 +492,12 @@ void FMQCGridSurface::GenerateEdgeVertex(TArray<int32>& EdgeIndices, int32 Sourc
         EdgeIndices.SetNumUninitialized(4);
     }
 
-    int32 esi = DuplicateVertex(ExtrudeSection, EdgeSection, SourceIndex);
-    int32 eai = DuplicateVertex(ExtrudeSection, EdgeSection, SourceIndex);
-    int32 ebi = DuplicateVertex(ExtrudeSection, EdgeSection, SourceIndex);
-    int32 eei = DuplicateVertex(ExtrudeSection, EdgeSection, SourceIndex);
+    int32 esi = DuplicateVertex(ExtrudeMeshData, EdgeMeshData, SourceIndex);
+    int32 eai = DuplicateVertex(ExtrudeMeshData, EdgeMeshData, SourceIndex);
+    int32 ebi = DuplicateVertex(ExtrudeMeshData, EdgeMeshData, SourceIndex);
+    int32 eei = DuplicateVertex(ExtrudeMeshData, EdgeMeshData, SourceIndex);
+
+    FPMUMeshSection& EdgeSection(GetEdgeSection());
 
     const float Z1 = EdgeSection.Positions[eei].Z;
     EdgeSection.Positions[esi].Z = 0.f;
@@ -500,7 +524,7 @@ float FMQCGridSurface::GenerateEdgeSegment(TArray<int32>& EdgeIndices0, TArray<i
 
     // Construct edge geometry
 
-    TArray<uint32>& IndexBuffer(EdgeSection.Indices);
+    TArray<uint32>& IndexBuffer(GetEdgeSection().Indices);
 
     IndexBuffer.Emplace(ee1);
     IndexBuffer.Emplace(eb1);
@@ -525,8 +549,8 @@ float FMQCGridSurface::GenerateEdgeSegment(TArray<int32>& EdgeIndices0, TArray<i
 
     // Calculate edge length
 
-    FVector2D v0(EdgeSection.Positions[es0]);
-    FVector2D v1(EdgeSection.Positions[es1]);
+    FVector2D v0(GetEdgeSection().Positions[es0]);
+    FVector2D v1(GetEdgeSection().Positions[es1]);
     FVector2D E01 = v1 - v0;
 
     return E01.Size();
@@ -536,6 +560,8 @@ void FMQCGridSurface::GenerateEdgeSyncData(int32 EdgeListId, const TArray<FEdgeS
 {
     check(EdgeLists.IsValidIndex(EdgeListId));
     check(EdgeSegments.Num() > 0);
+
+    FPMUMeshSection& EdgeSection(GetEdgeSection());
 
     float EdgeLength = EdgeSegments.Last().Value;
 
@@ -650,6 +676,7 @@ void FMQCGridSurface::RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd)
 {
     if (bRemapEdgeUVs)
     {
+        FPMUMeshSection& EdgeSection(GetEdgeSection());
         const FEdgeSyncData& SyncData(EdgeSyncList[EdgeListId]);
         int32 HeadIndex = SyncData.HeadIndex / 4;
         int32 TailIndex = SyncData.TailIndex / 4;
@@ -679,7 +706,7 @@ void FMQCGridSurface::AddTriangle(int32 a, int32 b, int32 c)
     // Generate extrude only
     if (bExtrusionSurface)
     {
-        TArray<uint32>& IndexBuffer(ExtrudeSection.Indices);
+        TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
         IndexBuffer.Emplace(c);
         IndexBuffer.Emplace(b);
         IndexBuffer.Emplace(a);
@@ -688,7 +715,7 @@ void FMQCGridSurface::AddTriangle(int32 a, int32 b, int32 c)
     {
         // Generate surface
         {
-            TArray<uint32>& IndexBuffer(SurfaceSection.Indices);
+            TArray<uint32>& IndexBuffer(GetSurfaceSection().Indices);
             IndexBuffer.Emplace(a);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(c);
@@ -698,7 +725,7 @@ void FMQCGridSurface::AddTriangle(int32 a, int32 b, int32 c)
         // Generate extrude
         if (bGenerateExtrusion)
         {
-            TArray<uint32>& IndexBuffer(ExtrudeSection.Indices);
+            TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
             IndexBuffer.Emplace(c);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(a);
@@ -711,7 +738,7 @@ void FMQCGridSurface::AddQuad(int32 a, int32 b, int32 c, int32 d)
     // Generate extrude only
     if (bExtrusionSurface)
     {
-        TArray<uint32>& IndexBuffer(ExtrudeSection.Indices);
+        TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
         IndexBuffer.Emplace(c);
         IndexBuffer.Emplace(b);
         IndexBuffer.Emplace(a);
@@ -723,7 +750,7 @@ void FMQCGridSurface::AddQuad(int32 a, int32 b, int32 c, int32 d)
     {
         // Generate surface
         {
-            TArray<uint32>& IndexBuffer(SurfaceSection.Indices);
+            TArray<uint32>& IndexBuffer(GetSurfaceSection().Indices);
             IndexBuffer.Emplace(a);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(c);
@@ -737,7 +764,7 @@ void FMQCGridSurface::AddQuad(int32 a, int32 b, int32 c, int32 d)
         // Generate extrude
         if (bGenerateExtrusion)
         {
-            TArray<uint32>& IndexBuffer(ExtrudeSection.Indices);
+            TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
             IndexBuffer.Emplace(c);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(a);
@@ -753,7 +780,7 @@ void FMQCGridSurface::AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e)
     // Generate extrude only
     if (bExtrusionSurface)
     {
-        TArray<uint32>& IndexBuffer(ExtrudeSection.Indices);
+        TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
         IndexBuffer.Emplace(c);
         IndexBuffer.Emplace(b);
         IndexBuffer.Emplace(a);
@@ -768,7 +795,7 @@ void FMQCGridSurface::AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e)
     {
         // Generate surface
         {
-            TArray<uint32>& IndexBuffer(SurfaceSection.Indices);
+            TArray<uint32>& IndexBuffer(GetSurfaceSection().Indices);
             IndexBuffer.Emplace(a);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(c);
@@ -786,7 +813,7 @@ void FMQCGridSurface::AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e)
         // Generate extrude
         if (bGenerateExtrusion)
         {
-            TArray<uint32>& IndexBuffer(ExtrudeSection.Indices);
+            TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
             IndexBuffer.Emplace(c);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(a);
@@ -805,7 +832,7 @@ void FMQCGridSurface::AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, in
     // Generate extrude only
     if (bExtrusionSurface)
     {
-        TArray<uint32>& IndexBuffer(ExtrudeSection.Indices);
+        TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
         IndexBuffer.Emplace(c);
         IndexBuffer.Emplace(b);
         IndexBuffer.Emplace(a);
@@ -823,7 +850,7 @@ void FMQCGridSurface::AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, in
     {
         // Generate surface
         {
-            TArray<uint32>& IndexBuffer(SurfaceSection.Indices);
+            TArray<uint32>& IndexBuffer(GetSurfaceSection().Indices);
             IndexBuffer.Emplace(a);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(c);
@@ -845,7 +872,7 @@ void FMQCGridSurface::AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, in
         // Generate extrude
         if (bGenerateExtrusion)
         {
-            TArray<uint32>& IndexBuffer(ExtrudeSection.Indices);
+            TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
             IndexBuffer.Emplace(c);
             IndexBuffer.Emplace(b);
             IndexBuffer.Emplace(a);

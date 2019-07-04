@@ -545,7 +545,7 @@ void UMQCMapRef::InitializeVoxelMap()
 
 FMQCMaterial UMQCMapRef::GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor)
 {
-    return UMQCMaterialUtility::GetTypedMaterial(MaterialType, MaterialIndex, MaterialColor);
+    return UMQCMaterialUtility::GetTypedInputMaterial(MaterialType, MaterialIndex, MaterialColor);
 }
 
 // TRIANGULATION FUNCTIONS

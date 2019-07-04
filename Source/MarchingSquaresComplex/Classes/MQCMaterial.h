@@ -85,24 +85,47 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCMaterialPointInput
 
 struct MARCHINGSQUARESCOMPLEX_API FMQCMaterial
 {
-private:
-
-    uint8 Index;
     uint8 R;
     uint8 G;
     uint8 B;
-    
-public:
+    uint8 Index;
+    uint8 Index1;
+    uint8 Index2;
 
-    FMQCMaterial()
+	// Global zero material constant */
+	static const FMQCMaterial Zero;
+
+	// Global opaque material constant */
+	static const FMQCMaterial Opaque;
+
+	// Global opaque material constant */
+	static const FMQCMaterial BlendOpaque;
+
+	FORCEINLINE FMQCMaterial()
     {
-        Index = 0;
-        R = 0;
-        G = 0;
-        B = 0;
     }
 
-    FMQCMaterial(ENoInit NoInit)
+	FORCEINLINE FMQCMaterial(uint8 R, uint8 G, uint8 B, uint8 Index, uint8 Index1, uint8 Index2)
+        : R(R)
+        , G(G)
+        , B(B)
+        , Index(Index)
+        , Index1(Index1)
+        , Index2(Index2)
+    {
+    }
+
+	explicit FORCEINLINE FMQCMaterial(EForceInit)
+        : R(0)
+        , G(0)
+        , B(0)
+        , Index(0)
+        , Index1(0)
+        , Index2(0)
+    {
+    }
+
+	explicit FORCEINLINE FMQCMaterial(ENoInit)
     {
     }
 
@@ -200,56 +223,56 @@ public:
         }
     }
 
-public:
-
-    inline uint8 GetIndex() const { return Index; }
+    // Getters
 
     inline uint8 GetR() const { return R; }
     inline uint8 GetG() const { return G; }
     inline uint8 GetB() const { return B; }
     inline uint8 GetA() const { return GetIndex(); }
+    inline uint8 GetIndex() const { return Index; }
 
     inline uint8 GetIndexA() const { return R; }
     inline uint8 GetIndexB() const { return G; }
     inline uint8 GetBlend() const { return B; }
 
-    inline uint8 GetIndex0() const { return  R    &0x03; }
-    inline uint8 GetIndex1() const { return (R>>2)&0x03; }
-    inline uint8 GetIndex2() const { return (R>>4)&0x03; }
     inline uint8 GetBlend01() const { return B; }
     inline uint8 GetBlend12() const { return GetIndex(); }
 
-    inline uint8 GetBlend0() const { return G; }
-    inline uint8 GetBlend1() const { return B; }
-    inline uint8 GetBlend2() const { return GetIndex(); }
+    inline uint8 GetIndex0() const { return GetIndex(); }
+    inline uint8 GetIndex1() const { return Index1; }
+    inline uint8 GetIndex2() const { return Index2; }
+
+    inline uint8 GetBlend0() const { return R; }
+    inline uint8 GetBlend1() const { return G; }
+    inline uint8 GetBlend2() const { return B; }
 
     inline FColor ToFColor() const
     {
         return FColor(GetR(), GetG(), GetB(), GetA());
     }
 
-public:
-
-    inline void SetIndex(uint8 NewIndex) { Index = NewIndex; }
+    // Setters
 
     inline void SetR(uint8 NewR) { R = NewR; }
     inline void SetG(uint8 NewG) { G = NewG; }
     inline void SetB(uint8 NewB) { B = NewB; }
     inline void SetA(uint8 NewA) { SetIndex(NewA); }
+    inline void SetIndex(uint8 NewIndex) { Index = NewIndex; }
 
     inline void SetIndexA(uint8 NewIndexA) { R = NewIndexA; }
     inline void SetIndexB(uint8 NewIndexB) { G = NewIndexB; }
     inline void SetBlend(uint8 NewBlend) { B = NewBlend; }
 
-    inline void SetIndex0(uint8 NewI0) { R = (R&0xFC)| (NewI0&0x03);     }
-    inline void SetIndex1(uint8 NewI1) { R = (R&0xF3)|((NewI1&0x03)<<2); }
-    inline void SetIndex2(uint8 NewI2) { R = (R&0xCF)|((NewI2&0x03)<<4); }
     inline void SetBlend01(uint8 NewBlend01) { B = NewBlend01; }
     inline void SetBlend12(uint8 NewBlend12) { SetIndex(NewBlend12); }
 
-    inline void SetBlend0(uint8 NewBlend0) { G = NewBlend0; }
-    inline void SetBlend1(uint8 NewBlend1) { B = NewBlend1; }
-    inline void SetBlend2(uint8 NewBlend2) { SetIndex(NewBlend2); }
+    inline void SetIndex0(uint8 NewIndex0) { SetIndex(NewIndex0); }
+    inline void SetIndex1(uint8 NewIndex1) { Index1 = NewIndex1; }
+    inline void SetIndex2(uint8 NewIndex2) { Index2 = NewIndex2; }
+
+    inline void SetBlend0(uint8 NewBlend0) { R = NewBlend0; }
+    inline void SetBlend1(uint8 NewBlend1) { G = NewBlend1; }
+    inline void SetBlend2(uint8 NewBlend2) { B = NewBlend2; }
 
     inline void SetColor(const FColor& Color)
     {
@@ -259,7 +282,7 @@ public:
         SetA(Color.A);
     }
 
-public:
+    // Int Setters
 
     inline void SetIndex(int32 NewIndex) { SetIndex(CastToUINT8(NewIndex)); }
 
@@ -272,7 +295,7 @@ public:
     inline void SetIndexB(int32 NewIndexB) { SetIndexB(CastToUINT8(NewIndexB)); }
     inline void SetBlend(int32 NewBlend) { SetBlend(CastToUINT8(NewBlend)); }
 
-public:
+    // Delete conversion setters
 
     template<typename T>
     inline void SetIndex(T) = delete;
@@ -293,34 +316,16 @@ public:
     template<typename T>
     inline void SetBlend(T) = delete;
 
-public:
-
-    inline bool operator==(const FMQCMaterial& Other) const
-    {
-        return Index == Other.Index
-            && R     == Other.R
-            && G     == Other.G
-            && B     == Other.B
-            ;
-    }
-
-    inline bool operator!=(const FMQCMaterial& Other) const
-    {
-        return Index != Other.Index
-            || R     != Other.R
-            || G     != Other.G
-            || B     != Other.B
-            ;
-    }
-
-public:
+    // Serialization
 
     friend inline FArchive& operator<<(FArchive &Ar, FMQCMaterial& Material)
     {
-        Ar << Material.Index;
         Ar << Material.R;
         Ar << Material.G;
         Ar << Material.B;
+        Ar << Material.Index;
+        Ar << Material.Index1;
+        Ar << Material.Index2;
         return Ar;
     }
 
