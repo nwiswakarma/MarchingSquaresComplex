@@ -192,6 +192,103 @@ void UMQCMaterialUtility::FindTripleIndexFaceBlend(
     MaterialBlends2[2] = Blends2[2];
 }
 
+void UMQCMaterialUtility::ClearZeroInfluence(FMQCMaterial& Material)
+{
+    uint8 Index0 = Material.GetIndex0();
+    uint8 Index1 = Material.GetIndex1();
+    uint8 Index2 = Material.GetIndex2();
+
+    // Skip single index material
+    if (Index0 == Index1)
+    {
+        return;
+    }
+
+    uint8 Blend0 = Material.GetBlend0();
+    uint8 Blend1 = Material.GetBlend1();
+    uint8 Blend2 = Material.GetBlend2();
+
+    // Double Index
+    if (Index1 == Index2)
+    {
+        check(Blend2 == 0);
+
+        if (Blend1 == 0)
+        {
+            Material.SetIndex1(Index0);
+            Material.SetIndex2(Index0);
+
+            Material.SetBlend1(0);
+        }
+        else
+        if (Blend0 == 0)
+        {
+            Material.SetIndex0(Index1);
+            Material.SetBlend0(Blend1);
+
+            Material.SetBlend1(0);
+        }
+    }
+    // Triple Index
+    else
+    {
+        // Zero influence Index2
+        if (Blend2 == 0)
+        {
+            // Zero influence Index2 and Index1, replace all index with Index0
+            if (Blend1 == 0)
+            {
+                Material.SetIndex1(Index0);
+                Material.SetIndex2(Index0);
+
+                Material.SetBlend1(0);
+                Material.SetBlend2(0);
+            }
+            // Zero influence Index2 and Index0, replace all index with Index1
+            else
+            if (Blend0 == 0)
+            {
+                Material.SetIndex0(Index1);
+                Material.SetIndex2(Index1);
+
+                Material.SetBlend0(Blend1);
+                Material.SetBlend1(0);
+                Material.SetBlend2(0);
+            }
+            // Replace Index2 with Index1
+            else
+            {
+                Material.SetIndex2(Index1);
+
+                Material.SetBlend2(0);
+            }
+        }
+        // Zero influence Index1
+        else
+        if (Blend1 == 0)
+        {
+            // Zero influence Index1 and Index0, replace all index with Index2
+            if (Blend0 == 0)
+            {
+                Material.SetIndex0(Index2);
+                Material.SetIndex1(Index2);
+
+                Material.SetBlend0(Blend2);
+                Material.SetBlend1(0);
+                Material.SetBlend2(0);
+            }
+            // Replace Index1 with Index2
+            else
+            {
+                Material.SetIndex1(Index2);
+
+                Material.SetBlend1(Blend2);
+                Material.SetBlend2(0);
+            }
+        }
+    }
+}
+
 // FMQCDoubleIndexBlend
 
 FMQCDoubleIndexBlend UMQCMaterialUtility::FindDoubleIndexBlend(

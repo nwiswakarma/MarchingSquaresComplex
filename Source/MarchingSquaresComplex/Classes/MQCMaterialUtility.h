@@ -85,6 +85,8 @@ public:
         return Blends[0] == Blend && Blends[1] == Blend && Blends[2] == Blend;
     }
 
+    static void ClearZeroInfluence(FMQCMaterial& Material);
+
     static FMQCDoubleIndexBlend FindDoubleIndexBlend(
         const FMQCDoubleIndexBlend& A,
         const FMQCDoubleIndexBlend& B,

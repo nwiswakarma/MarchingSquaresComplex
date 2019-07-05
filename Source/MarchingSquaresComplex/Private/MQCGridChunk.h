@@ -83,6 +83,7 @@ private:
 
     int32 mapSize;
     int32 voxelResolution;
+    EMQCMaterialType MaterialType;
 
     FMQCVoxel dummyX;
     FMQCVoxel dummyY;

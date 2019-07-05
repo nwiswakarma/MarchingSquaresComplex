@@ -370,14 +370,26 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
     }
     // Add new index
     else
+    if (TargetBlend > 0)
     {
         // Add to single index material
         if (Index0 == Index1)
         {
             check(Index1 == Index2);
 
-            // Immediate sort to fill unused index with zero blend
+            // Replace zero influence Index0
+            if (Blend0 == 0)
+            {
+                Index0 = TargetIndex;
+                Index1 = TargetIndex;
+                Index2 = TargetIndex;
 
+                Blend0 = TargetBlend;
+                Blend1 = 0;
+                Blend2 = 0;
+            }
+            // Add depending on index order
+            else
             if (Index0 > TargetIndex)
             {
                 Index1 = Index0;
@@ -396,7 +408,7 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
                 Blend2 = 0;
             }
         }
-        // Add to double index material, defer index sorting
+        // Add to double index material
         else
         if (Index1 == Index2)
         {
@@ -404,7 +416,6 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
             Blend2 = TargetBlend;
         }
         // Triple index material, replace least significant index
-        // Replace index immediately and defer index sorting
         else
         {
             // Replace Index2
@@ -442,6 +453,9 @@ void FMQCStencil::GetMaterialBlendTripleIndex(FMQCMaterial& OutMaterial, const F
         OutMaterial.SetBlend0(Blend0);
         OutMaterial.SetBlend1(Blend1);
         OutMaterial.SetBlend2(Blend2);
+
+        // Clear zero influence index
+        UMQCMaterialUtility::ClearZeroInfluence(OutMaterial);
     }
 
     // Sort index order if required

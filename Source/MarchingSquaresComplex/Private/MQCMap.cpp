@@ -31,6 +31,7 @@
 #include "Engine/StaticMeshSocket.h"
 #include "Components/BillboardComponent.h"
 #include "Mesh/PMUMeshComponent.h"
+#include "Mesh/PMUMeshUtility.h"
 
 #include "MQCGridChunk.h"
 
@@ -63,15 +64,15 @@ void FMQCMap::Triangulate()
 
     ResolveChunkEdgeData();
 
-    TSet<FMQCMaterialBlend> MaterialSet;
-    for (FMQCGridChunk* Chunk : chunks)
-    {
-        Chunk->GetMaterialSet(MaterialSet);
-    }
-    for (const FMQCMaterialBlend& M : MaterialSet)
-    {
-        UE_LOG(LogTemp,Warning, TEXT("M: %s"), *M.ToString());
-    }
+    //TSet<FMQCMaterialBlend> MaterialSet;
+    //for (FMQCGridChunk* Chunk : chunks)
+    //{
+    //    Chunk->GetMaterialSet(MaterialSet);
+    //}
+    //for (const FMQCMaterialBlend& M : MaterialSet)
+    //{
+    //    UE_LOG(LogTemp,Warning, TEXT("M: %s"), *M.ToString());
+    //}
 }
 
 void FMQCMap::TriangulateAsync()
@@ -82,6 +83,14 @@ void FMQCMap::TriangulateAsync()
     }
 
     bRequireFinalizeAsync = true;
+}
+
+void FMQCMap::WaitForAsyncTask()
+{
+    for (FMQCGridChunk* Chunk : chunks)
+    {
+        Chunk->WaitForAsyncTask();
+    }
 }
 
 void FMQCMap::FinalizeAsync()
@@ -251,24 +260,6 @@ void FMQCMap::ResetAllChunkStates()
     }
 }
 
-void FMQCMap::Clear()
-{
-    for (FMQCGridChunk* Chunk : chunks)
-    {
-        delete Chunk;
-    }
-
-    chunks.Empty();
-}
-
-void FMQCMap::WaitForAsyncTask()
-{
-    for (FMQCGridChunk* Chunk : chunks)
-    {
-        Chunk->WaitForAsyncTask();
-    }
-}
-
 void FMQCMap::InitializeSettings()
 {
     // Invalid resolution, abort
@@ -355,6 +346,16 @@ void FMQCMap::Initialize()
 {
     InitializeSettings();
     InitializeChunks();
+}
+
+void FMQCMap::Clear()
+{
+    for (FMQCGridChunk* Chunk : chunks)
+    {
+        delete Chunk;
+    }
+
+    chunks.Empty();
 }
 
 bool FMQCMap::IsPrefabValid(int32 PrefabIndex, int32 LODIndex, int32 SectionIndex) const
@@ -691,6 +692,41 @@ AMQCMap::~AMQCMap()
 {
 }
 
+void AMQCMap::InitializeMeshComponents(TArray<UPMUMeshComponent*>& MeshComponents)
+{
+    if (HasValidMap())
+    {
+        MeshComponents.SetNumZeroed(MapRef->GetChunkCount());
+    }
+}
+
+UPMUMeshComponent* AMQCMap::GetOrAddMeshComponent(TArray<UPMUMeshComponent*>& MeshComponents, int32 MeshIndex)
+{
+    UPMUMeshComponent* MeshComponent = nullptr;
+
+    if (MeshComponents.IsValidIndex(MeshIndex))
+    {
+        MeshComponent = MeshComponents[MeshIndex];
+
+        if (! IsValid(MeshComponent))
+        {
+            FName MeshName(*FString::Printf(TEXT("MaterialMesh_%d"), MeshIndex));
+            MeshComponent = NewObject<UPMUMeshComponent>(this, MeshName);
+            MeshComponent->bEditableWhenInherited = true;
+            MeshComponent->SetupAttachment(MeshAnchor);
+            MeshComponent->RegisterComponent();
+            MeshComponents[MeshIndex] = MeshComponent;
+        }
+    }
+
+    return IsValid(MeshComponent) ? MeshComponent : nullptr;
+}
+
+UPMUMeshComponent* AMQCMap::GetSurfaceMesh(int32 MeshIndex)
+{
+    return GetOrAddMeshComponent(SurfaceMeshComponents, MeshIndex);
+}
+
 void AMQCMap::Initialize()
 {
     // Create new 
@@ -748,6 +784,8 @@ void AMQCMap::GenerateMapMesh()
     const int32 StateCount = Map.GetStateCount();
     const int32 ChunkCount = Map.GetChunkCount();
 
+    InitializeMeshComponents(SurfaceMeshComponents);
+
     for (int32 ChunkIndex=0; ChunkIndex<ChunkCount; ++ChunkIndex)
     {
         const int32 StateIndex = 1;
@@ -757,18 +795,19 @@ void AMQCMap::GenerateMapMesh()
         FPMUMeshSectionRef ExtrudeRef(*Chunk.GetExtrudeSection(StateIndex));
         FPMUMeshSectionRef EdgeRef(*Chunk.GetEdgeSection(StateIndex));
 
-        UPMUMeshComponent* MeshComponent;
-        FName MeshName(*FString::Printf(TEXT("SurfaceMesh_%d"), ChunkIndex));
+        //UPMUMeshComponent* Mesh;
+        UPMUMeshComponent* Mesh = GetSurfaceMesh(ChunkIndex);
+        //FName MeshName(*FString::Printf(TEXT("SurfaceMesh_%d"), ChunkIndex));
 
-        MeshComponent = NewObject<UPMUMeshComponent>(this, MeshName);
-        MeshComponent->bEditableWhenInherited = true;
-        MeshComponent->SetupAttachment(MeshAnchor);
-        MeshComponent->RegisterComponent();
+        //Mesh = NewObject<UPMUMeshComponent>(this, MeshName);
+        //Mesh->bEditableWhenInherited = true;
+        //Mesh->SetupAttachment(MeshAnchor);
+        //Mesh->RegisterComponent();
 
-        MeshComponent->CreateNewSection(SurfaceRef, MGI_SURFACE);
-        MeshComponent->CreateNewSection(ExtrudeRef, MGI_EXTRUDE);
-        MeshComponent->CreateNewSection(EdgeRef, MGI_EDGE);
-        MeshComponent->UpdateRenderState();
+        Mesh->CreateNewSection(SurfaceRef, MGI_SURFACE);
+        //Mesh->CreateNewSection(ExtrudeRef, MGI_EXTRUDE);
+        //Mesh->CreateNewSection(EdgeRef, MGI_EDGE);
+        Mesh->UpdateRenderState();
     }
 }
 
@@ -805,7 +844,11 @@ void AMQCMap::GenerateMaterialMesh(
             Swap(MaterialIndex0, MaterialIndex1);
         }
 
-        MaterialId = FMQCMaterialBlend(MaterialIndex0, MaterialIndex1, MaterialIndex2);
+        MaterialId = FMQCMaterialBlend(
+            MaterialIndex0,
+            MaterialIndex1,
+            MaterialIndex2
+            );
     }
     else
     {
@@ -848,32 +891,65 @@ void AMQCMap::GenerateMaterialMesh(
     }
 }
 
-void AMQCMap::InitializeMeshComponents(TArray<UPMUMeshComponent*>& MeshComponents)
+void AMQCMap::ApplyHeightMap(
+    int32 StateIndex,
+    UTexture* HeightTexture,
+    float HeightScale
+    )
 {
-    if (HasValidMap())
+    if (! HasValidMap())
     {
-        MeshComponents.SetNumZeroed(MapRef->GetChunkCount());
+        return;
     }
-}
 
-UPMUMeshComponent* AMQCMap::GetOrAddMeshComponent(TArray<UPMUMeshComponent*>& MeshComponents, int32 MeshIndex)
-{
-    UPMUMeshComponent* MeshComponent = nullptr;
+    FMQCMap& Map(MapRef->GetMap());
+    TArray<FPMUMeshSectionRef> SectionRefs;
+    const int32 ChunkCount = Map.GetChunkCount();
 
-    if (MeshComponents.IsValidIndex(MeshIndex))
+    InitializeMeshComponents(SurfaceMeshComponents);
+
+    // Find mesh sections
+    for (int32 ChunkIndex=0; ChunkIndex<ChunkCount; ++ChunkIndex)
     {
-        MeshComponent = MeshComponents[MeshIndex];
+        UPMUMeshComponent* Mesh = GetSurfaceMesh(ChunkIndex);
 
-        if (! IsValid(MeshComponent))
+        if (! IsValid(Mesh))
         {
-            FName MeshName(*FString::Printf(TEXT("MaterialMesh_%d"), MeshIndex));
-            MeshComponent = NewObject<UPMUMeshComponent>(this, MeshName);
-            MeshComponent->bEditableWhenInherited = true;
-            MeshComponent->SetupAttachment(MeshAnchor);
-            MeshComponent->RegisterComponent();
-            MeshComponents[MeshIndex] = MeshComponent;
+            continue;
+        }
+
+        TArray<int32> SectionIndices;
+        Mesh->GetAllNonEmptySectionIndices(SectionIndices);
+
+        for (int32 SectionIndex : SectionIndices)
+        {
+            FPMUMeshSectionRef SectionRef(Mesh->GetSectionRef(SectionIndex));
+            FPMUMeshSection* SectionPtr(SectionRef.SectionPtr);
+
+            if (SectionPtr && SectionPtr->HasGeometry())
+            {
+                SectionRefs.Emplace(SectionRef);
+            }
         }
     }
 
-    return IsValid(MeshComponent) ? MeshComponent : nullptr;
+    // Apply height map
+    if (SectionRefs.Num() > 0)
+    {
+        FVector2D PosScale = MapRef->GetMeshInverseScale();
+
+        UPMUMeshUtility::ApplyHeightMapToMeshSectionMulti(
+            this,           // WorldContextObject
+            SectionRefs,    // SectionRefs
+            HeightTexture,  // HeightTexture
+            HeightScale,    // HeightScale
+            false,          // bUseUV
+            PosScale.X,     // PositionToUVScaleX
+            PosScale.Y,     // PositionToUVScaleX
+            false,          // bMaskByColor
+            false,          // bInverseColorMask
+            true,           // bAssignTangents
+            nullptr         // CallbackEvent
+            );
+    }
 }

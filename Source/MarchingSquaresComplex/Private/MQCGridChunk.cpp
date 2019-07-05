@@ -62,6 +62,7 @@ void FMQCGridChunk::Initialize(const FMQCChunkConfig& Config)
     position = Config.Position;
     mapSize = Config.MapSize;
     voxelResolution = Config.VoxelResolution;
+    MaterialType = Config.MaterialType;
 
     cell.sharpFeatureLimit = FMath::Cos(FMath::DegreesToRadians(Config.MaxFeatureAngle));
     cell.parallelLimit     = FMath::Cos(FMath::DegreesToRadians(Config.MaxParallelAngle));

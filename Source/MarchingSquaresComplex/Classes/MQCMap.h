@@ -113,10 +113,10 @@ public:
     FMQCGridChunk& GetChunk(int32 ChunkIndex);
     void Triangulate();
     void TriangulateAsync();
+    void WaitForAsyncTask();
     void FinalizeAsync();
     void ResetChunkStates(const TArray<int32>& ChunkIndices);
     void ResetAllChunkStates();
-    void WaitForAsyncTask();
 
     // PREFAB FUNCTIONS
 
@@ -279,6 +279,7 @@ protected:
 
     void InitializeMeshComponents(TArray<UPMUMeshComponent*>& MeshComponents);
     UPMUMeshComponent* GetOrAddMeshComponent(TArray<UPMUMeshComponent*>& MeshComponents, int32 MeshIndex);
+    UPMUMeshComponent* GetSurfaceMesh(int32 MeshIndex);
 
 public:
 
@@ -340,6 +341,13 @@ public:
         uint8 MaterialIndex2,
         bool bUseTripleIndex,
         UMaterialInterface* Material
+        );
+
+    UFUNCTION(BlueprintCallable)
+    void ApplyHeightMap(
+        int32 StateIndex,
+        UTexture* HeightTexture = nullptr,
+        float HeightScale = 1.f
         );
 };
 
