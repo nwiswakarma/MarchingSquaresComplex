@@ -293,7 +293,7 @@ void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCChunkConfig
 
     // Initialize chunk
 
-    FIntPoint chunkPosition(x * voxelResolution, y * voxelResolution);
+    FVector2D chunkPosition(x * voxelResolution, y * voxelResolution);
 
     ChunkConfig.States = SurfaceStates;
     ChunkConfig.Position = chunkPosition;

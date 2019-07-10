@@ -29,7 +29,7 @@
 
 #ifndef MQC_VOXEL_DEBUG_LEGACY
 
-void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const
+void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
     if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
     {
@@ -73,7 +73,7 @@ void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const
     }
 }
 
-void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const
+void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
 {
     if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
     {

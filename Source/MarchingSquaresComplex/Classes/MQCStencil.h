@@ -55,10 +55,20 @@ protected:
     void GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const FMQCGridChunk& Chunk) const;
     void GetChunks(TArray<FMQCGridChunk*>& Chunks, FMQCMap& Map, const TArray<int32>& ChunkIndices) const;
 
-    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const = 0;
-    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const = 0;
+    FORCEINLINE FVector2D GetChunkCenter(const FVector2D& ChunkOffset) const
+    {
+        return FVector2D(centerX, centerY) - ChunkOffset;
+    }
 
-    virtual FMQCMaterial GetMaterialFor(const FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const;
+    FORCEINLINE FVector2D GetVoxelToChunk(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+    {
+        return GetChunkCenter(ChunkOffset) - Voxel.position;
+    }
+
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const = 0;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const = 0;
+
+    virtual FMQCMaterial GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const;
     virtual void GetMaterialBlendTyped(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const;
     virtual void GetMaterialBlendColor(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const;
     virtual void GetMaterialBlendSingleIndex(FMQCMaterial& OutMaterial, const FMQCMaterial& BaseMaterial, float BlendAlpha) const;
@@ -91,11 +101,6 @@ public:
 
     void GetOffsetBounds(float& X0, float& X1, float& Y0, float& Y1, const FVector2D& Offset) const;
 
-    FORCEINLINE FVector2D GetCenter() const
-    {
-        return FVector2D(centerX, centerY);
-    }
-
     FORCEINLINE int32 GetFillType() const
     {
         return fillType;
@@ -112,13 +117,13 @@ public:
         centerY = y;
     }
 
-    void SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const;
-    void SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const;
+    void SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const;
+    void SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const;
 
     virtual void EditMap(FMQCMap& Map, const FVector2D& center);
     virtual void EditMaterial(FMQCMap& Map, const FVector2D& center);
-    virtual void ApplyVoxel(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const;
-    virtual void ApplyMaterial(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const;
+    virtual void ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const;
+    virtual void ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const;
 };
 
 UCLASS(BlueprintType, Blueprintable)

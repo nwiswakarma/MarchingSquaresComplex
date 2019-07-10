@@ -212,10 +212,10 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
             a = b;
             b = &voxels[i + 1];
             Stencil.SetCrossingX(*a, *b, position);
-            Stencil.SetCrossingY(*a, voxels[i+voxelResolution], position);
+            Stencil.SetCrossingY(*a, voxels[i + voxelResolution], position);
         }
 
-        Stencil.SetCrossingY(*b, voxels[i+voxelResolution], position);
+        Stencil.SetCrossingY(*b, voxels[i + voxelResolution], position);
 
         if (bCrossGapX)
         {
