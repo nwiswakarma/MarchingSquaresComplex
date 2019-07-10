@@ -159,11 +159,6 @@ void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Mat
 
     // Assign vertex and bounds
 
-    //UE_LOG(LogTemp,Warning, TEXT("VERT: %s %d"),
-    //    *Vertex.ToString(),
-    //    Section.Positions.Num()
-    //    );
-
     Section.Positions.Emplace(Pos);
     Section.UVs.Emplace(UV);
     Section.Colors.Emplace(Material.ToFColor());
@@ -653,29 +648,20 @@ void FMQCGridSurface::AddTriangle(int32 a, int32 b, int32 c)
     // Generate extrude only
     if (bExtrusionSurface)
     {
-        TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
-        IndexBuffer.Emplace(c);
-        IndexBuffer.Emplace(b);
-        IndexBuffer.Emplace(a);
+        ExtrudeMeshData.AddFace(c, b, a);
     }
     else
     {
         // Generate surface
         {
-            TArray<uint32>& IndexBuffer(GetSurfaceSection().Indices);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(c);
-            AddMaterialFace(a, b, c);
+            SurfaceMeshData.AddFace(a, b, c);
+            AddMaterialFaceSafe(a, b, c);
         }
 
         // Generate extrude
         if (bGenerateExtrusion)
         {
-            TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(a);
+            ExtrudeMeshData.AddFace(c, b, a);
         }
     }
 }
@@ -685,25 +671,42 @@ void FMQCGridSurface::AddQuad(int32 a, int32 b, int32 c, int32 d)
     // Generate extrude only
     if (bExtrusionSurface)
     {
-        TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
-        IndexBuffer.Emplace(c);
-        IndexBuffer.Emplace(b);
-        IndexBuffer.Emplace(a);
-        IndexBuffer.Emplace(d);
-        IndexBuffer.Emplace(c);
-        IndexBuffer.Emplace(a);
+        ExtrudeMeshData.AddFace(c, b, a);
+        ExtrudeMeshData.AddFace(d, c, a);
     }
     else
     {
         // Generate surface
         {
-            TArray<uint32>& IndexBuffer(GetSurfaceSection().Indices);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(d);
+            SurfaceMeshData.AddFace(a, b, c);
+            SurfaceMeshData.AddFace(a, c, d);
+            AddMaterialFaceSafe(a, b, c);
+            AddMaterialFaceSafe(a, c, d);
+        }
+
+        // Generate extrude
+        if (bGenerateExtrusion)
+        {
+            ExtrudeMeshData.AddFace(c, b, a);
+            ExtrudeMeshData.AddFace(d, c, a);
+        }
+    }
+}
+
+void FMQCGridSurface::AddQuadCorners(int32 a, int32 b, int32 c, int32 d)
+{
+    // Generate extrude only
+    if (bExtrusionSurface)
+    {
+        ExtrudeMeshData.AddFaceNoCheck(c, b, a);
+        ExtrudeMeshData.AddFaceNoCheck(d, c, a);
+    }
+    else
+    {
+        // Generate surface
+        {
+            SurfaceMeshData.AddFaceNoCheck(a, b, c);
+            SurfaceMeshData.AddFaceNoCheck(a, c, d);
             AddMaterialFace(a, b, c);
             AddMaterialFace(a, c, d);
         }
@@ -711,13 +714,8 @@ void FMQCGridSurface::AddQuad(int32 a, int32 b, int32 c, int32 d)
         // Generate extrude
         if (bGenerateExtrusion)
         {
-            TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
+            ExtrudeMeshData.AddFaceNoCheck(c, b, a);
+            ExtrudeMeshData.AddFaceNoCheck(d, c, a);
         }
     }
 }
@@ -727,49 +725,28 @@ void FMQCGridSurface::AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e)
     // Generate extrude only
     if (bExtrusionSurface)
     {
-        TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
-        IndexBuffer.Emplace(c);
-        IndexBuffer.Emplace(b);
-        IndexBuffer.Emplace(a);
-        IndexBuffer.Emplace(d);
-        IndexBuffer.Emplace(c);
-        IndexBuffer.Emplace(a);
-        IndexBuffer.Emplace(e);
-        IndexBuffer.Emplace(d);
-        IndexBuffer.Emplace(a);
+        ExtrudeMeshData.AddFace(c, b, a);
+        ExtrudeMeshData.AddFace(d, c, a);
+        ExtrudeMeshData.AddFace(e, d, a);
     }
     else
     {
         // Generate surface
         {
-            TArray<uint32>& IndexBuffer(GetSurfaceSection().Indices);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(e);
-            AddMaterialFace(a, b, c);
-            AddMaterialFace(a, c, d);
-            AddMaterialFace(a, d, e);
+            SurfaceMeshData.AddFace(a, b, c);
+            SurfaceMeshData.AddFace(a, c, d);
+            SurfaceMeshData.AddFace(a, d, e);
+            AddMaterialFaceSafe(a, b, c);
+            AddMaterialFaceSafe(a, c, d);
+            AddMaterialFaceSafe(a, d, e);
         }
 
         // Generate extrude
         if (bGenerateExtrusion)
         {
-            TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(a);
+            ExtrudeMeshData.AddFace(c, b, a);
+            ExtrudeMeshData.AddFace(d, c, a);
+            ExtrudeMeshData.AddFace(e, d, a);
         }
     }
 }
@@ -779,59 +756,32 @@ void FMQCGridSurface::AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, in
     // Generate extrude only
     if (bExtrusionSurface)
     {
-        TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
-        IndexBuffer.Emplace(c);
-        IndexBuffer.Emplace(b);
-        IndexBuffer.Emplace(a);
-        IndexBuffer.Emplace(d);
-        IndexBuffer.Emplace(c);
-        IndexBuffer.Emplace(a);
-        IndexBuffer.Emplace(e);
-        IndexBuffer.Emplace(d);
-        IndexBuffer.Emplace(a);
-        IndexBuffer.Emplace(f);
-        IndexBuffer.Emplace(e);
-        IndexBuffer.Emplace(a);
+        ExtrudeMeshData.AddFace(c, b, a);
+        ExtrudeMeshData.AddFace(d, c, a);
+        ExtrudeMeshData.AddFace(e, d, a);
+        ExtrudeMeshData.AddFace(f, e, a);
     }
     else
     {
         // Generate surface
         {
-            TArray<uint32>& IndexBuffer(GetSurfaceSection().Indices);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(f);
-            AddMaterialFace(a, b, c);
-            AddMaterialFace(a, c, d);
-            AddMaterialFace(a, d, e);
-            AddMaterialFace(a, e, f);
+            SurfaceMeshData.AddFace(a, b, c);
+            SurfaceMeshData.AddFace(a, c, d);
+            SurfaceMeshData.AddFace(a, d, e);
+            SurfaceMeshData.AddFace(a, e, f);
+            AddMaterialFaceSafe(a, b, c);
+            AddMaterialFaceSafe(a, c, d);
+            AddMaterialFaceSafe(a, d, e);
+            AddMaterialFaceSafe(a, e, f);
         }
 
         // Generate extrude
         if (bGenerateExtrusion)
         {
-            TArray<uint32>& IndexBuffer(GetExtrudeSection().Indices);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(b);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(c);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(d);
-            IndexBuffer.Emplace(a);
-            IndexBuffer.Emplace(f);
-            IndexBuffer.Emplace(e);
-            IndexBuffer.Emplace(a);
+            ExtrudeMeshData.AddFace(c, b, a);
+            ExtrudeMeshData.AddFace(d, c, a);
+            ExtrudeMeshData.AddFace(e, d, a);
+            ExtrudeMeshData.AddFace(f, e, a);
         }
     }
 }

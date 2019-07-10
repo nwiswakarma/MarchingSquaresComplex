@@ -79,6 +79,23 @@ private:
     {
         FPMUMeshSection Section;
         TArray<FMQCMaterial> Materials;
+
+        FORCEINLINE void AddFace(uint32 a, uint32 b, uint32 c)
+        {
+            if (a != b && a != c && b != c)
+            {
+                Section.Indices.Emplace(a);
+                Section.Indices.Emplace(b);
+                Section.Indices.Emplace(c);
+            }
+        }
+
+        FORCEINLINE void AddFaceNoCheck(uint32 a, uint32 b, uint32 c)
+        {
+            Section.Indices.Emplace(a);
+            Section.Indices.Emplace(b);
+            Section.Indices.Emplace(c);
+        }
     };
 
 	const FName SHAPE_HEIGHT_MAP_NAME   = TEXT("PMU_VOXEL_SHAPE_HEIGHT_MAP");
@@ -176,7 +193,6 @@ public:
 
 	inline void CacheEdgeXMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-#if 1
         if (voxel.GetXEdge() > 0.f)
         {
             FVector2D EdgePoint(voxel.GetXEdgePoint());
@@ -185,21 +201,11 @@ public:
         else
         {
             xEdgesMax[i] = cornersMax[i];
-            //UE_LOG(LogTemp,Warning, TEXT("XMIN: %s %d %s"),
-            //    *voxel.GetXEdgePoint().ToString(),
-            //    cornersMax[i],
-            //    *SurfaceMeshData.Section.Positions[cornersMax[i]].ToString()
-            //    );
         }
-#else
-        FVector2D EdgePoint(voxel.GetXEdgePoint());
-        xEdgesMax[i] = AddVertex2(EdgePoint, Material);
-#endif
     }
 
 	inline void CacheEdgeXMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-#if 1
         if (voxel.GetXEdge() < 1.f)
         {
             FVector2D EdgePoint(voxel.GetXEdgePoint());
@@ -208,22 +214,11 @@ public:
         else
         {
             xEdgesMax[i] = cornersMax[i+1];
-            //UE_LOG(LogTemp,Warning, TEXT("XMAX: %s %d %s"),
-            //    *voxel.GetXEdgePoint().ToString(),
-            //    cornersMax[i+1],
-            //    *SurfaceMeshData.Section.Positions[xEdgesMax[i]].ToString()
-            //    );
         }
-#else
-        FVector2D EdgePoint(voxel.GetXEdgePoint());
-        xEdgesMax[i] = AddVertex2(EdgePoint, Material);
-#endif
     }
 
 	void CacheEdgeYMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-#if 1
-        //if ((i==0) || voxel.GetYEdge() > 0.f)
         if (voxel.GetYEdge() > 0.f)
         {
             FVector2D EdgePoint(voxel.GetYEdgePoint());
@@ -231,30 +226,12 @@ public:
         }
         else
         {
-            //yEdgeMax = (i==0) ? cornersMin[i] : cornersMin[i+1];
             yEdgeMax = cornersMin[i+1];
-            //UE_LOG(LogTemp,Warning, TEXT("YMIN: %s %d %s %d %d %d %d (%d)"),
-            //UE_LOG(LogTemp,Warning, TEXT("YMIN: %s %d %s %d %d (%d)"),
-            //    *voxel.GetYEdgePoint().ToString(),
-            //    yEdgeMax,
-            //    *SurfaceMeshData.Section.Positions[yEdgeMax].ToString(),
-            //    cornersMin[i],
-            //    //cornersMin[i+1],
-            //    cornersMax[i],
-            //    //cornersMax[i+1],
-            //    i
-            //    );
         }
-#else
-        FVector2D EdgePoint(voxel.GetYEdgePoint());
-        yEdgeMax = AddVertex2(EdgePoint, Material);
-#endif
     }
 
 	void CacheEdgeYMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-#if 1
-        //if ((i==0) || voxel.GetYEdge() < 1.f)
         if (voxel.GetYEdge() < 1.f)
         {
             FVector2D EdgePoint(voxel.GetYEdgePoint());
@@ -262,24 +239,8 @@ public:
         }
         else
         {
-            //yEdgeMax = (i==0) ? cornersMax[i] : cornersMax[i+1];
             yEdgeMax = cornersMax[i+1];
-            //UE_LOG(LogTemp,Warning, TEXT("YMAX: %s %d %s %d %d %d %d (%d)"),
-            //UE_LOG(LogTemp,Warning, TEXT("YMAX: %s %d %s %d %d (%d)"),
-            //    *voxel.GetYEdgePoint().ToString(),
-            //    yEdgeMax,
-            //    *SurfaceMeshData.Section.Positions[yEdgeMax].ToString(),
-            //    cornersMin[i],
-            //    //cornersMin[i+1],
-            //    cornersMax[i],
-            //    //cornersMax[i+1],
-            //    i
-            //    );
         }
-#else
-        FVector2D EdgePoint(voxel.GetYEdgePoint());
-        yEdgeMax = AddVertex2(EdgePoint, Material);
-#endif
     }
 
 	FORCEINLINE int32 CacheFeaturePoint(const FMQCFeaturePoint& f)
@@ -305,7 +266,7 @@ public:
 
 	FORCEINLINE void AddQuadABCD(int32 i)
     {
-		AddQuad(cornersMin[i], cornersMax[i], cornersMax[i + 1], cornersMin[i + 1]);
+		AddQuadCorners(cornersMin[i], cornersMax[i], cornersMax[i + 1], cornersMin[i + 1]);
 	}
 	
 	FORCEINLINE void AddTriangleA(int32 i, const bool bWall0)
@@ -546,6 +507,7 @@ private:
 
 	void AddTriangle(int32 a, int32 b, int32 c);
 	void AddQuad(int32 a, int32 b, int32 c, int32 d);
+	void AddQuadCorners(int32 a, int32 b, int32 c, int32 d);
 	void AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e);
 	void AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, int32 f);
 
@@ -574,6 +536,23 @@ private:
     void AddEdgeFace(int32 a, int32 b);
     void AddMaterialFace(int32 a, int32 b, int32 c);
 
+    FORCEINLINE void AddEdgeFace(int32 a, int32 b, int32 c)
+    {
+        if (bGenerateExtrusion)
+        {
+            AddEdgeFace(a, c);
+            AddEdgeFace(c, b);
+        }
+    }
+
+    FORCEINLINE void AddMaterialFaceSafe(int32 a, int32 b, int32 c)
+    {
+        if (a != b && a != c && b != c)
+        {
+            AddMaterialFace(a, b, c);
+        }
+    }
+
     inline int32 AddVertex2(const FVector2D& Vertex, const FMQCMaterial& Material)
     {
         int32 Index = GetVertexCount();
@@ -586,14 +565,5 @@ private:
         }
 
         return Index;
-    }
-
-    FORCEINLINE void AddEdgeFace(int32 a, int32 b, int32 c)
-    {
-        if (bGenerateExtrusion)
-        {
-            AddEdgeFace(a, c);
-            AddEdgeFace(c, b);
-        }
     }
 };
