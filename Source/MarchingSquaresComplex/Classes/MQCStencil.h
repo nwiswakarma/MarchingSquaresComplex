@@ -40,7 +40,7 @@ class MARCHINGSQUARESCOMPLEX_API FMQCStencil
 {
 protected:
 
-    int32 fillType;
+    uint8 fillType;
     float centerX;
     float centerY;
     FMQCMaterial Material;
@@ -84,7 +84,7 @@ protected:
 
 public:
 
-    int32 FillTypeSetting = 0;
+    uint8 FillTypeSetting = 0;
     FMQCMaterial MaterialSetting;
     EMQCMaterialBlendType MaterialBlendSetting;
     bool bEnableAsync = false;

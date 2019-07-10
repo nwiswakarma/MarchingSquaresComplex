@@ -261,7 +261,7 @@ private:
 
     FORCEINLINE bool IsInsideCell(const FVector2D& point) const
     {
-        return (point >= a.position) && (point <= d.position);
+        return (point > a.position) && (point < d.position);
     }
 
     FMQCFeaturePoint GetSharpFeature(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2) const

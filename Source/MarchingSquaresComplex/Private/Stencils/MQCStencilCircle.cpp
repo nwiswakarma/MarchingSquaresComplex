@@ -27,6 +27,13 @@
 
 #include "MQCStencilCircle.h"
 
+FVector2D FMQCStencilCircle::ComputeNormal(float x, float y, const FMQCVoxel& other) const
+{
+    return (fillType > other.voxelState)
+        ? FVector2D(x-centerX, y-centerY).GetSafeNormal()
+        : FVector2D(centerX-x, centerY-y).GetSafeNormal();
+}
+
 void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
     float ChunkCenterX = centerX - ChunkOffset.X;
@@ -42,7 +49,7 @@ void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
         {
             x = ChunkCenterX + FMath::Sqrt(sqrRadius - y2);
             const float xEdge = x-xMin.position.X;
-            if (xMin.xEdge < 0.f || xMin.xEdge < xEdge)
+            if (!xMin.HasValidEdgeX() || xMin.xEdge < xEdge)
             {
                 xMin.xEdge = xEdge;
                 xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMax);
@@ -61,7 +68,7 @@ void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
         {
             x = ChunkCenterX - FMath::Sqrt(sqrRadius - y2);
             const float xEdge = 1.f - (xMax.position.X-x);
-            if (xMin.xEdge < 0.f || xMin.xEdge > xEdge)
+            if (!xMin.HasValidEdgeX() || xMin.xEdge > xEdge)
             {
                 xMin.xEdge = xEdge;
                 xMin.xNormal = ComputeNormal(x, xMin.position.Y, xMin);
@@ -89,7 +96,7 @@ void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
         {
             y = ChunkCenterY + FMath::Sqrt(sqrRadius - x2);
             const float yEdge = y-yMin.position.Y;
-            if (yMin.yEdge < 0.f || yMin.yEdge < yEdge)
+            if (!yMin.HasValidEdgeY() || yMin.yEdge < yEdge)
             {
                 yMin.yEdge = yEdge;
                 yMin.yNormal = ComputeNormal(yMin.position.X, y, yMax);
@@ -108,7 +115,7 @@ void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
         {
             y = ChunkCenterY - FMath::Sqrt(sqrRadius - x2);
             const float yEdge = 1.f - (yMax.position.Y-y);
-            if (yMin.yEdge < 0.f || yMin.yEdge > yEdge)
+            if (!yMin.HasValidEdgeY() || yMin.yEdge > yEdge)
             {
                 yMin.yEdge = yEdge;
                 yMin.yNormal = ComputeNormal(yMin.position.X, y, yMin);

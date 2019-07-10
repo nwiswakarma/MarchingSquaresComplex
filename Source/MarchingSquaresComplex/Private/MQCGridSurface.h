@@ -174,23 +174,119 @@ public:
 		cornersMax[i + 1] = AddVertex2(voxel.position, voxel.Material);
 	}
 
-	FORCEINLINE void CacheXEdge(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	inline void CacheEdgeXMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
+#if 1
+        if (voxel.GetXEdge() > 0.f)
+        {
+            FVector2D EdgePoint(voxel.GetXEdgePoint());
+            xEdgesMax[i] = AddVertex2(EdgePoint, Material);
+        }
+        else
+        {
+            xEdgesMax[i] = cornersMax[i];
+            //UE_LOG(LogTemp,Warning, TEXT("XMIN: %s %d %s"),
+            //    *voxel.GetXEdgePoint().ToString(),
+            //    cornersMax[i],
+            //    *SurfaceMeshData.Section.Positions[cornersMax[i]].ToString()
+            //    );
+        }
+#else
         FVector2D EdgePoint(voxel.GetXEdgePoint());
-		xEdgesMax[i] = AddVertex2(EdgePoint, Material);
-	}
+        xEdgesMax[i] = AddVertex2(EdgePoint, Material);
+#endif
+    }
 
-	FORCEINLINE void CacheYEdge(const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	inline void CacheEdgeXMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
+#if 1
+        if (voxel.GetXEdge() < 1.f)
+        {
+            FVector2D EdgePoint(voxel.GetXEdgePoint());
+            xEdgesMax[i] = AddVertex2(EdgePoint, Material);
+        }
+        else
+        {
+            xEdgesMax[i] = cornersMax[i+1];
+            //UE_LOG(LogTemp,Warning, TEXT("XMAX: %s %d %s"),
+            //    *voxel.GetXEdgePoint().ToString(),
+            //    cornersMax[i+1],
+            //    *SurfaceMeshData.Section.Positions[xEdgesMax[i]].ToString()
+            //    );
+        }
+#else
+        FVector2D EdgePoint(voxel.GetXEdgePoint());
+        xEdgesMax[i] = AddVertex2(EdgePoint, Material);
+#endif
+    }
+
+	void CacheEdgeYMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+    {
+#if 1
+        //if ((i==0) || voxel.GetYEdge() > 0.f)
+        if (voxel.GetYEdge() > 0.f)
+        {
+            FVector2D EdgePoint(voxel.GetYEdgePoint());
+            yEdgeMax = AddVertex2(EdgePoint, Material);
+        }
+        else
+        {
+            //yEdgeMax = (i==0) ? cornersMin[i] : cornersMin[i+1];
+            yEdgeMax = cornersMin[i+1];
+            //UE_LOG(LogTemp,Warning, TEXT("YMIN: %s %d %s %d %d %d %d (%d)"),
+            //UE_LOG(LogTemp,Warning, TEXT("YMIN: %s %d %s %d %d (%d)"),
+            //    *voxel.GetYEdgePoint().ToString(),
+            //    yEdgeMax,
+            //    *SurfaceMeshData.Section.Positions[yEdgeMax].ToString(),
+            //    cornersMin[i],
+            //    //cornersMin[i+1],
+            //    cornersMax[i],
+            //    //cornersMax[i+1],
+            //    i
+            //    );
+        }
+#else
         FVector2D EdgePoint(voxel.GetYEdgePoint());
-		yEdgeMax = AddVertex2(EdgePoint, Material);
-	}
+        yEdgeMax = AddVertex2(EdgePoint, Material);
+#endif
+    }
+
+	void CacheEdgeYMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+    {
+#if 1
+        //if ((i==0) || voxel.GetYEdge() < 1.f)
+        if (voxel.GetYEdge() < 1.f)
+        {
+            FVector2D EdgePoint(voxel.GetYEdgePoint());
+            yEdgeMax = AddVertex2(EdgePoint, Material);
+        }
+        else
+        {
+            //yEdgeMax = (i==0) ? cornersMax[i] : cornersMax[i+1];
+            yEdgeMax = cornersMax[i+1];
+            //UE_LOG(LogTemp,Warning, TEXT("YMAX: %s %d %s %d %d %d %d (%d)"),
+            //UE_LOG(LogTemp,Warning, TEXT("YMAX: %s %d %s %d %d (%d)"),
+            //    *voxel.GetYEdgePoint().ToString(),
+            //    yEdgeMax,
+            //    *SurfaceMeshData.Section.Positions[yEdgeMax].ToString(),
+            //    cornersMin[i],
+            //    //cornersMin[i+1],
+            //    cornersMax[i],
+            //    //cornersMax[i+1],
+            //    i
+            //    );
+        }
+#else
+        FVector2D EdgePoint(voxel.GetYEdgePoint());
+        yEdgeMax = AddVertex2(EdgePoint, Material);
+#endif
+    }
 
 	FORCEINLINE int32 CacheFeaturePoint(const FMQCFeaturePoint& f)
     {
         check(f.exists);
         return AddVertex2(f.position, f.Material);
-	}
+    }
 
 	FORCEINLINE void PrepareCacheForNextCell()
     {

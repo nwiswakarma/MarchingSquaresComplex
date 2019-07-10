@@ -27,6 +27,12 @@
 
 #include "MQCStencilSquare.h"
 
+void FMQCStencilSquare::Initialize(const FMQCMap& VoxelMap)
+{
+    FMQCStencil::Initialize(VoxelMap);
+    radius = FMath::Max(0.f, RadiusSetting);
+}
+
 void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
     float X0, X1, Y0, Y1;

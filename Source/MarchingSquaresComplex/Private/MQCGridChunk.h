@@ -101,10 +101,15 @@ private:
     // Triangulation Functions
 
     void FillFirstRowCache();
+    void SwapRowCaches();
     void CacheFirstCorner(const FMQCVoxel& voxel);
     void CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const FMQCVoxel& xMax);
-    void CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& yMax);
-    void SwapRowCaches();
+    void CacheNextMiddleEdge(int32 i, const FMQCVoxel& yMin, const FMQCVoxel& yMax);
+
+    FORCEINLINE void CacheFirstMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& yMax)
+    {
+        CacheNextMiddleEdge(-1, yMin, yMax);
+    }
     
     void TriangulateCellRows();
     void TriangulateGapRow();

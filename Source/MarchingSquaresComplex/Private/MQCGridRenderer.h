@@ -90,24 +90,44 @@ public:
 		surface.CacheNextCorner(i, voxel);
 	}
 	
-	FORCEINLINE void CacheXEdge(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	FORCEINLINE void CacheEdgeXMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-		surface.CacheXEdge(i, voxel, Material);
+		surface.CacheEdgeXMinToMax(i, voxel, Material);
 	}
 	
-	FORCEINLINE void CacheXEdgeWithWall(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	FORCEINLINE void CacheEdgeXMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-		CacheXEdge(i, voxel, Material);
+		surface.CacheEdgeXMaxToMin(i, voxel, Material);
+	}
+
+	FORCEINLINE void CacheEdgeXWallMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+    {
+		CacheEdgeXMinToMax(i, voxel, Material);
 	}
 	
-	FORCEINLINE void CacheYEdge(const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	FORCEINLINE void CacheEdgeXWallMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-		surface.CacheYEdge(voxel, Material);
+		CacheEdgeXMaxToMin(i, voxel, Material);
 	}
-	
-	FORCEINLINE void CacheYEdgeWithWall(const FMQCVoxel& voxel, const FMQCMaterial& Material)
+
+	FORCEINLINE void CacheEdgeYMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-		CacheYEdge(voxel, Material);
+		surface.CacheEdgeYMinToMax(i, voxel, Material);
+	}
+
+	FORCEINLINE void CacheEdgeYMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+    {
+		surface.CacheEdgeYMaxToMin(i, voxel, Material);
+	}
+
+	FORCEINLINE void CacheEdgeYWallMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+    {
+		CacheEdgeYMinToMax(i, voxel, Material);
+	}
+
+	FORCEINLINE void CacheEdgeYWallMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+    {
+		CacheEdgeYMaxToMin(i, voxel, Material);
 	}
 
 	void FillA(const FMQCCell& cell, const FMQCFeaturePoint& f)

@@ -30,6 +30,7 @@
 #include "CoreMinimal.h"
 
 #include "Mesh/PMUMeshTypes.h"
+#include "Mesh/Simplifier/PMUMeshSimplifierOptions.h"
 
 #include "MQCVoxelTypes.h"
 #include "MQCMaterial.h"
@@ -347,8 +348,15 @@ public:
     void ApplyHeightMap(
         int32 StateIndex,
         UTexture* HeightTexture = nullptr,
+        bool bGenerateTangents = false,
         float HeightScale = 1.f
         );
+
+    UFUNCTION(BlueprintCallable)
+    void CalculateMeshNormal(int32 StateIndex);
+
+    UFUNCTION(BlueprintCallable)
+    void SimplifyMesh(int32 StateIndex, FPMUMeshSimplifierOptions Options);
 };
 
 // Blueprint Inlines

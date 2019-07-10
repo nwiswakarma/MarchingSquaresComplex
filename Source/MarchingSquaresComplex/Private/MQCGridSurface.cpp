@@ -111,64 +111,6 @@ void FMQCGridSurface::Finalize()
         GenerateEdgeGeometry();
     }
 
-#if 0
-    for (auto& Pair : MaterialSectionMap)
-    {
-        FMQCMaterialBlend Id(Pair.Get<0>());
-
-        if (! Id.IsTriple())
-        {
-            continue;
-        }
-
-        FIndexMap& IndexMap012(MaterialIndexMaps.FindChecked(Id));
-        FPMUMeshSection& Section012(Pair.Get<1>());
-
-        FMQCMaterialBlend Id01(Id.Index0, Id.Index1);
-        FIndexMap* IndexMap01(MaterialIndexMaps.Find(Id01));
-        FPMUMeshSection* Section01(MaterialSectionMap.Find(Id01));
-
-        FMQCMaterialBlend Id02(Id.Index0, Id.Index2);
-        FIndexMap* IndexMap02(MaterialIndexMaps.Find(Id02));
-        FPMUMeshSection* Section02(MaterialSectionMap.Find(Id02));
-
-        FMQCMaterialBlend Id12(Id.Index1, Id.Index2);
-        FIndexMap* IndexMap12(MaterialIndexMaps.Find(Id12));
-        FPMUMeshSection* Section12(MaterialSectionMap.Find(Id12));
-
-        for (const auto& IndexPair012 : IndexMap012)
-        {
-            const int32 VId = IndexPair012.Key;
-            FColor& Color(Section012.Colors[IndexPair012.Value]);
-
-            if (IndexMap01)
-            {
-                if (int32* i01 = IndexMap01->Find(VId))
-                {
-                    Color.R = Section01->Colors[*i01].R;
-                    Color.G = 0;
-                }
-            }
-            if (IndexMap02)
-            {
-                if (int32* i02 = IndexMap02->Find(VId))
-                {
-                    Color.R = 0;
-                    Color.G = Section02->Colors[*i02].R;
-                }
-            }
-            if (IndexMap12)
-            {
-                if (int32* i12 = IndexMap12->Find(VId))
-                {
-                    Color.R = 255;
-                    Color.G = Section12->Colors[*i12].R;
-                }
-            }
-        }
-    }
-#endif
-
     CompactGeometry();
 }
 
@@ -216,6 +158,11 @@ void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Mat
     FPackedNormal TangentZ(FVector4(0,0,FaceSign,FaceSign));
 
     // Assign vertex and bounds
+
+    //UE_LOG(LogTemp,Warning, TEXT("VERT: %s %d"),
+    //    *Vertex.ToString(),
+    //    Section.Positions.Num()
+    //    );
 
     Section.Positions.Emplace(Pos);
     Section.UVs.Emplace(UV);

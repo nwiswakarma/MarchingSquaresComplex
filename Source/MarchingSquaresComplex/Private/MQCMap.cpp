@@ -32,6 +32,7 @@
 #include "Components/BillboardComponent.h"
 #include "Mesh/PMUMeshComponent.h"
 #include "Mesh/PMUMeshUtility.h"
+#include "Mesh/Simplifier/PMUMeshSimplifier.h"
 
 #include "MQCGridChunk.h"
 
@@ -894,6 +895,7 @@ void AMQCMap::GenerateMaterialMesh(
 void AMQCMap::ApplyHeightMap(
     int32 StateIndex,
     UTexture* HeightTexture,
+    bool bGenerateTangents,
     float HeightScale
     )
 {
@@ -939,17 +941,149 @@ void AMQCMap::ApplyHeightMap(
         FVector2D PosScale = MapRef->GetMeshInverseScale();
 
         UPMUMeshUtility::ApplyHeightMapToMeshSectionMulti(
-            this,           // WorldContextObject
-            SectionRefs,    // SectionRefs
-            HeightTexture,  // HeightTexture
-            HeightScale,    // HeightScale
-            false,          // bUseUV
-            PosScale.X,     // PositionToUVScaleX
-            PosScale.Y,     // PositionToUVScaleX
-            false,          // bMaskByColor
-            false,          // bInverseColorMask
-            true,           // bAssignTangents
-            nullptr         // CallbackEvent
+            this,               // WorldContextObject
+            SectionRefs,        // SectionRefs
+            HeightTexture,      // HeightTexture
+            HeightScale,        // HeightScale
+            false,              // bUseUV
+            PosScale.X,         // PositionToUVScaleX
+            PosScale.Y,         // PositionToUVScaleX
+            false,              // bMaskByColor
+            false,              // bInverseColorMask
+            bGenerateTangents,  // bAssignTangents
+            nullptr             // CallbackEvent
             );
+    }
+}
+
+void AMQCMap::CalculateMeshNormal(int32 StateIndex)
+{
+    if (! HasValidMap())
+    {
+        return;
+    }
+
+    FMQCMap& Map(MapRef->GetMap());
+    TArray<FPMUMeshSectionRef> SectionRefs;
+    const int32 ChunkCount = Map.GetChunkCount();
+
+    InitializeMeshComponents(SurfaceMeshComponents);
+
+    // Find mesh sections
+    for (int32 ChunkIndex=0; ChunkIndex<ChunkCount; ++ChunkIndex)
+    {
+        UPMUMeshComponent* Mesh = GetSurfaceMesh(ChunkIndex);
+
+        if (! IsValid(Mesh))
+        {
+            continue;
+        }
+
+        TArray<int32> SectionIndices;
+        Mesh->GetAllNonEmptySectionIndices(SectionIndices);
+
+        for (int32 SectionIndex : SectionIndices)
+        {
+            FPMUMeshSectionRef SectionRef(Mesh->GetSectionRef(SectionIndex));
+            FPMUMeshSection* SectionPtr(SectionRef.SectionPtr);
+
+            if (SectionPtr && SectionPtr->HasGeometry())
+            {
+                SectionRefs.Emplace(SectionRef);
+            }
+        }
+    }
+
+    for (FPMUMeshSectionRef& SectionRef : SectionRefs)
+    {
+        check(SectionRef.HasValidSection());
+        check(SectionRef.SectionPtr->HasGeometry());
+
+        FPMUMeshSection& Section(*SectionRef.SectionPtr);
+
+        TArray<uint32>& Indices(Section.Indices);
+        TArray<FVector>& Positions(Section.Positions);
+        TArray<uint32>& Tangents(Section.Tangents);
+        TArray<FVector> Normals;
+
+        const int32 VCount = Positions.Num();
+        const int32 TCount = Indices.Num() / 3;
+
+        Normals.SetNumZeroed(VCount);
+
+        for (int32 ti=0; ti<TCount; ++ti)
+        {
+            int32 i0 = ti*3;
+            int32 i1 = i0+1;
+            int32 i2 = i0+2;
+
+            int32 vi0 = Indices[i0];
+            int32 vi1 = Indices[i1];
+            int32 vi2 = Indices[i2];
+
+            const FVector& Pos0(Positions[vi0]);
+            const FVector& Pos1(Positions[vi1]);
+            const FVector& Pos2(Positions[vi2]);
+
+            const FVector Edge21 = Pos1 - Pos2;
+            const FVector Edge20 = Pos0 - Pos2;
+            const FVector TriNormal = (Edge21 ^ Edge20).GetSafeNormal();
+
+            Normals[vi0] += TriNormal;
+            Normals[vi1] += TriNormal;
+            Normals[vi2] += TriNormal;
+        }
+
+        for (int32 vi=0; vi<VCount; ++vi)
+        {
+            FVector4 Normal(Normals[vi].GetSafeNormal(), 1.f);
+            FPackedNormal PackedNormal(Normal);
+
+            Tangents[vi*2+1] = PackedNormal.Vector.Packed;
+        }
+    }
+}
+
+void AMQCMap::SimplifyMesh(int32 StateIndex, FPMUMeshSimplifierOptions Options)
+{
+    if (! HasValidMap())
+    {
+        return;
+    }
+
+    FMQCMap& Map(MapRef->GetMap());
+    TArray<FPMUMeshSectionRef> SectionRefs;
+    const int32 ChunkCount = Map.GetChunkCount();
+
+    InitializeMeshComponents(SurfaceMeshComponents);
+
+    // Find mesh sections
+    for (int32 ChunkIndex=0; ChunkIndex<ChunkCount; ++ChunkIndex)
+    {
+        UPMUMeshComponent* Mesh = GetSurfaceMesh(ChunkIndex);
+
+        if (! IsValid(Mesh))
+        {
+            continue;
+        }
+
+        TArray<int32> SectionIndices;
+        Mesh->GetAllNonEmptySectionIndices(SectionIndices);
+
+        for (int32 SectionIndex : SectionIndices)
+        {
+            FPMUMeshSectionRef SectionRef(Mesh->GetSectionRef(SectionIndex));
+            FPMUMeshSection* SectionPtr(SectionRef.SectionPtr);
+
+            if (SectionPtr && SectionPtr->HasGeometry())
+            {
+                SectionRefs.Emplace(SectionRef);
+            }
+        }
+    }
+
+    for (FPMUMeshSectionRef& SectionRef : SectionRefs)
+    {
+        FPMUMeshSimplifier::SimplifyMeshSection(SectionRef, Options);
     }
 }

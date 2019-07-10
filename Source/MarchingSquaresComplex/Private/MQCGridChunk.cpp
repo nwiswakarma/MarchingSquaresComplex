@@ -466,39 +466,46 @@ void FMQCGridChunk::CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const
     const FMQCMaterial& MaterialMin(xMin.Material);
     const FMQCMaterial& MaterialMax(xMax.Material);
 
-    if (xMin.voxelState != xMax.voxelState)
+    const bool bFilledMin = xMin.IsFilled();
+    const bool bFilledMax = xMax.IsFilled();
+
+    const uint8 StateMin = xMin.voxelState;
+    const uint8 StateMax = xMax.voxelState;
+
+    if (bFilledMax)
     {
-        if (xMin.IsFilled())
+        RendererMax.CacheNextCorner(i, xMax);
+    }
+
+    if (StateMin != StateMax)
+    {
+        if (bFilledMin)
         {
-            if (xMax.IsFilled())
+            if (bFilledMax)
             {
                 FMQCMaterial EdgeMaterial = (xMin.GetXEdge() > .5f)
                     ? MaterialMax
                     : MaterialMin;
-                RendererMin.CacheXEdge(i, xMin, EdgeMaterial);
-                RendererMax.CacheXEdge(i, xMin, EdgeMaterial);
+                RendererMin.CacheEdgeXMinToMax(i, xMin, EdgeMaterial);
+                RendererMax.CacheEdgeXMaxToMin(i, xMin, EdgeMaterial);
             }
             else
             {
-                RendererMin.CacheXEdgeWithWall(i, xMin, MaterialMin);
+                RendererMin.CacheEdgeXWallMinToMax(i, xMin, MaterialMin);
             }
         }
         else
         {
-            RendererMax.CacheXEdgeWithWall(i, xMin, MaterialMax);
+            RendererMax.CacheEdgeXWallMaxToMin(i, xMin, MaterialMax);
         }
-    }
-    if (xMax.IsFilled())
-    {
-        RendererMax.CacheNextCorner(i, xMax);
     }
 }
 
-void FMQCGridChunk::CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& yMax)
+void FMQCGridChunk::CacheNextMiddleEdge(int32 i, const FMQCVoxel& yMin, const FMQCVoxel& yMax)
 {
-    for (int32 i=1; i<Renderers.Num(); i++)
+    for (int32 r=1; r<Renderers.Num(); r++)
     {
-        Renderers[i].PrepareCacheForNextCell();
+        Renderers[r].PrepareCacheForNextCell();
     }
     if (yMin.voxelState != yMax.voxelState)
     {
@@ -515,17 +522,17 @@ void FMQCGridChunk::CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& 
                 FMQCMaterial EdgeMaterial = (yMin.GetYEdge() > .5f)
                     ? MaterialMax
                     : MaterialMin;
-                RendererMin.CacheYEdge(yMin, EdgeMaterial);
-                RendererMax.CacheYEdge(yMin, EdgeMaterial);
+                RendererMin.CacheEdgeYMinToMax(i, yMin, EdgeMaterial);
+                RendererMax.CacheEdgeYMaxToMin(i, yMin, EdgeMaterial);
             }
             else
             {
-                RendererMin.CacheYEdgeWithWall(yMin, MaterialMin);
+                RendererMin.CacheEdgeYWallMinToMax(i, yMin, MaterialMin);
             }
         }
         else
         {
-            RendererMax.CacheYEdgeWithWall(yMin, MaterialMax);
+            RendererMax.CacheEdgeYWallMaxToMin(i, yMin, MaterialMax);
         }
     }
 }
@@ -545,7 +552,7 @@ void FMQCGridChunk::TriangulateCellRows()
     {
         SwapRowCaches();
         CacheFirstCorner(voxels[i + voxelResolution]);
-        CacheNextMiddleEdge(voxels[i], voxels[i + voxelResolution]);
+        CacheFirstMiddleEdge(voxels[i], voxels[i + voxelResolution]);
 
         for (int32 x=0; x<cells; x++, i++)
         {
@@ -555,7 +562,7 @@ void FMQCGridChunk::TriangulateCellRows()
                 c(voxels[i + voxelResolution]),
                 d(voxels[i + voxelResolution + 1]);
             CacheNextEdgeAndCorner(x, c, d);
-            CacheNextMiddleEdge(b, d);
+            CacheNextMiddleEdge(x, b, d);
             TriangulateCell(x, a, b, c, d);
         }
 
@@ -575,15 +582,15 @@ void FMQCGridChunk::TriangulateGapRow()
     int32 offset = cells * voxelResolution;
     SwapRowCaches();
     CacheFirstCorner(dummyY);
-    CacheNextMiddleEdge(voxels[cells * voxelResolution], dummyY);
+    CacheFirstMiddleEdge(voxels[cells * voxelResolution], dummyY);
 
-    for (int32 x = 0; x < cells; x++)
+    for (int32 x=0; x<cells; x++)
     {
         Swap(dummyT, dummyY);
         dummyY.BecomeYDummyOf(yNeighbor->voxels[x + 1], voxelResolution);
 
         CacheNextEdgeAndCorner(x, dummyT, dummyY);
-        CacheNextMiddleEdge(voxels[x + offset + 1], dummyY);
+        CacheNextMiddleEdge(x, voxels[x + offset + 1], dummyY);
         TriangulateCell(
             x,
             voxels[x + offset],
@@ -600,7 +607,7 @@ void FMQCGridChunk::TriangulateGapRow()
         dummyT.BecomeXYDummyOf(xyNeighbor->voxels[0], voxelResolution);
 
         CacheNextEdgeAndCorner(cells, dummyY, dummyT);
-        CacheNextMiddleEdge(dummyX, dummyT);
+        CacheNextMiddleEdge(cells, dummyX, dummyT);
         TriangulateCell(
             cells,
             voxels[voxels.Num() - 1],
@@ -620,7 +627,7 @@ void FMQCGridChunk::TriangulateGapCell(int32 i)
 
     int32 cacheIndex = voxelResolution - 1;
     CacheNextEdgeAndCorner(cacheIndex, voxels[i + voxelResolution], dummyX);
-    CacheNextMiddleEdge(dummyT, dummyX);
+    CacheNextMiddleEdge(cacheIndex, dummyT, dummyX);
 
     TriangulateCell(
         cacheIndex,

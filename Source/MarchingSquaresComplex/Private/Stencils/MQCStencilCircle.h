@@ -39,17 +39,7 @@ private:
     float MaterialBlendRadius;
     float MaterialBlendRadiusInv;
 
-	FVector2D ComputeNormal(float x, float y, const FMQCVoxel& other) const
-    {
-		if (fillType > other.voxelState)
-        {
-			return FVector2D(x - centerX, y - centerY).GetSafeNormal();
-		}
-		else
-        {
-			return FVector2D(centerX - x, centerY - y).GetSafeNormal();
-		}
-	}
+	FVector2D ComputeNormal(float x, float y, const FMQCVoxel& other) const;
 
 protected:
 
@@ -79,7 +69,7 @@ public:
     float Radius = 1.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", UIMin="0"))
-    int32 FillType = 0;
+    uint8 FillType = 0;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     uint8 MaterialIndex;

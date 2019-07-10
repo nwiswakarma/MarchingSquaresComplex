@@ -158,7 +158,7 @@ void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVe
     }
     else
     {
-        xMin.xEdge = -1.f;
+        xMin.InvalidateEdgeX();
     }
 }
 
@@ -170,7 +170,7 @@ void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVe
     }
     else
     {
-        yMin.yEdge = -1.f;
+        yMin.InvalidateEdgeY();
     }
 }
 

@@ -32,8 +32,8 @@
 
 struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 {
-    int32 voxelState;
-    int32 pointState;
+    uint8 voxelState;
+    uint8 pointState;
     FMQCMaterial Material;
 
     float xEdge;
@@ -59,6 +59,36 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     FORCEINLINE bool IsFilled() const
     {
         return voxelState > 0;
+    }
+
+    FORCEINLINE void InvalidateEdgeX()
+    {
+        xEdge = -1.f;
+    }
+
+    FORCEINLINE void InvalidateEdgeY()
+    {
+        yEdge = -1.f;
+    }
+
+    FORCEINLINE bool HasValidEdgeX() const
+    {
+        return xEdge >= 0.f;
+    }
+
+    FORCEINLINE bool HasValidEdgeY() const
+    {
+        return yEdge >= 0.f;
+    }
+
+    FORCEINLINE bool IsEdgeXWithinThreshold() const
+    {
+        return xEdge > 0.f && xEdge < 1.f;
+    }
+
+    FORCEINLINE bool IsEdgeYWithinThreshold() const
+    {
+        return xEdge > 0.f && xEdge < 1.f;
     }
 
     FORCEINLINE float GetXEdge() const

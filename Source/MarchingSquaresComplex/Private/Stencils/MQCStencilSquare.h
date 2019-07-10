@@ -67,11 +67,7 @@ public:
         return centerY + radius;
     }
 
-    virtual void Initialize(const FMQCMap& VoxelMap)
-    {
-        FMQCStencil::Initialize(VoxelMap);
-        radius = FMath::Max(0.f, (RadiusSetting + 0.5f));
-    }
+    virtual void Initialize(const FMQCMap& VoxelMap);
 };
 
 UCLASS()
@@ -87,7 +83,7 @@ public:
     float Radius = 0.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", UIMin="0"))
-    int32 FillType = 0;
+    uint8 FillType = 0;
 
     virtual void EditMapAt(UMQCMapRef* MapRef, FVector2D Center) override
     {
