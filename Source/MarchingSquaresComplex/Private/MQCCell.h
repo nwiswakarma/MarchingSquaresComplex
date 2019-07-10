@@ -80,7 +80,7 @@ public:
         return GetSharpFeature(a.GetYEdgePoint(), a.yNormal, b.GetYEdgePoint(), b.yNormal);
     }
 
-    FORCEINLINE FMQCFeaturePoint GetFeatureNEW() const
+    inline FMQCFeaturePoint GetFeatureNEW() const
     {
         FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureEW(), GetFeatureNE(), GetFeatureNW());
         if (!f.exists)
@@ -91,7 +91,7 @@ public:
         return f;
     }
 
-    FORCEINLINE FMQCFeaturePoint GetFeatureNSE() const
+    inline FMQCFeaturePoint GetFeatureNSE() const
     {
         FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureNS(), GetFeatureSE(), GetFeatureNE());
         if (!f.exists)
@@ -102,7 +102,7 @@ public:
         return f;
     }
     
-    FORCEINLINE FMQCFeaturePoint GetFeatureNSW() const
+    inline FMQCFeaturePoint GetFeatureNSW() const
     {
         FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureNS(), GetFeatureNW(), GetFeatureSW());
         if (!f.exists)
@@ -113,7 +113,7 @@ public:
         return f;
     }
     
-    FORCEINLINE FMQCFeaturePoint GetFeatureSEW() const
+    inline FMQCFeaturePoint GetFeatureSEW() const
     {
         FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureEW(), GetFeatureSE(), GetFeatureSW());
         if (!f.exists)
@@ -124,21 +124,21 @@ public:
         return f;
     }
     
-    FMQCFeaturePoint GetFeatureAverage(
+    inline FMQCFeaturePoint GetFeatureAverage(
         const FMQCFeaturePoint& fA,
         const FMQCFeaturePoint& fB,
         const FMQCFeaturePoint& fC,
         const FMQCFeaturePoint& fD
         ) const
     {
-        FMQCFeaturePoint point = FMQCFeaturePoint::Average(fA, fB, fC, fD);
-        if (! point.exists)
+        FMQCFeaturePoint f = FMQCFeaturePoint::Average(fA, fB, fC, fD);
+        if (! f.exists)
         {
-            point.position = GetAverageNESW();
-            point.Material = GetMaterial(point.position);
-            point.exists = true;
+            f.position = GetAverageNESW();
+            f.Material = GetMaterial(f.position);
+            f.exists = true;
         }
-        return point;
+        return f;
     }
 
     bool HasConnectionAD(const FMQCFeaturePoint& fA, const FMQCFeaturePoint& fD)
@@ -235,9 +235,9 @@ public:
 
 private:
 
-    FORCEINLINE static bool IsBelowLine(const FVector2D& p, const FVector2D& start, const FVector2D& end)
+    FORCEINLINE static bool IsBelowLine(const FVector2D& p, const FVector2D& L0, const FVector2D& L1)
     {
-        float determinant = (end.X - start.X) * (p.Y - start.Y) - (end.Y - start.Y) * (p.X - start.X);
+        float determinant = (L1.X - L0.X) * (p.Y - L0.Y) - (L1.Y - L0.Y) * (p.X - L0.X);
         return determinant < 0.f;
     }
 
@@ -261,34 +261,35 @@ private:
 
     FORCEINLINE bool IsInsideCell(const FVector2D& point) const
     {
-        return (point > a.position) && (point < d.position);
+        return (point.X > a.position.X && point.Y > a.position.Y)
+            && (point.X < d.position.X && point.Y > d.position.Y);
     }
 
     FMQCFeaturePoint GetSharpFeature(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2) const
     {
-        FMQCFeaturePoint point;
+        FMQCFeaturePoint f;
         if (IsSharpFeature(n1, n2))
         {
-            point.position = GetIntersection(p1, n1, p2, n2);
-            point.exists = IsInsideCell(point.position);
+            f.position = GetIntersection(p1, n1, p2, n2);
+            f.exists = IsInsideCell(f.position);
 
             // Assign material if feature point is valid
-            if (point.exists)
+            if (f.exists)
             {
-                point.Material = GetMaterial(point.position);
+                f.Material = GetMaterial(f.position);
             }
         }
         else
         {
-            point.position = FVector2D::ZeroVector;
-            point.exists = false;
+            f.position = FVector2D::ZeroVector;
+            f.exists = false;
         }
-        return point;
+        return f;
     }
 
-    FMQCMaterial GetMaterial(const FVector2D& Position) const
+    inline FMQCMaterial GetMaterial(const FVector2D& Position) const
     {
-        FVector2D PointToCenter = Position - ((d.position-a.position) / 2.f);
+        FVector2D PointToCenter = Position - (FVector2D(d.position-a.position) / 2.f);
         FMQCMaterial Material;
 
         if (Position.X > 0.f)

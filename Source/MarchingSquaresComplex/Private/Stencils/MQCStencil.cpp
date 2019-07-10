@@ -113,7 +113,7 @@ void FMQCStencil::GetMapRange(TArray<int32>& ChunkIndices, const int32 voxelReso
 void FMQCStencil::GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const FMQCGridChunk& Chunk) const
 {
     const int32 resolution = Chunk.voxelResolution;
-    const FIntPoint Offset = Chunk.GetOffsetId();
+    const FIntPoint Offset = Chunk.position;
 
     x0 = (int32)(GetXStart()) - Offset.X;
     if (x0 < 0)
@@ -150,7 +150,7 @@ void FMQCStencil::GetChunks(TArray<FMQCGridChunk*>& Chunks, FMQCMap& Map, const 
     }
 }
 
-void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
+void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const
 {
     if (xMin.voxelState != xMax.voxelState)
     {
@@ -162,7 +162,7 @@ void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVe
     }
 }
 
-void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
+void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const
 {
     if (yMin.voxelState != yMax.voxelState)
     {
@@ -174,7 +174,7 @@ void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVe
     }
 }
 
-FMQCMaterial FMQCStencil::GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+FMQCMaterial FMQCStencil::GetMaterialFor(const FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
 {
     return FMQCMaterial::Zero;
 }
@@ -591,7 +591,7 @@ void FMQCStencil::SetMaterials(const TArray<FMQCGridChunk*>& Chunks)
     }
 }
 
-void FMQCStencil::ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+void FMQCStencil::ApplyVoxel(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
 {
     const FVector2D& p(Voxel.position);
 
@@ -604,7 +604,7 @@ void FMQCStencil::ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) con
     }
 }
 
-void FMQCStencil::ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+void FMQCStencil::ApplyMaterial(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
 {
     const FVector2D& p(Voxel.position);
 

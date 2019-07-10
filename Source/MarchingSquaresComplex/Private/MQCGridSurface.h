@@ -95,7 +95,7 @@ private:
     int32 VoxelCount;
     float MapSize;
     float MapSizeInv;
-    FVector2D position;
+    FIntPoint position;
 
 	TArray<int32> cornersMin;
 	TArray<int32> cornersMax;

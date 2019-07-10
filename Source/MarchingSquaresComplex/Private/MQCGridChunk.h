@@ -122,7 +122,7 @@ public:
     FMQCGridChunk();
     ~FMQCGridChunk();
 
-    FVector2D position;
+    FIntPoint position;
 
     FMQCGridChunk* xNeighbor = nullptr;
     FMQCGridChunk* yNeighbor = nullptr;
@@ -146,11 +146,6 @@ public:
 
     void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
     FPMUMeshSection* GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material);
-
-    FORCEINLINE FIntPoint GetOffsetId() const
-    {
-        return FIntPoint(position.X+.5f, position.Y+.5f);
-    }
 
     FORCEINLINE bool HasRenderer(int32 RendererIndex) const
     {

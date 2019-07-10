@@ -39,7 +39,7 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     float xEdge;
     float yEdge;
 
-    FVector2D position;
+    FIntPoint position;
     FVector2D xNormal;
     FVector2D yNormal;
 
@@ -111,6 +111,11 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return FVector2D(position.X, position.Y+GetYEdge());
     }
 
+    FORCEINLINE FVector2D GetPositionAsVector2D() const
+    {
+        return position;
+    }
+
     FORCEINLINE void Reset()
     {
         xEdge = -1.f;
@@ -123,26 +128,26 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     FORCEINLINE void Set(int32 x, int32 y)
     {
         Reset();
-        position.X = x + 0.5f;
-        position.Y = y + 0.5f;
+        position.X = x;
+        position.Y = y;
     }
 
-    FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& voxel, float offset)
+    FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& voxel, int32 Offset)
     {
         (*this) = voxel;
-        position.X += offset;
+        position.X += Offset;
     }
     
-    FORCEINLINE void BecomeYDummyOf(const FMQCVoxel& voxel, float offset)
+    FORCEINLINE void BecomeYDummyOf(const FMQCVoxel& voxel, int32 Offset)
     {
         (*this) = voxel;
-        position.Y += offset;
+        position.Y += Offset;
     }
 
-    FORCEINLINE void BecomeXYDummyOf(const FMQCVoxel& voxel, float offset)
+    FORCEINLINE void BecomeXYDummyOf(const FMQCVoxel& voxel, int32 Offset)
     {
         (*this) = voxel;
-        position.X += offset;
-        position.Y += offset;
+        position.X += Offset;
+        position.Y += Offset;
     }
 };
