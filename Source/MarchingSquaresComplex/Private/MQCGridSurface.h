@@ -196,12 +196,12 @@ public:
 
 	FORCEINLINE void CacheFirstCorner(const FMQCVoxel& voxel)
     {
-		cornersMax[0] = AddVertex2(voxel.position, voxel.Material);
+		cornersMax[0] = AddVertex2(voxel.GetPosition(), voxel.Material);
 	}
 
 	FORCEINLINE void CacheNextCorner(int32 i, const FMQCVoxel& voxel)
     {
-		cornersMax[i+1] = AddVertex2(voxel.position, voxel.Material);
+		cornersMax[i+1] = AddVertex2(voxel.GetPosition(), voxel.Material);
 	}
 
 	inline void CacheEdgeXMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
@@ -231,17 +231,6 @@ public:
 	FORCEINLINE int32 CacheFeaturePoint(const FMQCFeaturePoint& f)
     {
         check(f.exists);
-        return AddVertex2(f.position, f.Material);
-    }
-
-	inline int32 CacheFeaturePoint(int32 i, const FMQCFeaturePoint& f, uint8 Mask)
-    {
-        check(f.exists);
-        //check((Mask & 0x0F) != 0x00);
-        //check((Mask & 0x0F) != 0x0F);
-
-        //uint8 fm = f.CornerMask;
-
         return AddVertex2(f.position, f.Material);
     }
 

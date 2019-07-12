@@ -67,7 +67,7 @@ protected:
 
     FORCEINLINE FVector2D GetVoxelToChunk(const FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
     {
-        return GetChunkCenter(ChunkOffset) - Voxel.position;
+        return GetChunkCenter(ChunkOffset) - Voxel.GetPosition();
     }
 
     virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const override;

@@ -30,30 +30,38 @@
 #include "CoreMinimal.h"
 #include "MQCMaterial.h"
 
+#define MQC_ENCODE_EDGE_CONST 254.999f
+#define MQC_DECODE_EDGE_CONST 0.003937f
+
 struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 {
     uint8 voxelState;
     uint8 pointState;
     FMQCMaterial Material;
 
-    float xEdge;
-    float yEdge;
+    uint8 EdgeX;
+    uint8 EdgeY;
 
-    FVector2D position;
+    FIntPoint Position;
     FVector2D xNormal;
     FVector2D yNormal;
 
     FMQCVoxel()
         : voxelState(0)
         , pointState(0)
-        , xEdge(-1.f)
-        , yEdge(-1.f)
+        , EdgeX(0xFF)
+        , EdgeY(0xFF)
     {
     }
 
     FMQCVoxel(int32 x, int32 y)
     {
         Set(x, y);
+    }
+
+    FORCEINLINE static uint8 EncodeEdge(float Alpha)
+    {
+        return (uint8)(FMath::Clamp(Alpha, 0.f, 1.f) * MQC_ENCODE_EDGE_CONST);
     }
 
     FORCEINLINE bool IsFilled() const
@@ -63,86 +71,81 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     FORCEINLINE void InvalidateEdgeX()
     {
-        xEdge = -1.f;
+        EdgeX = 0xFF;
     }
 
     FORCEINLINE void InvalidateEdgeY()
     {
-        yEdge = -1.f;
+        EdgeY = 0xFF;
     }
 
     FORCEINLINE bool HasValidEdgeX() const
     {
-        return xEdge >= 0.f;
+        return EdgeX < 0xFF;
     }
 
     FORCEINLINE bool HasValidEdgeY() const
     {
-        return yEdge >= 0.f;
-    }
-
-    FORCEINLINE bool IsEdgeXWithinThreshold() const
-    {
-        return xEdge > 0.f && xEdge < 1.f;
-    }
-
-    FORCEINLINE bool IsEdgeYWithinThreshold() const
-    {
-        return xEdge > 0.f && xEdge < 1.f;
+        return EdgeY < 0xFF;
     }
 
     FORCEINLINE float GetXEdge() const
     {
-        return FMath::Max(0.f, xEdge);
+        return HasValidEdgeX() ? ((float)(EdgeX)*MQC_DECODE_EDGE_CONST) : 0.f;
     }
 
     FORCEINLINE float GetYEdge() const
     {
-        return FMath::Max(0.f, yEdge);
+        return HasValidEdgeY() ? ((float)(EdgeY)*MQC_DECODE_EDGE_CONST) : 0.f;
     }
 
     FORCEINLINE FVector2D GetXEdgePoint() const
     {
-        return FVector2D(position.X+GetXEdge(), position.Y);
+        return FVector2D(Position.X+GetXEdge(), Position.Y);
     }
     
     FORCEINLINE FVector2D GetYEdgePoint() const
     {
-        return FVector2D(position.X, position.Y+GetYEdge());
+        return FVector2D(Position.X, Position.Y+GetYEdge());
+    }
+
+    FORCEINLINE FVector2D GetPosition() const
+    {
+        return Position;
     }
 
     FORCEINLINE void Reset()
     {
-        xEdge = -1.f;
-        yEdge = -1.f;
+        EdgeX = 0xFF;
+        EdgeY = 0xFF;
         voxelState = 0;
         pointState = 0;
         Material = FMQCMaterial(ForceInitToZero);
     }
 
-    FORCEINLINE void Set(int32 x, int32 y)
+    FORCEINLINE void Set(int32 X, int32 Y)
     {
         Reset();
-        position.X = x;// + .5f;
-        position.Y = y;// + .5f;
+        Position.X = X;
+        Position.Y = Y;
     }
 
-    FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& voxel, float offset)
+    FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& Voxel, int32 Offset)
     {
-        (*this) = voxel;
-        position.X += offset;
+        (*this) = Voxel;
+        Position.X += Offset;
     }
     
-    FORCEINLINE void BecomeYDummyOf(const FMQCVoxel& voxel, float offset)
+    FORCEINLINE void BecomeYDummyOf(const FMQCVoxel& Voxel, float Offset)
     {
-        (*this) = voxel;
-        position.Y += offset;
+        (*this) = Voxel;
+        Position.Y += Offset;
     }
 
-    FORCEINLINE void BecomeXYDummyOf(const FMQCVoxel& voxel, float offset)
+    FORCEINLINE void BecomeXYDummyOf(const FMQCVoxel& Voxel, float Offset)
     {
-        (*this) = voxel;
-        position.X += offset;
-        position.Y += offset;
+        (*this) = Voxel;
+        Position.X += Offset;
+        Position.Y += Offset;
     }
 };

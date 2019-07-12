@@ -131,7 +131,7 @@ void FMQCGridSurface::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
 
 void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Material, bool bIsExtrusion)
 {
-    FVector2D XY((FVector2D(Position)+Vertex)/*-.5f*/);
+    FVector2D XY((FVector2D(Position)+Vertex));
     FVector2D UV(XY*MapSizeInv - MapSizeInv*.5f);
 
     float Height;

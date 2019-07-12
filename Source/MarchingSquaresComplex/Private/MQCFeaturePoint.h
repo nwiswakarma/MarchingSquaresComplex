@@ -34,7 +34,6 @@ struct FMQCFeaturePoint
 {
 	FVector2D position;
     FMQCMaterial Material;
-	uint8 CornerMask;
 	bool exists;
 
     FMQCFeaturePoint() = default;

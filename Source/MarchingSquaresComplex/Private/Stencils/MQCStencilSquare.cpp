@@ -35,13 +35,16 @@ void FMQCStencilSquare::Initialize(const FMQCMap& VoxelMap)
 
 void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const
 {
+    FVector2D PositionMin = xMin.GetPosition();
+    FVector2D PositionMax = xMax.GetPosition();
+
     float X0, X1, Y0, Y1;
     X0 = (centerX-radius)-ChunkOffset.X;
     X1 = (centerX+radius)-ChunkOffset.X;
     Y0 = (centerY-radius)-ChunkOffset.Y;
     Y1 = (centerY+radius)-ChunkOffset.Y;
 
-    if (xMin.position.Y < Y0 || xMin.position.Y > Y1)
+    if (PositionMin.Y < Y0 || PositionMin.Y > Y1)
     {
         return;
     }
@@ -49,12 +52,13 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
     if (xMin.voxelState == fillType)
     {
         const float x = X1;
-        if (xMin.position.X <= x && xMax.position.X >= x)
+        if (PositionMin.X <= x && PositionMax.X >= x)
         {
-            const float xEdge = x-xMin.position.X;
-            if (xMin.xEdge < 0.f || xMin.xEdge < xEdge)
+            const float EdgeAlpha = x-PositionMin.X;
+            const uint8 EdgeX = FMQCVoxel::EncodeEdge(EdgeAlpha);
+            if (!xMin.HasValidEdgeX() || xMin.EdgeX < EdgeX)
             {
-                xMin.xEdge = x-xMin.position.X;
+                xMin.EdgeX = EdgeX;
                 xMin.xNormal = FVector2D(fillType ? 1.f : -1.f, 0.f);
             }
             else
@@ -67,12 +71,13 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
     if (xMax.voxelState == fillType)
     {
         const float x = X0;
-        if (xMin.position.X <= x && xMax.position.X >= x)
+        if (PositionMin.X <= x && PositionMax.X >= x)
         {
-            const float xEdge = 1.f - (xMax.position.X-x);
-            if (xMin.xEdge < 0.f || xMin.xEdge > xEdge)
+            const float EdgeAlpha = 1.f - (PositionMax.X-x);
+            const uint8 EdgeX = FMQCVoxel::EncodeEdge(EdgeAlpha);
+            if (!xMin.HasValidEdgeX() || xMin.EdgeX > EdgeX)
             {
-                xMin.xEdge = xEdge;
+                xMin.EdgeX = EdgeX;
                 xMin.xNormal = FVector2D(fillType ? -1.f : 1.f, 0.f);
             }
             else
@@ -85,13 +90,16 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
 
 void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const
 {
+    FVector2D PositionMin = yMin.GetPosition();
+    FVector2D PositionMax = yMax.GetPosition();
+
     float X0, X1, Y0, Y1;
     X0 = (centerX-radius)-ChunkOffset.X;
     X1 = (centerX+radius)-ChunkOffset.X;
     Y0 = (centerY-radius)-ChunkOffset.Y;
     Y1 = (centerY+radius)-ChunkOffset.Y;
 
-    if (yMin.position.X < X0 || yMin.position.X > X1)
+    if (PositionMin.X < X0 || PositionMin.X > X1)
     {
         return;
     }
@@ -99,12 +107,13 @@ void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
     if (yMin.voxelState == fillType)
     {
         const float y = Y1;
-        if (yMin.position.Y <= y && yMax.position.Y >= y)
+        if (PositionMin.Y <= y && PositionMax.Y >= y)
         {
-            const float yEdge = y-yMin.position.Y;
-            if (yMin.yEdge < 0.f || yMin.yEdge < yEdge)
+            const float EdgeAlpha = y-PositionMin.Y;
+            const uint8 EdgeY = FMQCVoxel::EncodeEdge(EdgeAlpha);
+            if (!yMin.HasValidEdgeY() || yMin.EdgeY < EdgeY)
             {
-                yMin.yEdge = yEdge;
+                yMin.EdgeY = EdgeY;
                 yMin.yNormal = FVector2D(0.f, fillType ? 1.f : -1.f);
             }
             else
@@ -117,12 +126,13 @@ void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
     if (yMax.voxelState == fillType)
     {
         const float y = Y0;
-        if (yMin.position.Y <= y && yMax.position.Y >= y)
+        if (PositionMin.Y <= y && PositionMax.Y >= y)
         {
-            const float yEdge = 1.f - (yMax.position.Y-y);
-            if (yMin.yEdge < 0.f || yMin.yEdge > yEdge)
+            const float EdgeAlpha = 1.f - (PositionMax.Y-y);
+            const uint8 EdgeY = FMQCVoxel::EncodeEdge(EdgeAlpha);
+            if (!yMin.HasValidEdgeY() || yMin.EdgeY > EdgeY)
             {
-                yMin.yEdge = yEdge;
+                yMin.EdgeY = EdgeY;
                 yMin.yNormal = FVector2D(0.f, fillType ? -1.f : 1.f);
             }
             else

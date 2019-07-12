@@ -136,7 +136,6 @@ public:
         {
             f.position = GetAverageNESW();
             f.Material = GetMaterial(f.position);
-            f.CornerMask = GetCornerMask(f.position);
             f.exists = true;
         }
         return f;
@@ -216,22 +215,22 @@ public:
 
     FORCEINLINE bool IsInsideABD(const FVector2D& point)
     {
-        return IsBelowLine(point, a.position, d.position);
+        return IsBelowLine(point, a.GetPosition(), d.GetPosition());
     }
     
     FORCEINLINE bool IsInsideACD(const FVector2D& point)
     {
-        return IsBelowLine(point, d.position, a.position);
+        return IsBelowLine(point, d.GetPosition(), a.GetPosition());
     }
 
     FORCEINLINE bool IsInsideABC(const FVector2D& point)
     {
-        return IsBelowLine(point, c.position, b.position);
+        return IsBelowLine(point, c.GetPosition(), b.GetPosition());
     }
 
     FORCEINLINE bool IsInsideBCD(const FVector2D& point)
     {
-        return IsBelowLine(point, b.position, c.position);
+        return IsBelowLine(point, b.GetPosition(), c.GetPosition());
     }
 
 private:
@@ -262,7 +261,7 @@ private:
 
     FORCEINLINE bool IsInsideCell(const FVector2D& point) const
     {
-        return (point >= a.position) && (point <= d.position);
+        return (point >= a.GetPosition()) && (point <= d.GetPosition());
     }
 
     FMQCFeaturePoint GetSharpFeature(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2) const
@@ -277,7 +276,6 @@ private:
             if (f.exists)
             {
                 f.Material = GetMaterial(f.position);
-                f.CornerMask = GetCornerMask(f.position);
             }
         }
         else
@@ -290,7 +288,7 @@ private:
 
     FMQCMaterial GetMaterial(const FVector2D& Position) const
     {
-        FVector2D PointToCenter = Position - ((d.position-a.position) / 2.f);
+        FVector2D PointToCenter = Position - ((d.GetPosition()-a.GetPosition()) / 2.f);
         FMQCMaterial Material;
 
         if (Position.X > 0.f)
@@ -317,15 +315,5 @@ private:
         }
 
         return Material;
-    }
-
-    FORCEINLINE uint8 GetCornerMask(const FVector2D& Position) const
-    {
-        uint8 Mask = 0;
-        Mask |= (Position <= a.position)                                   ? 0x01 : 0;
-        Mask |= (Position.X >= b.position.X && Position.Y <= b.position.Y) ? 0x02 : 0;
-        Mask |= (Position.X <= c.position.X && Position.Y >= c.position.Y) ? 0x04 : 0;
-        Mask |= (Position >= d.position)                                   ? 0x08 : 0;
-        return Mask;
     }
 };
