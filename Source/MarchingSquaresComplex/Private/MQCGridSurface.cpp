@@ -57,11 +57,6 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
     xEdgesMinValues.SetNum(VoxelResolution);
     xEdgesMaxValues.SetNum(VoxelResolution);
 
-    xEdgesMinPoints.SetNum(VoxelResolution);
-    xEdgesMaxPoints.SetNum(VoxelResolution);
-
-    xEdgesOccupancy.SetNumZeroed(VoxelResolution);
-
     // Reserves geometry container spaces
 
     ReserveGeometry();
@@ -314,8 +309,6 @@ void FMQCGridSurface::AddEdgeFace(int32 a, int32 b)
 
 void FMQCGridSurface::AddMaterialFace(int32 a, int32 b, int32 c)
 {
-    return;
-
     const FMeshData& SrcMeshData(SurfaceMeshData);
 
     check(SrcMeshData.Materials.IsValidIndex(a));
