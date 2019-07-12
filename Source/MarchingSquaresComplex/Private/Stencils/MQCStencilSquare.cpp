@@ -33,13 +33,13 @@ void FMQCStencilSquare::Initialize(const FMQCMap& VoxelMap)
     radius = FMath::Max(0.f, RadiusSetting);
 }
 
-void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
+void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const
 {
     float X0, X1, Y0, Y1;
-    X0 = centerX-radius;
-    X1 = centerX+radius;
-    Y0 = centerY-radius;
-    Y1 = centerY+radius;
+    X0 = (centerX-radius)-ChunkOffset.X;
+    X1 = (centerX+radius)-ChunkOffset.X;
+    Y0 = (centerY-radius)-ChunkOffset.Y;
+    Y1 = (centerY+radius)-ChunkOffset.Y;
 
     if (xMin.position.Y < Y0 || xMin.position.Y > Y1)
     {
@@ -83,13 +83,13 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
     }
 }
 
-void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
+void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const
 {
     float X0, X1, Y0, Y1;
-    X0 = centerX-radius;
-    X1 = centerX+radius;
-    Y0 = centerY-radius;
-    Y1 = centerY+radius;
+    X0 = (centerX-radius)-ChunkOffset.X;
+    X1 = (centerX+radius)-ChunkOffset.X;
+    Y0 = (centerY-radius)-ChunkOffset.Y;
+    Y1 = (centerY+radius)-ChunkOffset.Y;
 
     if (yMin.position.X < X0 || yMin.position.X > X1)
     {
@@ -130,5 +130,16 @@ void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
                 ValidateNormalY(yMin, yMax);
             }
         }
+    }
+}
+
+void FMQCStencilSquare::ApplyVoxel(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
+{
+    FVector2D VoxelToChunk(GetVoxelToChunk(Voxel, ChunkOffset));
+
+    if (FMath::Abs(VoxelToChunk.X) <= radius &&
+        FMath::Abs(VoxelToChunk.Y) <= radius)
+    {
+        Voxel.voxelState = fillType;
     }
 }

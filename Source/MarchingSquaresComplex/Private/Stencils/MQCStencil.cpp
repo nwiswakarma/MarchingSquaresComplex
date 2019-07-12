@@ -59,84 +59,40 @@ void FMQCStencil::ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax)
     }
 }
 
-void FMQCStencil::GetOffsetBounds(int32& X0, int32& X1, int32& Y0, int32& Y1, const FVector2D& Offset) const
+void FMQCStencil::GetMapRange(int32& X0, int32& X1, int32& Y0, int32& Y1, const int32 VoxelResolution, const int32 ChunkResolution) const
 {
-    X0 = GetBoundsMinX() - FMath::RoundToInt(Offset.X);
-    X1 = GetBoundsMaxX() - FMath::RoundToInt(Offset.X);
-    Y0 = GetBoundsMinY() - FMath::RoundToInt(Offset.Y);
-    Y1 = GetBoundsMaxY() - FMath::RoundToInt(Offset.Y);
+    X0 = FMath::Max(GetBoundsMinX()/VoxelResolution, 0);
+    X1 = FMath::Min(GetBoundsMaxX()/VoxelResolution, ChunkResolution-1);
+
+    Y0 = FMath::Max(GetBoundsMinY()/VoxelResolution, 0);
+    Y1 = FMath::Min(GetBoundsMaxY()/VoxelResolution, ChunkResolution-1);
 }
 
-void FMQCStencil::GetMapRange(int32& x0, int32& x1, int32& y0, int32& y1, const int32 voxelResolution, const int32 chunkResolution) const
+void FMQCStencil::GetChunkRange(int32& X0, int32& X1, int32& Y0, int32& Y1, const FMQCGridChunk& Chunk) const
 {
-    x0 = GetBoundsMinX() / voxelResolution;
-    if (x0 < 0)
-    {
-        x0 = 0;
-    }
+    const int32 Resolution = Chunk.voxelResolution;
+    const FIntPoint Offset = Chunk.GetOffsetId();
 
-    x1 = GetBoundsMaxX() / voxelResolution;
-    if (x1 >= chunkResolution)
-    {
-        x1 = chunkResolution - 1;
-    }
+    X0 = FMath::Max(GetBoundsMinX()-Offset.X, 0);
+    X1 = FMath::Min(GetBoundsMaxX()-Offset.X, Resolution-1);
 
-    y0 = GetBoundsMinY() / voxelResolution;
-    if (y0 < 0)
-    {
-        y0 = 0;
-    }
-
-    y1 = GetBoundsMaxY() / voxelResolution;
-    if (y1 >= chunkResolution)
-    {
-        y1 = chunkResolution - 1;
-    }
+    Y0 = FMath::Max(GetBoundsMinY()-Offset.Y, 0);
+    Y1 = FMath::Min(GetBoundsMaxY()-Offset.Y, Resolution-1);
 }
 
-void FMQCStencil::GetMapRange(TArray<int32>& ChunkIndices, const int32 voxelResolution, const int32 chunkResolution) const
+void FMQCStencil::GetChunkIndices(TArray<int32>& ChunkIndices, const int32 VoxelResolution, const int32 ChunkResolution) const
 {
     int32 X0, X1, Y0, Y1;
-    GetMapRange(X0, X1, Y0, Y1, voxelResolution, chunkResolution);
+    GetMapRange(X0, X1, Y0, Y1, VoxelResolution, ChunkResolution);
 
     for (int32 y=Y1; y>=Y0; y--)
     {
-        int32 i = y * chunkResolution + X1;
+        int32 i = y * ChunkResolution + X1;
 
         for (int32 x=X1; x>=X0; x--, i--)
         {
             ChunkIndices.Emplace(i);
         }
-    }
-}
-
-void FMQCStencil::GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const FMQCGridChunk& Chunk) const
-{
-    const int32 resolution = Chunk.voxelResolution;
-    const FIntPoint Offset = Chunk.GetOffsetId();
-
-    x0 = GetBoundsMinX() - Offset.X;
-    if (x0 < 0)
-    {
-        x0 = 0;
-    }
-
-    x1 = GetBoundsMaxX() - Offset.X;
-    if (x1 >= resolution)
-    {
-        x1 = resolution - 1;
-    }
-
-    y0 = GetBoundsMinY() - Offset.Y;
-    if (y0 < 0)
-    {
-        y0 = 0;
-    }
-
-    y1 = GetBoundsMaxY() - Offset.Y;
-    if (y1 >= resolution)
-    {
-        y1 = resolution - 1;
     }
 }
 
@@ -150,7 +106,7 @@ void FMQCStencil::GetChunks(TArray<FMQCGridChunk*>& Chunks, FMQCMap& Map, const 
     }
 }
 
-void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
+void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const
 {
     if (xMin.voxelState != xMax.voxelState)
     {
@@ -162,7 +118,7 @@ void FMQCStencil::SetCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVe
     }
 }
 
-void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
+void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const
 {
     if (yMin.voxelState != yMax.voxelState)
     {
@@ -174,7 +130,7 @@ void FMQCStencil::SetCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVe
     }
 }
 
-FMQCMaterial FMQCStencil::GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+FMQCMaterial FMQCStencil::GetMaterialFor(const FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
 {
     return FMQCMaterial::Zero;
 }
@@ -475,15 +431,15 @@ void FMQCStencil::Initialize(const FMQCMap& VoxelMap)
 
 void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 {
-    const int32 voxelResolution = Map.voxelResolution;
-    const int32 chunkResolution = Map.chunkResolution;
+    const int32 VoxelResolution = Map.voxelResolution;
+    const int32 ChunkResolution = Map.chunkResolution;
 
     TArray<int32> ChunkIndices;
     TArray<FMQCGridChunk*> Chunks;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(ChunkIndices, voxelResolution, chunkResolution);
+    GetChunkIndices(ChunkIndices, VoxelResolution, ChunkResolution);
     GetChunks(Chunks, Map, ChunkIndices);
 
     SetVoxels(Chunks);
@@ -492,15 +448,15 @@ void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 
 void FMQCStencil::EditMaterial(FMQCMap& Map, const FVector2D& center)
 {
-    const int32 voxelResolution = Map.voxelResolution;
-    const int32 chunkResolution = Map.chunkResolution;
+    const int32 VoxelResolution = Map.voxelResolution;
+    const int32 ChunkResolution = Map.chunkResolution;
 
     TArray<int32> ChunkIndices;
     TArray<FMQCGridChunk*> Chunks;
 
     Initialize(Map);
     SetCenter(center.X, center.Y);
-    GetMapRange(ChunkIndices, voxelResolution, chunkResolution);
+    GetChunkIndices(ChunkIndices, VoxelResolution, ChunkResolution);
     GetChunks(Chunks, Map, ChunkIndices);
 
     SetMaterials(Chunks);
@@ -588,32 +544,6 @@ void FMQCStencil::SetMaterials(const TArray<FMQCGridChunk*>& Chunks)
         {
             Chunk->SetMaterials(*this, X0, X1, Y0, Y1);
         }
-    }
-}
-
-void FMQCStencil::ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
-{
-    const FVector2D& p(Voxel.position);
-
-    int32 X0, X1, Y0, Y1;
-    GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
-
-    if (p.X >= X0 && p.X <= X1 && p.Y >= Y0 && p.Y <= Y1)
-    {
-        Voxel.voxelState = fillType;
-    }
-}
-
-void FMQCStencil::ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
-{
-    const FVector2D& p(Voxel.position);
-
-    int32 X0, X1, Y0, Y1;
-    GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
-
-    if (p.X >= X0 && p.X <= X1 && p.Y >= Y0 && p.Y <= Y1)
-    {
-        Voxel.Material = Material;
     }
 }
 

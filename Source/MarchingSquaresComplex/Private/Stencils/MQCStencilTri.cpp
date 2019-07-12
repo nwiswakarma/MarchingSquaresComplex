@@ -27,7 +27,7 @@
 
 #include "MQCStencilTri.h"
 
-void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
+void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const
 {
 #if 0
     FVector Segment0(xMin.position, 0.f);
@@ -70,7 +70,7 @@ void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const
 #endif
 }
 
-void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
+void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const
 {
 #if 0
     FVector Segment0(yMin.position, 0.f);

@@ -34,7 +34,7 @@ FVector2D FMQCStencilCircle::ComputeNormal(float x, float y, const FMQCVoxel& ot
         : FVector2D(centerX-x, centerY-y).GetSafeNormal();
 }
 
-void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
+void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const
 {
     float ChunkCenterX = centerX - ChunkOffset.X;
     float ChunkCenterY = centerY - ChunkOffset.Y;
@@ -81,7 +81,7 @@ void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
     }
 }
 
-void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
+void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const
 {
     float ChunkCenterX = centerX - ChunkOffset.X;
     float ChunkCenterY = centerY - ChunkOffset.Y;
@@ -128,7 +128,7 @@ void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
     }
 }
 
-FMQCMaterial FMQCStencilCircle::GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+FMQCMaterial FMQCStencilCircle::GetMaterialFor(const FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
 {
     float DistToCenter = GetVoxelToChunk(Voxel, ChunkOffset).Size();
     float Alpha = 1.f-FMath::Clamp((DistToCenter-MaterialBlendRadius)*MaterialBlendRadiusInv, 0.f, 1.f);
@@ -152,7 +152,7 @@ void FMQCStencilCircle::Initialize(const FMQCMap& VoxelMap)
     MaterialBlendRadiusInv = BlendRange > KINDA_SMALL_NUMBER ? (1.f/BlendRange) : 1.f;
 }
 
-void FMQCStencilCircle::ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+void FMQCStencilCircle::ApplyVoxel(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
 {
     FVector2D VoxelToChunk(GetVoxelToChunk(Voxel, ChunkOffset));
 
@@ -162,7 +162,7 @@ void FMQCStencilCircle::ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffse
     }
 }
 
-void FMQCStencilCircle::ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+void FMQCStencilCircle::ApplyMaterial(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
 {
     FVector2D VoxelToChunk(GetVoxelToChunk(Voxel, ChunkOffset));
 

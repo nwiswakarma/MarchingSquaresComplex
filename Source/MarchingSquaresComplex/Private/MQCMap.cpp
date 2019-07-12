@@ -598,7 +598,7 @@ void UMQCMapRef::ResetAllChunkStates()
 FVector UMQCMapRef::GetChunkPosition(int32 ChunkIndex) const
 {
     return HasChunk(ChunkIndex)
-        ? FVector(VoxelMap.GetChunk(ChunkIndex).position, 0.f)
+        ? FVector(VoxelMap.GetChunk(ChunkIndex).Position, 0.f)
         : FVector();
 }
 

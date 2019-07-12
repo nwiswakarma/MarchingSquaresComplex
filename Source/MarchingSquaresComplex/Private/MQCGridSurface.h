@@ -114,7 +114,7 @@ private:
     int32 VoxelCount;
     float MapSize;
     float MapSizeInv;
-    FIntPoint position;
+    FIntPoint Position;
 
 	TArray<int32> cornersMin;
 	TArray<int32> cornersMax;
@@ -237,10 +237,10 @@ public:
 	inline int32 CacheFeaturePoint(int32 i, const FMQCFeaturePoint& f, uint8 Mask)
     {
         check(f.exists);
-        check((Mask & 0x0F) != 0x00);
-        check((Mask & 0x0F) != 0x0F);
+        //check((Mask & 0x0F) != 0x00);
+        //check((Mask & 0x0F) != 0x0F);
 
-        uint8 fm = f.CornerMask;
+        //uint8 fm = f.CornerMask;
 
         return AddVertex2(f.position, f.Material);
     }

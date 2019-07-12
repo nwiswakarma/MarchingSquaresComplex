@@ -122,7 +122,7 @@ public:
     FMQCGridChunk();
     ~FMQCGridChunk();
 
-    FIntPoint position;
+    FIntPoint Position;
 
     FMQCGridChunk* xNeighbor = nullptr;
     FMQCGridChunk* yNeighbor = nullptr;
@@ -149,7 +149,7 @@ public:
 
     FORCEINLINE FIntPoint GetOffsetId() const
     {
-        return position;
+        return Position;
     }
 
     FORCEINLINE bool HasRenderer(int32 RendererIndex) const

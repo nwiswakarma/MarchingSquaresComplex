@@ -60,14 +60,25 @@ protected:
         return FMath::RoundToInt(centerY+radius);
     }
 
-    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
-    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
+    FORCEINLINE FVector2D GetChunkCenter(const FIntPoint& ChunkOffset) const
+    {
+        return FVector2D(centerX, centerY) - FVector2D(ChunkOffset);
+    }
+
+    FORCEINLINE FVector2D GetVoxelToChunk(const FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const
+    {
+        return GetChunkCenter(ChunkOffset) - Voxel.position;
+    }
+
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const override;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const override;
 
 public:
 
     float RadiusSetting = 0.f;
 
-    virtual void Initialize(const FMQCMap& VoxelMap);
+    virtual void Initialize(const FMQCMap& VoxelMap) override;
+    virtual void ApplyVoxel(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const override;
 };
 
 UCLASS()

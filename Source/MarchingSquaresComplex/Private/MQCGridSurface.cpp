@@ -31,7 +31,7 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 {
     // Position & dimension configuration
 
-    position = Config.Position;
+    Position = Config.Position;
     VoxelResolution = Config.VoxelResolution;
     VoxelCount = VoxelResolution * VoxelResolution;
     MapSize = Config.MapSize-1;
@@ -131,7 +131,7 @@ void FMQCGridSurface::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
 
 void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Material, bool bIsExtrusion)
 {
-    FVector2D XY((FVector2D(position)+Vertex)-.5f);
+    FVector2D XY((FVector2D(Position)+Vertex)/*-.5f*/);
     FVector2D UV(XY*MapSizeInv - MapSizeInv*.5f);
 
     float Height;
@@ -168,7 +168,7 @@ void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Mat
 
     TargetMeshData->Materials.Emplace(Material);
 
-    UE_LOG(LogTemp,Warning, TEXT("VERT: %s"), *XY.ToString());
+    //UE_LOG(LogTemp,Warning, TEXT("VERT: %s"), *XY.ToString());
 }
 
 void FMQCGridSurface::AddEdgeFace(int32 a, int32 b)

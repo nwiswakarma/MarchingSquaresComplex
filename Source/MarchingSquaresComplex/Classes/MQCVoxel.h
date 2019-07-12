@@ -123,8 +123,8 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     FORCEINLINE void Set(int32 x, int32 y)
     {
         Reset();
-        position.X = x + 0.5f;
-        position.Y = y + 0.5f;
+        position.X = x;// + .5f;
+        position.Y = y;// + .5f;
     }
 
     FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& voxel, float offset)

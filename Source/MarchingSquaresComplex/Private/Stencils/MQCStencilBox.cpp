@@ -27,7 +27,7 @@
 
 #include "MQCStencilBox.h"
 
-void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
+void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const
 {
 #if 0
     if (xMin.position.Y < GetBoundsMinY() || xMin.position.Y > GetBoundsMaxY())
@@ -73,7 +73,7 @@ void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const
 #endif
 }
 
-void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
+void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const
 {
 #if 0
     if (yMin.position.X < GetBoundsMinX() || yMin.position.X > GetBoundsMaxX())

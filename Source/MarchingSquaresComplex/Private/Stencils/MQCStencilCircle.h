@@ -41,29 +41,19 @@ private:
 
 	FVector2D ComputeNormal(float x, float y, const FMQCVoxel& other) const;
 
-    FORCEINLINE FVector2D GetChunkCenter(const FVector2D& ChunkOffset) const
-    {
-        return FVector2D(centerX, centerY) - ChunkOffset;
-    }
-
-    FORCEINLINE FVector2D GetVoxelToChunk(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
-    {
-        return GetChunkCenter(ChunkOffset) - Voxel.position;
-    }
-
 protected:
 
-    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
-    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
-    virtual FMQCMaterial GetMaterialFor(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const override;
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const override;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const override;
+    virtual FMQCMaterial GetMaterialFor(const FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const override;
 
 public:
 
     float MaterialBlendRadiusSetting;
 
     virtual void Initialize(const FMQCMap& VoxelMap) override;
-    virtual void ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const override;
-    virtual void ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const override;
+    virtual void ApplyVoxel(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const override;
+    virtual void ApplyMaterial(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const override;
 };
 
 UCLASS(BlueprintType)

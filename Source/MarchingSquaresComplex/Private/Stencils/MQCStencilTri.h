@@ -93,8 +93,8 @@ protected:
         return centerY + Bounds.GetExtent().Y;
     }
 
-    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
-    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
+    virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FIntPoint& ChunkOffset) const override;
+    virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FIntPoint& ChunkOffset) const override;
 
 public:
 
@@ -147,7 +147,7 @@ public:
         }
     }
 
-    FORCEINLINE virtual void ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const override
+    FORCEINLINE virtual void ApplyVoxel(FMQCVoxel& Voxel, const FIntPoint& ChunkOffset) const override
     {
         check(0);
 #if 0
