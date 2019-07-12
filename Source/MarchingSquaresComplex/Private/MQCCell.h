@@ -131,14 +131,15 @@ public:
         const FMQCFeaturePoint& fD
         ) const
     {
-        FMQCFeaturePoint point = FMQCFeaturePoint::Average(fA, fB, fC, fD);
-        if (! point.exists)
+        FMQCFeaturePoint f = FMQCFeaturePoint::Average(fA, fB, fC, fD);
+        if (! f.exists)
         {
-            point.position = GetAverageNESW();
-            point.Material = GetMaterial(point.position);
-            point.exists = true;
+            f.position = GetAverageNESW();
+            f.Material = GetMaterial(f.position);
+            f.CornerMask = GetCornerMask(f.position);
+            f.exists = true;
         }
-        return point;
+        return f;
     }
 
     bool HasConnectionAD(const FMQCFeaturePoint& fA, const FMQCFeaturePoint& fD)
@@ -261,29 +262,30 @@ private:
 
     FORCEINLINE bool IsInsideCell(const FVector2D& point) const
     {
-        return (point > a.position) && (point < d.position);
+        return (point >= a.position) && (point <= d.position);
     }
 
     FMQCFeaturePoint GetSharpFeature(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2) const
     {
-        FMQCFeaturePoint point;
+        FMQCFeaturePoint f;
         if (IsSharpFeature(n1, n2))
         {
-            point.position = GetIntersection(p1, n1, p2, n2);
-            point.exists = IsInsideCell(point.position);
+            f.position = GetIntersection(p1, n1, p2, n2);
+            f.exists = IsInsideCell(f.position);
 
             // Assign material if feature point is valid
-            if (point.exists)
+            if (f.exists)
             {
-                point.Material = GetMaterial(point.position);
+                f.Material = GetMaterial(f.position);
+                f.CornerMask = GetCornerMask(f.position);
             }
         }
         else
         {
-            point.position = FVector2D::ZeroVector;
-            point.exists = false;
+            f.position = FVector2D::ZeroVector;
+            f.exists = false;
         }
-        return point;
+        return f;
     }
 
     FMQCMaterial GetMaterial(const FVector2D& Position) const
@@ -315,5 +317,15 @@ private:
         }
 
         return Material;
+    }
+
+    FORCEINLINE uint8 GetCornerMask(const FVector2D& Position) const
+    {
+        uint8 Mask = 0;
+        Mask |= (Position <= a.position)                                   ? 0x01 : 0;
+        Mask |= (Position.X >= b.position.X && Position.Y <= b.position.Y) ? 0x02 : 0;
+        Mask |= (Position.X <= c.position.X && Position.Y >= c.position.Y) ? 0x04 : 0;
+        Mask |= (Position >= d.position)                                   ? 0x08 : 0;
+        return Mask;
     }
 };

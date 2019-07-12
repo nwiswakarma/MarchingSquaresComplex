@@ -41,7 +41,7 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 
     bGenerateExtrusion = Config.bGenerateExtrusion;
     bExtrusionSurface  = !bGenerateExtrusion && Config.bExtrusionSurface;
-    ExtrusionHeight = (FMath::Abs(Config.ExtrusionHeight) > 0.01f) ? -FMath::Abs(Config.ExtrusionHeight) : -1.f;
+    ExtrusionHeight = (FMath::Abs(Config.ExtrusionHeight) > .01f) ? -FMath::Abs(Config.ExtrusionHeight) : -1.f;
 
     bRemapEdgeUVs = Config.bRemapEdgeUVs;
     MaterialType = Config.MaterialType;
@@ -53,6 +53,9 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 
     xEdgesMin.SetNum(VoxelResolution);
     xEdgesMax.SetNum(VoxelResolution);
+
+    xEdgesMinValues.SetNum(VoxelResolution);
+    xEdgesMaxValues.SetNum(VoxelResolution);
 
     // Reserves geometry container spaces
 
@@ -167,6 +170,8 @@ void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Mat
     Section.SectionLocalBox += Pos;
 
     TargetMeshData->Materials.Emplace(Material);
+
+    UE_LOG(LogTemp,Warning, TEXT("VERT: %s"), *XY.ToString());
 }
 
 void FMQCGridSurface::AddEdgeFace(int32 a, int32 b)
