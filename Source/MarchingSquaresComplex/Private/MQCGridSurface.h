@@ -314,7 +314,7 @@ public:
                 ? xEdgesMinValues[ix] > 0.f
                 : xEdgesMinValues[ix] < 1.f;
             // Check whether either edge x or edge y is not a corner
-            if (EdgeY > 0.f || bMinXIsEdge)
+            if (EdgeY > 0.f || !xEdgesMinOccupancy[ix] || bMinXIsEdge)
             {
                 FVector2D EdgePoint(voxel.GetYEdgePoint());
                 yEdgeMax = AddVertex2(EdgePoint, Material);
