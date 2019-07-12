@@ -57,6 +57,9 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
     xEdgesMinValues.SetNum(VoxelResolution);
     xEdgesMaxValues.SetNum(VoxelResolution);
 
+    xEdgesMinOccupancy.SetNumZeroed(VoxelResolution);
+    xEdgesMaxOccupancy.SetNumZeroed(VoxelResolution);
+
     // Reserves geometry container spaces
 
     ReserveGeometry();

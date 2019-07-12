@@ -123,6 +123,8 @@ private:
 	TArray<int32> xEdgesMax;
 	TArray<float> xEdgesMinValues;
 	TArray<float> xEdgesMaxValues;
+	TArray<uint8> xEdgesMinOccupancy;
+	TArray<uint8> xEdgesMaxOccupancy;
 
 	int32 yEdgeMin;
 	int32 yEdgeMax;
@@ -198,6 +200,10 @@ public:
         cornersMin = cornersMax;
         xEdgesMin = xEdgesMax;
         xEdgesMinValues = xEdgesMaxValues;
+
+        xEdgesMinOccupancy = xEdgesMaxOccupancy;
+        xEdgesMaxOccupancy.Reset();
+        xEdgesMaxOccupancy.SetNumZeroed(VoxelResolution);
 	}
 
 	FORCEINLINE void CacheFirstCorner(const FMQCVoxel& voxel)
@@ -224,6 +230,7 @@ public:
             xEdgesMax[i] = cornersMax[i];
         }
         xEdgesMaxValues[i] = EdgeX;
+        xEdgesMaxOccupancy[i] = 1;
 #else
         FVector2D EdgePoint(voxel.GetXEdgePoint());
         xEdgesMax[i] = AddVertex2(EdgePoint, Material);
@@ -236,10 +243,9 @@ public:
         const float EdgeX = voxel.GetXEdge();
         if (EdgeX < 1.f)
         {
-            int32 ix = (i < 1) ? 0 : i-1;
-            //UE_LOG(LogTemp,Warning, TEXT("xEdgesMaxValues[%d]: %f"), ix, xEdgesMaxValues[ix]);
+            int32 ix = (i<1) ? 0 : i-1;
             // Whether individual edge is required from previous edge
-            if (i < 1 || EdgeX > 0.f || xEdgesMaxValues[i-1] < 1.f)
+            if (i < 1 || EdgeX > 0.f || !xEdgesMaxOccupancy[ix] || xEdgesMaxValues[ix] < 1.f)
             {
                 FVector2D EdgePoint(voxel.GetXEdgePoint());
                 xEdgesMax[i] = AddVertex2(EdgePoint, Material);
@@ -247,8 +253,7 @@ public:
             // Merge possible, merge with previous edge
             else
             {
-                //UE_LOG(LogTemp,Warning, TEXT("MERGE XMAXTOMIN"));
-                xEdgesMax[i] = xEdgesMax[i-1];
+                xEdgesMax[i] = xEdgesMax[ix];
             }
         }
         else
@@ -256,6 +261,7 @@ public:
             xEdgesMax[i] = cornersMax[i+1];
         }
         xEdgesMaxValues[i] = EdgeX;
+        xEdgesMaxOccupancy[i] = 1;
 #else
         FVector2D EdgePoint(voxel.GetXEdgePoint());
         xEdgesMax[i] = AddVertex2(EdgePoint, Material);
@@ -269,10 +275,9 @@ public:
         if (EdgeY > 0.f)
         {
 #if 1
-            int32 ix = (i < 1) ? 0 : i;
-            UE_LOG(LogTemp,Warning, TEXT("xEdgesMaxValues[%d]: %f (%i)"), ix, xEdgesMaxValues[ix], i);
+            int32 ix = (i<1) ? 0 : i;
             // Check whether either edge x or edge y is not a corner
-            if (i < 0 || EdgeY < 1.f || xEdgesMaxValues[ix] < 1.f)
+            if (i < 0 || EdgeY < 1.f || !xEdgesMaxOccupancy[ix] || xEdgesMaxValues[ix] < 1.f)
             {
                 FVector2D EdgePoint(voxel.GetYEdgePoint());
                 yEdgeMax = AddVertex2(EdgePoint, Material);
@@ -280,8 +285,6 @@ public:
             // Otherwise both edges overlap the same corner, merge with edge x
             else
             {
-                UE_LOG(LogTemp,Warning, TEXT("MERGE YMINTOMAX: %s"),
-                    *GetSurfaceSection().Positions[xEdgesMax[ix]].ToString());
                 yEdgeMax = xEdgesMax[ix];
             }
 #else
@@ -306,11 +309,10 @@ public:
         const float EdgeY = voxel.GetYEdge();
         if (EdgeY < 1.f)
         {
-            int32 ix = (i < 0) ? 0 : i;
+            int32 ix = (i<0) ? 0 : i;
             bool bMinXIsEdge = (i < 0)
                 ? xEdgesMinValues[ix] > 0.f
                 : xEdgesMinValues[ix] < 1.f;
-            //UE_LOG(LogTemp,Warning, TEXT("xEdgesMinValues[%d]: %f"), ix, xEdgesMinValues[ix]);
             // Check whether either edge x or edge y is not a corner
             if (EdgeY > 0.f || bMinXIsEdge)
             {
@@ -320,7 +322,6 @@ public:
             // Otherwise both edges overlap the same corner, merge with edge x
             else
             {
-                //UE_LOG(LogTemp,Warning, TEXT("MERGE YMAXTOMIN"));
                 yEdgeMax = xEdgesMin[ix];
             }
         }
@@ -350,20 +351,6 @@ public:
         uint8 fm = f.CornerMask;
 
 #if 1
-        //UE_LOG(LogTemp,Warning, TEXT("fm: %d %u (%u %u %u %u) %u (%u %u %u %u)"),
-        //    i,
-        //    fm,
-        //    Mask & 0x01,
-        //    Mask & 0x02,
-        //    Mask & 0x04,
-        //    Mask & 0x08,
-        //    (~Mask&0x0F),
-        //    (~Mask&0x0F) & 0x01,
-        //    (~Mask&0x0F) & 0x02,
-        //    (~Mask&0x0F) & 0x04,
-        //    (~Mask&0x0F) & 0x08
-        //    );
-
         if (fm == 0)
         {
             return AddVertex2(f.position, f.Material);
@@ -372,25 +359,21 @@ public:
         // Check for corner overlaps
         if ((fm & Mask) & 0x01)
         {
-            //UE_LOG(LogTemp,Warning, TEXT("((fm & Mask) & 0x01)"));
             return cornersMin[i];
         }
         else
         if ((fm & Mask) & 0x02)
         {
-            //UE_LOG(LogTemp,Warning, TEXT("((fm & Mask) & 0x02)"));
             return cornersMin[i+1];
         }
         else
         if ((fm & Mask) & 0x04)
         {
-            //UE_LOG(LogTemp,Warning, TEXT("((fm & Mask) & 0x04)"));
             return cornersMax[i];
         }
         else
         if ((fm & Mask) & 0x08)
         {
-            //UE_LOG(LogTemp,Warning, TEXT("((fm & Mask) & 0x08)"));
             return cornersMax[i+1];
         }
 
@@ -400,9 +383,6 @@ public:
         {
             float EdgeValX = xEdgesMinValues[i];
             float EdgeValY = yEdgeMinValue;
-            //UE_LOG(LogTemp,Warning, TEXT("((fm & InvMask) & 0x01): %f %f"),
-            //    EdgeValX,
-            //    EdgeValY);
             if (EdgeValX < KINDA_SMALL_NUMBER)
             {
                 return xEdgesMin[i];
@@ -417,9 +397,6 @@ public:
         {
             float EdgeValX = xEdgesMinValues[i];
             float EdgeValY = yEdgeMaxValue;
-            //UE_LOG(LogTemp,Warning, TEXT("((fm & InvMask) & 0x02): %f %f"),
-            //    EdgeValX,
-            //    EdgeValY);
             if (EdgeValX > (1.f-KINDA_SMALL_NUMBER))
             {
                 return xEdgesMin[i];
@@ -434,9 +411,6 @@ public:
         {
             float EdgeValX = xEdgesMaxValues[i];
             float EdgeValY = yEdgeMinValue;
-            //UE_LOG(LogTemp,Warning, TEXT("((fm & InvMask) & 0x04): %f %f"),
-            //    EdgeValX,
-            //    EdgeValY);
             if (EdgeValX < KINDA_SMALL_NUMBER)
             {
                 return xEdgesMax[i];
@@ -451,9 +425,6 @@ public:
         {
             float EdgeValX = xEdgesMaxValues[i];
             float EdgeValY = yEdgeMaxValue;
-            //UE_LOG(LogTemp,Warning, TEXT("((fm & InvMask) & 0x08): %f %f"),
-            //    EdgeValX,
-            //    EdgeValY);
             if (EdgeValX > (1.f-KINDA_SMALL_NUMBER))
             {
                 return xEdgesMax[i];
