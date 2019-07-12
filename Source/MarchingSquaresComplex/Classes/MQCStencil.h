@@ -55,15 +55,12 @@ protected:
     void GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, const FMQCGridChunk& Chunk) const;
     void GetChunks(TArray<FMQCGridChunk*>& Chunks, FMQCMap& Map, const TArray<int32>& ChunkIndices) const;
 
-    FORCEINLINE FVector2D GetChunkCenter(const FVector2D& ChunkOffset) const
-    {
-        return FVector2D(centerX, centerY) - ChunkOffset;
-    }
+    void GetOffsetBounds(int32& X0, int32& X1, int32& Y0, int32& Y1, const FVector2D& Offset) const;
 
-    FORCEINLINE FVector2D GetVoxelToChunk(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
-    {
-        return GetChunkCenter(ChunkOffset) - Voxel.position;
-    }
+    virtual int32 GetBoundsMinX() const = 0;
+    virtual int32 GetBoundsMaxX() const = 0;
+    virtual int32 GetBoundsMinY() const = 0;
+    virtual int32 GetBoundsMaxY() const = 0;
 
     virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const = 0;
     virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const = 0;
@@ -93,13 +90,6 @@ public:
     virtual ~FMQCStencil() = default;
 
     virtual void Initialize(const FMQCMap& VoxelMap);
-
-    virtual float GetXStart() const = 0;
-    virtual float GetXEnd() const   = 0;
-    virtual float GetYStart() const = 0;
-    virtual float GetYEnd() const   = 0;
-
-    void GetOffsetBounds(float& X0, float& X1, float& Y0, float& Y1, const FVector2D& Offset) const;
 
     FORCEINLINE int32 GetFillType() const
     {

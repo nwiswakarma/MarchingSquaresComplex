@@ -40,32 +40,32 @@ protected:
 
     float radius;
 
+    FORCEINLINE virtual int32 GetBoundsMinX() const
+    {
+        return FMath::RoundToInt(centerX-radius);
+    }
+
+    FORCEINLINE virtual int32 GetBoundsMaxX() const
+    {
+        return FMath::RoundToInt(centerX+radius);
+    }
+
+    FORCEINLINE virtual int32 GetBoundsMinY() const
+    {
+        return FMath::RoundToInt(centerY-radius);
+    }
+
+    FORCEINLINE virtual int32 GetBoundsMaxY() const
+    {
+        return FMath::RoundToInt(centerY+radius);
+    }
+
     virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
     virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
 
 public:
 
     float RadiusSetting = 0.f;
-
-    FORCEINLINE virtual float GetXStart() const
-    {
-        return centerX - radius;
-    }
-    
-    FORCEINLINE virtual float GetXEnd() const
-    {
-        return centerX + radius;
-    }
-    
-    FORCEINLINE virtual float GetYStart() const
-    {
-        return centerY - radius;
-    }
-    
-    FORCEINLINE virtual float GetYEnd() const
-    {
-        return centerY + radius;
-    }
 
     virtual void Initialize(const FMQCMap& VoxelMap);
 };

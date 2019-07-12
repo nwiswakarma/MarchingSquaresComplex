@@ -552,7 +552,7 @@ void FMQCGridChunk::TriangulateCellRows()
     {
         SwapRowCaches();
         CacheFirstCorner(voxels[i + voxelResolution]);
-        //CacheFirstMiddleEdge(voxels[i], voxels[i + voxelResolution]);
+        CacheFirstMiddleEdge(voxels[i], voxels[i + voxelResolution]);
 
         for (int32 x=0; x<cells; x++, i++)
         {
@@ -562,10 +562,6 @@ void FMQCGridChunk::TriangulateCellRows()
                 c(voxels[i + voxelResolution]),
                 d(voxels[i + voxelResolution + 1]);
             CacheNextEdgeAndCorner(x, c, d);
-            if (x == 0)
-            {
-                CacheFirstMiddleEdge(a, c);
-            }
             CacheNextMiddleEdge(x, b, d);
             TriangulateCell(x, a, b, c, d);
         }
@@ -582,11 +578,11 @@ void FMQCGridChunk::TriangulateGapRow()
     check(yNeighbor != nullptr);
 
     dummyY.BecomeYDummyOf(yNeighbor->voxels[0], voxelResolution);
-    const int32 cells = voxelResolution - 1;
-    const int32 offset = cells * voxelResolution;
+    int32 cells = voxelResolution - 1;
+    int32 offset = cells * voxelResolution;
     SwapRowCaches();
     CacheFirstCorner(dummyY);
-    //CacheFirstMiddleEdge(voxels[offset], dummyY);
+    CacheFirstMiddleEdge(voxels[cells * voxelResolution], dummyY);
 
     for (int32 x=0; x<cells; x++)
     {
@@ -594,10 +590,6 @@ void FMQCGridChunk::TriangulateGapRow()
         dummyY.BecomeYDummyOf(yNeighbor->voxels[x + 1], voxelResolution);
 
         CacheNextEdgeAndCorner(x, dummyT, dummyY);
-        if (x == 0)
-        {
-            CacheFirstMiddleEdge(voxels[offset], dummyT);
-        }
         CacheNextMiddleEdge(x, voxels[x + offset + 1], dummyY);
         TriangulateCell(
             x,

@@ -27,18 +27,17 @@
 
 #include "MQCStencilBox.h"
 
-#ifndef MQC_VOXEL_DEBUG_LEGACY
-
 void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
-    if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
+#if 0
+    if (xMin.position.Y < GetBoundsMinY() || xMin.position.Y > GetBoundsMaxY())
     {
         return;
     }
 
     if (xMin.voxelState == fillType)
     {
-        const float x = GetXEnd();
+        const float x = GetBoundsMaxX();
         if (xMin.position.X <= x && xMax.position.X >= x)
         {
             const float xEdge = x-xMin.position.X;
@@ -56,7 +55,7 @@ void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const
     else
     if (xMax.voxelState == fillType)
     {
-        const float x = GetXStart();
+        const float x = GetBoundsMinX();
         if (xMin.position.X <= x && xMax.position.X >= x)
         {
             const float xEdge = 1.f - (xMax.position.X-x);
@@ -71,18 +70,20 @@ void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const
             }
         }
     }
+#endif
 }
 
 void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
 {
-    if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
+#if 0
+    if (yMin.position.X < GetBoundsMinX() || yMin.position.X > GetBoundsMaxX())
     {
         return;
     }
 
     if (yMin.voxelState == fillType)
     {
-        const float y = GetYEnd();
+        const float y = GetBoundsMaxY();
         if (yMin.position.Y <= y && yMax.position.Y >= y)
         {
             const float yEdge = y-yMin.position.Y;
@@ -100,7 +101,7 @@ void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const
     else
     if (yMax.voxelState == fillType)
     {
-        const float y = GetYStart();
+        const float y = GetBoundsMinY();
         if (yMin.position.Y <= y && yMax.position.Y >= y)
         {
             const float yEdge = 1.f - (yMax.position.Y-y);
@@ -115,86 +116,5 @@ void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const
             }
         }
     }
-}
-
-#else
-
-void FMQCStencilBox::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
-{
-    if (xMin.position.Y < GetYStart() || xMin.position.Y > GetYEnd())
-    {
-        return;
-    }
-
-    if (xMin.voxelState == fillType)
-    {
-        if (xMin.position.X <= GetXEnd() && xMax.position.X >= GetXEnd())
-        {
-            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < GetXEnd())
-            {
-                xMin.xEdge = GetXEnd();
-                xMin.xNormal = FVector2D(fillType ? 1.f : -1.f, 0.f);
-            }
-            else
-            {
-                ValidateNormalX(xMin, xMax);
-            }
-        }
-    }
-    else if (xMax.voxelState == fillType)
-    {
-        if (xMin.position.X <= GetXStart() && xMax.position.X >= GetXStart())
-        {
-            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > GetXStart())
-            {
-                xMin.xEdge = GetXStart();
-                xMin.xNormal = FVector2D(fillType ? -1.f : 1.f, 0.f);
-            }
-            else
-            {
-                ValidateNormalX(xMin, xMax);
-            }
-        }
-    }
-}
-
-void FMQCStencilBox::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
-{
-    if (yMin.position.X < GetXStart() || yMin.position.X > GetXEnd())
-    {
-        return;
-    }
-
-    if (yMin.voxelState == fillType)
-    {
-        if (yMin.position.Y <= GetYEnd() && yMax.position.Y >= GetYEnd())
-        {
-            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < GetYEnd())
-            {
-                yMin.yEdge = GetYEnd();
-                yMin.yNormal = FVector2D(0.f, fillType ? 1.f : -1.f);
-            }
-            else
-            {
-                ValidateNormalY(yMin, yMax);
-            }
-        }
-    }
-    else if (yMax.voxelState == fillType)
-    {
-        if (yMin.position.Y <= GetYStart() && yMax.position.Y >= GetYStart())
-        {
-            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > GetYStart())
-            {
-                yMin.yEdge = GetYStart();
-                yMin.yNormal = FVector2D(0.f, fillType ? -1.f : 1.f);
-            }
-            else
-            {
-                ValidateNormalY(yMin, yMax);
-            }
-        }
-    }
-}
-
 #endif
+}

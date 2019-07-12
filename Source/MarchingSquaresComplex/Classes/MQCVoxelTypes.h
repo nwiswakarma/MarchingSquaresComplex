@@ -48,7 +48,7 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCSurfaceState
 
 struct FMQCSurfaceConfig
 {
-    FVector2D Position;
+    FIntPoint Position;
     int32 MapSize;
     int32 VoxelResolution;
     float ExtrusionHeight;
@@ -60,7 +60,7 @@ struct FMQCSurfaceConfig
 
 struct FMQCChunkConfig
 {
-    FVector2D Position;
+    FIntPoint Position;
     int32 MapSize;
     int32 VoxelResolution;
     float MaxFeatureAngle;

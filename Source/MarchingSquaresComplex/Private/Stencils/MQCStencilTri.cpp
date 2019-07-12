@@ -27,10 +27,9 @@
 
 #include "MQCStencilTri.h"
 
-#ifndef MQC_VOXEL_DEBUG_LEGACY
-
 void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
+#if 0
     FVector Segment0(xMin.position, 0.f);
     FVector Segment1(xMax.position.X, Segment0.Y, 0.f);
 
@@ -68,10 +67,12 @@ void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const
             }
         }
     }
+#endif
 }
 
 void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
 {
+#if 0
     FVector Segment0(yMin.position, 0.f);
     FVector Segment1(Segment0.X, yMax.position.Y, 0.f);
 
@@ -109,86 +110,5 @@ void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const
             }
         }
     }
-}
-
-#else
-
-void FMQCStencilTri::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax) const
-{
-    FVector Segment0(xMin.position, 0.f);
-    FVector Segment1(xMax.position.X, Segment0.Y, 0.f);
-
-    FVector Intersection;
-    FVector2D Normal;
-
-    if (FindIntersection(Segment0, Segment1, Intersection, Normal))
-    {
-        if (xMin.voxelState == fillType)
-        {
-            float x = Intersection.X;
-            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge < x)
-            {
-                xMin.xEdge = x;
-                xMin.xNormal = ComputeNormal(Normal, xMax); //fillType ? Normal : -Normal;
-            }
-            else
-            {
-                ValidateNormalX(xMin, xMax);
-            }
-        }
-        else if (xMax.voxelState == fillType)
-        {
-            float x = Intersection.X;
-            if (xMin.xEdge == TNumericLimits<float>::Lowest() || xMin.xEdge > x)
-            {
-                xMin.xEdge = x;
-                xMin.xNormal = ComputeNormal(Normal, xMin); //fillType ? Normal : -Normal;
-            }
-            else
-            {
-                ValidateNormalX(xMin, xMax);
-            }
-        }
-    }
-}
-
-void FMQCStencilTri::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax) const
-{
-    FVector Segment0(yMin.position, 0.f);
-    FVector Segment1(Segment0.X, yMax.position.Y, 0.f);
-
-    FVector Intersection;
-    FVector2D Normal;
-
-    if (FindIntersection(Segment0, Segment1, Intersection, Normal))
-    {
-        if (yMin.voxelState == fillType)
-        {
-            float y = Intersection.Y;
-            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge < y)
-            {
-                yMin.yEdge = y;
-                yMin.yNormal = ComputeNormal(Normal, yMax); //fillType ? Normal : -Normal;
-            }
-            else
-            {
-                ValidateNormalY(yMin, yMax);
-            }
-        }
-        else if (yMax.voxelState == fillType)
-        {
-            float y = Intersection.Y;
-            if (yMin.yEdge == TNumericLimits<float>::Lowest() || yMin.yEdge > y)
-            {
-                yMin.yEdge = y;
-                yMin.yNormal = ComputeNormal(Normal, yMin); //fillType ? Normal : -Normal;
-            }
-            else
-            {
-                ValidateNormalY(yMin, yMax);
-            }
-        }
-    }
-}
-
 #endif
+}

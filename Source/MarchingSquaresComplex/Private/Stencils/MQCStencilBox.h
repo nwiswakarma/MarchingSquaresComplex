@@ -42,6 +42,26 @@ protected:
     FVector2D boundsCenter;
     FVector2D boundsExtents;
 
+    FORCEINLINE virtual int32 GetBoundsMinX() const override
+    {
+        return centerX - boundsExtents.X;
+    }
+    
+    FORCEINLINE virtual int32 GetBoundsMaxX() const override
+    {
+        return centerX + boundsExtents.X;
+    }
+    
+    FORCEINLINE virtual int32 GetBoundsMinY() const override
+    {
+        return centerY - boundsExtents.Y;
+    }
+    
+    FORCEINLINE virtual int32 GetBoundsMaxY() const override
+    {
+        return centerY + boundsExtents.Y;
+    }
+
     virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
     virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
 
@@ -80,26 +100,6 @@ public:
     FORCEINLINE const FVector2D& GetCenter() const
     {
         return boundsCenter;
-    }
-
-    FORCEINLINE virtual float GetXStart() const
-    {
-        return centerX - boundsExtents.X;
-    }
-    
-    FORCEINLINE virtual float GetXEnd() const
-    {
-        return centerX + boundsExtents.X;
-    }
-    
-    FORCEINLINE virtual float GetYStart() const
-    {
-        return centerY - boundsExtents.Y;
-    }
-    
-    FORCEINLINE virtual float GetYEnd() const
-    {
-        return centerY + boundsExtents.Y;
     }
 
     void SetBounds(const FBox2D& InBounds)

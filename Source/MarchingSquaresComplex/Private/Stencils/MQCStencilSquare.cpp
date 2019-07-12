@@ -36,7 +36,10 @@ void FMQCStencilSquare::Initialize(const FMQCMap& VoxelMap)
 void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const
 {
     float X0, X1, Y0, Y1;
-    GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
+    X0 = centerX-radius;
+    X1 = centerX+radius;
+    Y0 = centerY-radius;
+    Y1 = centerY+radius;
 
     if (xMin.position.Y < Y0 || xMin.position.Y > Y1)
     {
@@ -83,7 +86,10 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
 void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const
 {
     float X0, X1, Y0, Y1;
-    GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
+    X0 = centerX-radius;
+    X1 = centerX+radius;
+    Y0 = centerY-radius;
+    Y1 = centerY+radius;
 
     if (yMin.position.X < X0 || yMin.position.X > X1)
     {

@@ -33,7 +33,7 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 
     position = Config.Position;
     VoxelResolution = Config.VoxelResolution;
-    VoxelCount      = VoxelResolution * VoxelResolution;
+    VoxelCount = VoxelResolution * VoxelResolution;
     MapSize = Config.MapSize-1;
     MapSizeInv = MapSize > 0.f ? (1.f/MapSize) : KINDA_SMALL_NUMBER;
 
@@ -53,12 +53,6 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 
     xEdgesMin.SetNum(VoxelResolution);
     xEdgesMax.SetNum(VoxelResolution);
-
-    xEdgesMinValues.SetNum(VoxelResolution);
-    xEdgesMaxValues.SetNum(VoxelResolution);
-
-    xEdgesMinOccupancy.SetNumZeroed(VoxelResolution);
-    xEdgesMaxOccupancy.SetNumZeroed(VoxelResolution);
 
     // Reserves geometry container spaces
 
@@ -137,7 +131,7 @@ void FMQCGridSurface::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
 
 void FMQCGridSurface::AddVertex(const FVector2D& Vertex, const FMQCMaterial& Material, bool bIsExtrusion)
 {
-    FVector2D XY((position+Vertex)-.5f);
+    FVector2D XY((FVector2D(position)+Vertex)-.5f);
     FVector2D UV(XY*MapSizeInv - MapSizeInv*.5f);
 
     float Height;

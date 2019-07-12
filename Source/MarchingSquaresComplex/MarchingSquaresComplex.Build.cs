@@ -33,8 +33,6 @@ namespace UnrealBuildTool.Rules
         {
             PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-            //PublicDefinitions.Add("MQC_VOXEL_DEBUG_LEGACY");
-
             PublicDependencyModuleNames.AddRange(
                 new string[] {
                     "Core",

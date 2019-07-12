@@ -73,6 +73,26 @@ private:
 
 protected:
 
+    FORCEINLINE virtual int32 GetBoundsMinX() const override
+    {
+        return centerX - Bounds.GetExtent().X;
+    }
+    
+    FORCEINLINE virtual int32 GetBoundsMaxX() const override
+    {
+        return centerX + Bounds.GetExtent().X;
+    }
+    
+    FORCEINLINE virtual int32 GetBoundsMinY() const override
+    {
+        return centerY - Bounds.GetExtent().Y;
+    }
+    
+    FORCEINLINE virtual int32 GetBoundsMaxY() const override
+    {
+        return centerY + Bounds.GetExtent().Y;
+    }
+
     virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;
     virtual void FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, const FVector2D& ChunkOffset) const override;
 
@@ -106,36 +126,16 @@ public:
         return Shift + Bounds.GetCenter();
     }
 
-    FORCEINLINE virtual float GetXStart() const
-    {
-        return centerX - Bounds.GetExtent().X;
-    }
-    
-    FORCEINLINE virtual float GetXEnd() const
-    {
-        return centerX + Bounds.GetExtent().X;
-    }
-    
-    FORCEINLINE virtual float GetYStart() const
-    {
-        return centerY - Bounds.GetExtent().Y;
-    }
-    
-    FORCEINLINE virtual float GetYEnd() const
-    {
-        return centerY + Bounds.GetExtent().Y;
-    }
-
     virtual void SetCenter(float x, float y) override
     {
         FMQCStencil::SetCenter(x, y);
 
         // Set triangle vertices
 
-        const float x0 = GetXStart();
-        const float y0 = GetYStart();
-        const float x1 = GetXEnd();
-        const float y1 = GetYEnd();
+        const float x0 = GetBoundsMinX();
+        const float y0 = GetBoundsMinY();
+        const float x1 = GetBoundsMaxX();
+        const float y1 = GetBoundsMaxY();
 
         for (int32 i=0; i<3; ++i)
         {

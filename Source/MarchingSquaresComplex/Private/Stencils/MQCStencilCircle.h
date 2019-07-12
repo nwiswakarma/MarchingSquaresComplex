@@ -41,6 +41,16 @@ private:
 
 	FVector2D ComputeNormal(float x, float y, const FMQCVoxel& other) const;
 
+    FORCEINLINE FVector2D GetChunkCenter(const FVector2D& ChunkOffset) const
+    {
+        return FVector2D(centerX, centerY) - ChunkOffset;
+    }
+
+    FORCEINLINE FVector2D GetVoxelToChunk(const FMQCVoxel& Voxel, const FVector2D& ChunkOffset) const
+    {
+        return GetChunkCenter(ChunkOffset) - Voxel.position;
+    }
+
 protected:
 
     virtual void FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, const FVector2D& ChunkOffset) const override;

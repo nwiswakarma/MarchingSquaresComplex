@@ -59,35 +59,35 @@ void FMQCStencil::ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax)
     }
 }
 
-void FMQCStencil::GetOffsetBounds(float& X0, float& X1, float& Y0, float& Y1, const FVector2D& Offset) const
+void FMQCStencil::GetOffsetBounds(int32& X0, int32& X1, int32& Y0, int32& Y1, const FVector2D& Offset) const
 {
-    X0 = GetXStart() - Offset.X;
-    X1 = GetXEnd()   - Offset.X;
-    Y0 = GetYStart() - Offset.Y;
-    Y1 = GetYEnd()   - Offset.Y;
+    X0 = GetBoundsMinX() - FMath::RoundToInt(Offset.X);
+    X1 = GetBoundsMaxX() - FMath::RoundToInt(Offset.X);
+    Y0 = GetBoundsMinY() - FMath::RoundToInt(Offset.Y);
+    Y1 = GetBoundsMaxY() - FMath::RoundToInt(Offset.Y);
 }
 
 void FMQCStencil::GetMapRange(int32& x0, int32& x1, int32& y0, int32& y1, const int32 voxelResolution, const int32 chunkResolution) const
 {
-    x0 = (int32)(GetXStart()) / voxelResolution;
+    x0 = GetBoundsMinX() / voxelResolution;
     if (x0 < 0)
     {
         x0 = 0;
     }
 
-    x1 = (int32)(GetXEnd()) / voxelResolution;
+    x1 = GetBoundsMaxX() / voxelResolution;
     if (x1 >= chunkResolution)
     {
         x1 = chunkResolution - 1;
     }
 
-    y0 = (int32)(GetYStart()) / voxelResolution;
+    y0 = GetBoundsMinY() / voxelResolution;
     if (y0 < 0)
     {
         y0 = 0;
     }
 
-    y1 = (int32)(GetYEnd()) / voxelResolution;
+    y1 = GetBoundsMaxY() / voxelResolution;
     if (y1 >= chunkResolution)
     {
         y1 = chunkResolution - 1;
@@ -115,25 +115,25 @@ void FMQCStencil::GetChunkRange(int32& x0, int32& x1, int32& y0, int32& y1, cons
     const int32 resolution = Chunk.voxelResolution;
     const FIntPoint Offset = Chunk.GetOffsetId();
 
-    x0 = (int32)(GetXStart()) - Offset.X;
+    x0 = GetBoundsMinX() - Offset.X;
     if (x0 < 0)
     {
         x0 = 0;
     }
 
-    x1 = (int32)(GetXEnd()) - Offset.X;
+    x1 = GetBoundsMaxX() - Offset.X;
     if (x1 >= resolution)
     {
         x1 = resolution - 1;
     }
 
-    y0 = (int32)(GetYStart()) - Offset.Y;
+    y0 = GetBoundsMinY() - Offset.Y;
     if (y0 < 0)
     {
         y0 = 0;
     }
 
-    y1 = (int32)(GetYEnd()) - Offset.Y;
+    y1 = GetBoundsMaxY() - Offset.Y;
     if (y1 >= resolution)
     {
         y1 = resolution - 1;
@@ -595,7 +595,7 @@ void FMQCStencil::ApplyVoxel(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) con
 {
     const FVector2D& p(Voxel.position);
 
-    float X0, X1, Y0, Y1;
+    int32 X0, X1, Y0, Y1;
     GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
 
     if (p.X >= X0 && p.X <= X1 && p.Y >= Y0 && p.Y <= Y1)
@@ -608,7 +608,7 @@ void FMQCStencil::ApplyMaterial(FMQCVoxel& Voxel, const FVector2D& ChunkOffset) 
 {
     const FVector2D& p(Voxel.position);
 
-    float X0, X1, Y0, Y1;
+    int32 X0, X1, Y0, Y1;
     GetOffsetBounds(X0, X1, Y0, Y1, ChunkOffset);
 
     if (p.X >= X0 && p.X <= X1 && p.Y >= Y0 && p.Y <= Y1)
