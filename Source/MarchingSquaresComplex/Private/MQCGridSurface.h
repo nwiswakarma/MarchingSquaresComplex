@@ -128,8 +128,8 @@ private:
 
 	int32 yEdgeMin;
 	int32 yEdgeMax;
-	int32 yEdgeMinValue;
-	int32 yEdgeMaxValue;
+	float yEdgeMinValue;
+	float yEdgeMaxValue;
 
     TArray<FEdgeListData> EdgeLists;
     TArray<FEdgeSyncData> EdgeSyncList;
@@ -218,8 +218,9 @@ public:
 
 	inline void CacheEdgeXMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-#if 1
+#if 0
         const float EdgeX = voxel.GetXEdge();
+        UE_LOG(LogTemp,Warning, TEXT("CacheEdgeXMinToMax(): %s"), *voxel.position.ToString());
         if (EdgeX > 0.f)
         {
             FVector2D EdgePoint(voxel.GetXEdgePoint());
@@ -239,20 +240,23 @@ public:
 
 	inline void CacheEdgeXMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-#if 1
+#if 0
         const float EdgeX = voxel.GetXEdge();
+        UE_LOG(LogTemp,Warning, TEXT("CacheEdgeXMaxToMin(): %f %s"), EdgeX, *voxel.position.ToString());
         if (EdgeX < 1.f)
         {
             int32 ix = (i<1) ? 0 : i-1;
             // Whether individual edge is required from previous edge
             if (i < 1 || EdgeX > 0.f || !xEdgesMaxOccupancy[ix] || xEdgesMaxValues[ix] < 1.f)
             {
+                UE_LOG(LogTemp,Warning, TEXT("CacheEdgeXMaxToMin() NEW"));
                 FVector2D EdgePoint(voxel.GetXEdgePoint());
                 xEdgesMax[i] = AddVertex2(EdgePoint, Material);
             }
             // Merge possible, merge with previous edge
             else
             {
+                UE_LOG(LogTemp,Warning, TEXT("CacheEdgeXMaxToMin() MERGE"));
                 xEdgesMax[i] = xEdgesMax[ix];
             }
         }
@@ -270,27 +274,28 @@ public:
 
 	inline void CacheEdgeYMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-#if 1
+#if 0
         const float EdgeY = voxel.GetYEdge();
+        UE_LOG(LogTemp,Warning, TEXT("CacheEdgeYMinToMax(): %f %s"), EdgeY, *voxel.position.ToString());
         if (EdgeY > 0.f)
         {
-#if 1
             int32 ix = (i<1) ? 0 : i;
+            bool bMaxXIsEdge = (i<0)
+                ? xEdgesMaxValues[ix] > 0.f
+                : xEdgesMaxValues[ix] < 1.f;
             // Check whether either edge x or edge y is not a corner
-            if (i < 0 || EdgeY < 1.f || !xEdgesMaxOccupancy[ix] || xEdgesMaxValues[ix] < 1.f)
+            if (EdgeY < 1.f || !xEdgesMaxOccupancy[ix] || bMaxXIsEdge)
             {
+                UE_LOG(LogTemp,Warning, TEXT("CacheEdgeYMinToMax() NEW"));
                 FVector2D EdgePoint(voxel.GetYEdgePoint());
                 yEdgeMax = AddVertex2(EdgePoint, Material);
             }
             // Otherwise both edges overlap the same corner, merge with edge x
             else
             {
+                UE_LOG(LogTemp,Warning, TEXT("CacheEdgeYMinToMax() MERGE"));
                 yEdgeMax = xEdgesMax[ix];
             }
-#else
-            FVector2D EdgePoint(voxel.GetYEdgePoint());
-            yEdgeMax = AddVertex2(EdgePoint, Material);
-#endif
         }
         else
         {
@@ -305,23 +310,26 @@ public:
 
 	inline void CacheEdgeYMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-#if 1
+#if 0
         const float EdgeY = voxel.GetYEdge();
+        UE_LOG(LogTemp,Warning, TEXT("CacheEdgeYMaxToMin(): %f %s"), EdgeY, *voxel.position.ToString());
         if (EdgeY < 1.f)
         {
             int32 ix = (i<0) ? 0 : i;
-            bool bMinXIsEdge = (i < 0)
+            bool bMinXIsEdge = (i<0)
                 ? xEdgesMinValues[ix] > 0.f
                 : xEdgesMinValues[ix] < 1.f;
             // Check whether either edge x or edge y is not a corner
             if (EdgeY > 0.f || !xEdgesMinOccupancy[ix] || bMinXIsEdge)
             {
+                UE_LOG(LogTemp,Warning, TEXT("CacheEdgeYMaxToMin() NEW"));
                 FVector2D EdgePoint(voxel.GetYEdgePoint());
                 yEdgeMax = AddVertex2(EdgePoint, Material);
             }
             // Otherwise both edges overlap the same corner, merge with edge x
             else
             {
+                UE_LOG(LogTemp,Warning, TEXT("CacheEdgeYMaxToMin() MERGE"));
                 yEdgeMax = xEdgesMin[ix];
             }
         }
@@ -350,7 +358,7 @@ public:
 
         uint8 fm = f.CornerMask;
 
-#if 1
+#if 0
         if (fm == 0)
         {
             return AddVertex2(f.position, f.Material);
