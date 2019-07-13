@@ -59,7 +59,7 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
             if (!xMin.HasValidEdgeX() || xMin.EdgeX < EdgeX)
             {
                 xMin.EdgeX = EdgeX;
-                xMin.SetNormalX(fillType ? MQC_MAX_SNORM8 : MQC_MIN_SNORM8, 0);
+                xMin.SetNormalX(fillType ? MAX_int8 : MIN_int8, 0);
             }
             else
             {
@@ -78,7 +78,7 @@ void FMQCStencilSquare::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
             if (!xMin.HasValidEdgeX() || xMin.EdgeX > EdgeX)
             {
                 xMin.EdgeX = EdgeX;
-                xMin.SetNormalX(fillType ? MQC_MIN_SNORM8 : MQC_MAX_SNORM8, 0);
+                xMin.SetNormalX(fillType ? MIN_int8 : MAX_int8, 0);
             }
             else
             {
@@ -114,7 +114,7 @@ void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
             if (!yMin.HasValidEdgeY() || yMin.EdgeY < EdgeY)
             {
                 yMin.EdgeY = EdgeY;
-                yMin.SetNormalY(0, fillType ? MQC_MAX_SNORM8 : MQC_MIN_SNORM8);
+                yMin.SetNormalY(0, fillType ? MAX_int8 : MIN_int8);
             }
             else
             {
@@ -133,7 +133,7 @@ void FMQCStencilSquare::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
             if (!yMin.HasValidEdgeY() || yMin.EdgeY > EdgeY)
             {
                 yMin.EdgeY = EdgeY;
-                yMin.SetNormalY(0, fillType ? MQC_MIN_SNORM8 : MQC_MAX_SNORM8);
+                yMin.SetNormalY(0, fillType ? MIN_int8 : MAX_int8);
             }
             else
             {
