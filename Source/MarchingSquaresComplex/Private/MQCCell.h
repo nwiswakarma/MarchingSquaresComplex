@@ -52,32 +52,32 @@ public:
 
     FORCEINLINE FMQCFeaturePoint GetFeatureSW() const
     {
-        return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, a.GetYEdgePoint(), a.yNormal);
+        return GetSharpFeature(a.GetXEdgePoint(), a.NormalX.ToFVector2D(), a.GetYEdgePoint(), a.NormalY.ToFVector2D());
     }
     
     FORCEINLINE FMQCFeaturePoint GetFeatureSE() const
     {
-        return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, b.GetYEdgePoint(), b.yNormal);
+        return GetSharpFeature(a.GetXEdgePoint(), a.NormalX.ToFVector2D(), b.GetYEdgePoint(), b.NormalY.ToFVector2D());
     }
     
     FORCEINLINE FMQCFeaturePoint GetFeatureNW() const
     {
-        return GetSharpFeature(a.GetYEdgePoint(), a.yNormal, c.GetXEdgePoint(), c.xNormal);
+        return GetSharpFeature(a.GetYEdgePoint(), a.NormalY.ToFVector2D(), c.GetXEdgePoint(), c.NormalX.ToFVector2D());
     }
     
     FORCEINLINE FMQCFeaturePoint GetFeatureNE() const
     {
-        return GetSharpFeature(c.GetXEdgePoint(), c.xNormal, b.GetYEdgePoint(), b.yNormal);
+        return GetSharpFeature(c.GetXEdgePoint(), c.NormalX.ToFVector2D(), b.GetYEdgePoint(), b.NormalY.ToFVector2D());
     }
     
     FORCEINLINE FMQCFeaturePoint GetFeatureNS() const
     {
-        return GetSharpFeature(a.GetXEdgePoint(), a.xNormal, c.GetXEdgePoint(), c.xNormal);
+        return GetSharpFeature(a.GetXEdgePoint(), a.NormalX.ToFVector2D(), c.GetXEdgePoint(), c.NormalX.ToFVector2D());
     }
     
     FORCEINLINE FMQCFeaturePoint GetFeatureEW() const
     {
-        return GetSharpFeature(a.GetYEdgePoint(), a.yNormal, b.GetYEdgePoint(), b.yNormal);
+        return GetSharpFeature(a.GetYEdgePoint(), a.NormalY.ToFVector2D(), b.GetYEdgePoint(), b.NormalY.ToFVector2D());
     }
 
     FORCEINLINE FMQCFeaturePoint GetFeatureNEW() const
@@ -144,8 +144,8 @@ public:
     bool HasConnectionAD(const FMQCFeaturePoint& fA, const FMQCFeaturePoint& fD)
     {
         bool flip = (a.voxelState < b.voxelState) == (a.voxelState < c.voxelState);
-        if (IsParallel(a.xNormal, a.yNormal, flip) ||
-            IsParallel(c.xNormal, b.yNormal, flip))
+        if (IsParallel(a.NormalX.ToFVector2D(), a.NormalY.ToFVector2D(), flip) ||
+            IsParallel(c.NormalX.ToFVector2D(), b.NormalY.ToFVector2D(), flip))
         {
             return true;
         }
@@ -180,8 +180,8 @@ public:
     bool HasConnectionBC(const FMQCFeaturePoint& fB, const FMQCFeaturePoint& fC)
     {
         bool flip = (b.voxelState < a.voxelState) == (b.voxelState < d.voxelState);
-        if (IsParallel(a.xNormal, b.yNormal, flip) ||
-            IsParallel(c.xNormal, a.yNormal, flip))
+        if (IsParallel(a.NormalX.ToFVector2D(), b.NormalY.ToFVector2D(), flip) ||
+            IsParallel(c.NormalX.ToFVector2D(), a.NormalY.ToFVector2D(), flip))
         {
             return true;
         }

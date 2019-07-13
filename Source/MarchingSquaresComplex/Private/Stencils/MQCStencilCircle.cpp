@@ -56,7 +56,7 @@ void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
             if (!xMin.HasValidEdgeX() || xMin.EdgeX < EdgeX)
             {
                 xMin.EdgeX = EdgeX;
-                xMin.xNormal = ComputeNormal(x, PositionMin.Y, xMax);
+                xMin.NormalX = ComputeNormal(x, PositionMin.Y, xMax);
             }
             else
             {
@@ -76,7 +76,7 @@ void FMQCStencilCircle::FindCrossingX(FMQCVoxel& xMin, const FMQCVoxel& xMax, co
             if (!xMin.HasValidEdgeX() || xMin.EdgeX > EdgeX)
             {
                 xMin.EdgeX = EdgeX;
-                xMin.xNormal = ComputeNormal(x, PositionMin.Y, xMin);
+                xMin.NormalX = ComputeNormal(x, PositionMin.Y, xMin);
             }
             else
             {
@@ -108,7 +108,7 @@ void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
             if (!yMin.HasValidEdgeY() || yMin.EdgeY < EdgeY)
             {
                 yMin.EdgeY = EdgeY;
-                yMin.yNormal = ComputeNormal(PositionMin.X, y, yMax);
+                yMin.NormalY = ComputeNormal(PositionMin.X, y, yMax);
             }
             else
             {
@@ -128,7 +128,7 @@ void FMQCStencilCircle::FindCrossingY(FMQCVoxel& yMin, const FMQCVoxel& yMax, co
             if (!yMin.HasValidEdgeY() || yMin.EdgeY > EdgeY)
             {
                 yMin.EdgeY = EdgeY;
-                yMin.yNormal = ComputeNormal(PositionMin.X, y, yMin);
+                yMin.NormalY = ComputeNormal(PositionMin.X, y, yMin);
             }
             else
             {

@@ -33,6 +33,47 @@
 #define MQC_VOXEL_EDGE_MAX 0xFE
 #define MQC_ENCODE_EDGE_CONST 254.999f
 #define MQC_DECODE_EDGE_CONST 0.003937f
+#define MQC_MAX_SNORM8 127
+#define MQC_MIN_SNORM8 -127
+
+struct MARCHINGSQUARESCOMPLEX_API FMQCPointNormal
+{
+public: 
+	union
+	{
+		struct
+		{
+			int8	X, Y;
+
+		};
+		uint16		Packed;
+	}				Vector;
+
+	FMQCPointNormal() { Vector.Packed = 0; }
+	FMQCPointNormal(const FVector2D& InVector) { *this = InVector; }
+	FMQCPointNormal(int8 InX, int8 InY) { Vector.X = InX; Vector.Y = InY; }
+
+	void operator=(const FVector2D& InVector);
+	FMQCPointNormal operator-() const;
+	FVector2D ToFVector2D() const;
+};
+
+FORCEINLINE void FMQCPointNormal::operator=(const FVector2D& InVector)
+{
+	const float Scale = MQC_MAX_SNORM8;
+	Vector.X = (int8)FMath::Clamp<int32>(FMath::RoundToInt(InVector.X * Scale), MQC_MIN_SNORM8, MQC_MAX_SNORM8);
+	Vector.Y = (int8)FMath::Clamp<int32>(FMath::RoundToInt(InVector.Y * Scale), MQC_MIN_SNORM8, MQC_MAX_SNORM8);
+}
+
+FORCEINLINE FMQCPointNormal FMQCPointNormal::operator-() const
+{
+	return FMQCPointNormal(-Vector.X, -Vector.Y);
+}
+
+FORCEINLINE FVector2D FMQCPointNormal::ToFVector2D() const
+{
+	return FVector2D(Vector.X, Vector.Y) / 127.f;
+}
 
 struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 {
@@ -44,8 +85,8 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     uint8 EdgeY;
 
     FIntPoint Position;
-    FVector2D xNormal;
-    FVector2D yNormal;
+    FMQCPointNormal NormalX;
+    FMQCPointNormal NormalY;
 
     // Query
 
@@ -115,6 +156,18 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         Init();
         Position.X = X;
         Position.Y = Y;
+    }
+
+    FORCEINLINE void SetNormalX(int8 InX, int8 InY)
+    {
+        NormalX.Vector.X = InX;
+        NormalX.Vector.Y = InY;
+    }
+
+    FORCEINLINE void SetNormalY(int8 InX, int8 InY)
+    {
+        NormalY.Vector.X = InX;
+        NormalY.Vector.Y = InY;
     }
 
     FORCEINLINE void BecomeXDummyOf(const FMQCVoxel& Voxel, int32 Offset)
