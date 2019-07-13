@@ -67,7 +67,7 @@ void FMQCGridChunk::Initialize(const FMQCChunkConfig& Config)
     cell.sharpFeatureLimit = FMath::Cos(FMath::DegreesToRadians(Config.MaxFeatureAngle));
     cell.parallelLimit     = FMath::Cos(FMath::DegreesToRadians(Config.MaxParallelAngle));
 
-    voxels.SetNum(voxelResolution * voxelResolution);
+    voxels.SetNumZeroed(voxelResolution * voxelResolution);
     
     for (int32 y=0, i=0; y<voxelResolution; y++)
     for (int32 x=0     ; x<voxelResolution; x++, i++)
@@ -83,7 +83,6 @@ void FMQCGridChunk::CreateRenderers(const FMQCChunkConfig& GridConfig)
     // Construct renderer count
 
     const int32 RendererCount = 1 + GridConfig.States.Num();
-    Renderers.Reserve(RendererCount);
 
     for (int32 i=0; i<RendererCount; ++i)
     {
@@ -110,7 +109,7 @@ void FMQCGridChunk::CreateRenderers(const FMQCChunkConfig& GridConfig)
             Config.bRemapEdgeUVs = false;
         }
 
-        Renderers.Emplace(Config);
+        Renderers.Add(new FMQCGridRenderer(Config));
     }
 }
 
@@ -120,7 +119,7 @@ void FMQCGridChunk::ResetVoxels()
 
     for (FMQCVoxel& voxel : voxels)
     {
-        voxel.Reset();
+        voxel.Init();
     }
 }
 

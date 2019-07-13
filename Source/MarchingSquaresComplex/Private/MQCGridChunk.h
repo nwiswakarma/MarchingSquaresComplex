@@ -78,7 +78,7 @@ private:
 
     FMQCCell cell;
 
-    TArray<FMQCGridRenderer> Renderers;
+    TIndirectArray<FMQCGridRenderer> Renderers;
     TArray<FMQCVoxel> voxels;
 
     int32 mapSize;

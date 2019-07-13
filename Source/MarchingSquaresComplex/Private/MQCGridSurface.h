@@ -112,6 +112,7 @@ private:
 
 	int32 VoxelResolution;
     int32 VoxelCount;
+    bool bRequireHash16;
     float MapSize;
     float MapSizeInv;
     FIntPoint Position;
@@ -198,33 +199,42 @@ public:
 
 	FORCEINLINE void CacheFirstCorner(const FMQCVoxel& voxel)
     {
-        uint32 Hash = voxel.GetPositionOnlyHash();
+        uint32 Hash = bRequireHash16
+            ? voxel.GetPositionOnlyHash()
+            : voxel.GetPositionOnlyHash8();
 		cornersMax[0] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
 	}
 
 	FORCEINLINE void CacheNextCorner(int32 i, const FMQCVoxel& voxel)
     {
-        uint32 Hash = voxel.GetPositionOnlyHash();
+        uint32 Hash = bRequireHash16
+            ? voxel.GetPositionOnlyHash()
+            : voxel.GetPositionOnlyHash8();
 		cornersMax[i+1] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
 	}
 
 	FORCEINLINE void CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
+        uint32 Hash = bRequireHash16
+            ? voxel.GetEdgePointHashX()
+            : voxel.GetEdgePointHashX8();
         FVector2D EdgePoint(voxel.GetXEdgePoint());
-        uint32 Hash = voxel.GetEdgePointHashX();
         xEdgesMax[i] = AddVertex2(Hash, EdgePoint, Material);
     }
 
 	FORCEINLINE void CacheEdgeY(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
+        uint32 Hash = bRequireHash16
+            ? voxel.GetEdgePointHashY()
+            : voxel.GetEdgePointHashY8();
         FVector2D EdgePoint(voxel.GetYEdgePoint());
-        uint32 Hash = voxel.GetEdgePointHashY();
         yEdgeMax = AddVertex2(Hash, EdgePoint, Material);
     }
 
-	FORCEINLINE int32 CacheFeaturePoint(uint32 Hash, const FMQCFeaturePoint& f)
+	FORCEINLINE int32 CacheFeaturePoint(const FMQCFeaturePoint& f)
     {
         check(f.exists);
+        uint32 Hash = bRequireHash16 ? f.GetHash() : f.GetHash8();
         return AddVertex2(Hash, f.position, f.Material);
     }
 
@@ -521,27 +531,13 @@ private:
         }
     }
 
-    inline uint32 AddVertex2(const FVector2D& Vertex, const FMQCMaterial& Material)
-    {
-        uint32 Index = GetVertexCount();
-
-        AddVertex(Vertex, Material, bExtrusionSurface);
-
-        if (bGenerateExtrusion)
-        {
-            AddVertex(Vertex, Material, true);
-        }
-
-        return Index;
-    }
-
     inline uint32 AddVertex2(uint32 Hash, const FVector2D& Vertex, const FMQCMaterial& Material)
     {
         uint32* IndexPtr = VertexMap.Find(Hash);
 
         if (IndexPtr)
         {
-            //UE_LOG(LogTemp,Warning, TEXT("HASH FOUND: %u"), *IndexPtr);
+            //UE_LOG(LogTemp,Warning, TEXT("HASH FOUND: %d %u"), bRequireHash16, *IndexPtr);
             return *IndexPtr;
         }
 
@@ -556,7 +552,7 @@ private:
 
         VertexMap.Emplace(Hash, Index);
 
-        //UE_LOG(LogTemp,Warning, TEXT("NEW INDEX: %u %d %s"), Hash, Index, *Vertex.ToString());
+        //UE_LOG(LogTemp,Warning, TEXT("NEW INDEX: %d %u %d %s"), bRequireHash16, Hash, Index, *Vertex.ToString());
 
         return Index;
     }

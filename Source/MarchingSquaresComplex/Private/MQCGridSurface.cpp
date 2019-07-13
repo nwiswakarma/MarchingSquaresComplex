@@ -31,11 +31,12 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 {
     // Position & dimension configuration
 
-    Position = Config.Position;
     VoxelResolution = Config.VoxelResolution;
     VoxelCount = VoxelResolution * VoxelResolution;
+    bRequireHash16 = VoxelResolution > 256;
     MapSize = Config.MapSize-1;
     MapSizeInv = MapSize > 0.f ? (1.f/MapSize) : KINDA_SMALL_NUMBER;
+    Position = Config.Position;
 
     // Extrusion configuration
 

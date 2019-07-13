@@ -34,41 +34,6 @@
 #define MQC_ENCODE_EDGE_CONST 254.999f
 #define MQC_DECODE_EDGE_CONST 0.003937f
 
-struct MARCHINGSQUARESCOMPLEX_API FMQCPointNormal
-{
-public: 
-	union
-	{
-		struct
-		{
-			int8	X, Y;
-
-		};
-		uint16		Packed;
-	}				Vector;
-
-	FMQCPointNormal() { Vector.Packed = 0; }
-	FMQCPointNormal(const FVector2D& InVector) { *this = InVector; }
-
-	void operator=(const FVector2D& InVector);
-	FVector2D ToFVector2D() const;
-};
-
-FORCEINLINE void FMQCPointNormal::operator=(const FVector2D& InVector)
-{
-	const float Scale = MAX_int8;
-	Vector.X = (int8)FMath::Clamp<int32>(FMath::RoundToInt(InVector.X * Scale), MIN_int8, MAX_int8);
-	Vector.Y = (int8)FMath::Clamp<int32>(FMath::RoundToInt(InVector.Y * Scale), MIN_int8, MAX_int8);
-}
-
-FORCEINLINE FVector2D FMQCPointNormal::ToFVector2D() const
-{
-    FVector2D UnpackedVector;
-    UnpackedVector.X = Vector.X / 127.f;
-    UnpackedVector.Y = Vector.Y / 127.f;
-	return UnpackedVector;
-}
-
 struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 {
     uint8 voxelState;
@@ -81,19 +46,6 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     FIntPoint Position;
     FVector2D xNormal;
     FVector2D yNormal;
-
-    FMQCVoxel()
-        : voxelState(0)
-        , pointState(0)
-        , EdgeX(0xFF)
-        , EdgeY(0xFF)
-    {
-    }
-
-    FMQCVoxel(int32 x, int32 y)
-    {
-        Set(x, y);
-    }
 
     // Query
 
@@ -149,7 +101,7 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     // Mutation
 
-    FORCEINLINE void Reset()
+    FORCEINLINE void Init()
     {
         EdgeX = 0xFF;
         EdgeY = 0xFF;
@@ -160,7 +112,7 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
 
     FORCEINLINE void Set(int32 X, int32 Y)
     {
-        Reset();
+        Init();
         Position.X = X;
         Position.Y = Y;
     }
@@ -191,6 +143,40 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return (uint8)(FMath::Clamp(Alpha, 0.f, 1.f) * MQC_ENCODE_EDGE_CONST);
     }
 
+    FORCEINLINE static uint32 GetPositionHashPacked(const FIntPoint& Position, uint8 EdgeX, uint8 EdgeY)
+    {
+        uint32 PositionHash = GetPositionHash16(Position, EdgeX, EdgeY);
+        uint32 EdgeHashX = GetEdgeHashX(EdgeX);
+        uint32 EdgeHashY = GetEdgeHashY(EdgeY);
+        return HashCombine(PositionHash, EdgeHashX | EdgeHashY);
+    }
+
+    FORCEINLINE static uint32 GetPositionHashPacked8(const FIntPoint& Position, uint8 EdgeX, uint8 EdgeY)
+    {
+        uint32 PositionHash = GetPositionHash8(Position, EdgeX, EdgeY);
+        uint32 EdgeHashX = GetEdgeHashX(EdgeX);
+        uint32 EdgeHashY = GetEdgeHashY(EdgeY);
+        return PositionHash | ((EdgeHashX | EdgeHashY) << 16);
+    }
+
+    FORCEINLINE static uint32 GetPositionHash16(const FIntPoint& Position, uint8 EdgeX, uint8 EdgeY)
+    {
+        uint32 X = FMath::Clamp<uint32>(Position.X, 0, MAX_uint16);
+        uint32 Y = FMath::Clamp<uint32>(Position.Y, 0, MAX_uint16);
+        X += EdgeX == MQC_VOXEL_EDGE_MAX ? 1 : 0;
+        Y += EdgeY == MQC_VOXEL_EDGE_MAX ? 1 : 0;
+        return X | (Y << 16);
+    }
+
+    FORCEINLINE static uint32 GetPositionHash8(const FIntPoint& Position, uint8 EdgeX, uint8 EdgeY)
+    {
+        uint32 X = FMath::Clamp<uint32>(Position.X, 0, MAX_uint8);
+        uint32 Y = FMath::Clamp<uint32>(Position.Y, 0, MAX_uint8);
+        X += EdgeX == MQC_VOXEL_EDGE_MAX ? 1 : 0;
+        Y += EdgeY == MQC_VOXEL_EDGE_MAX ? 1 : 0;
+        return X | (Y << 8);
+    }
+
     FORCEINLINE static uint32 GetEdgeHashX(uint8 EdgeX)
     {
         return (EdgeX<254 ? EdgeX : 0);
@@ -201,42 +187,7 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return (EdgeY<254 ? EdgeY : 0) << 8;
     }
 
-    FORCEINLINE static uint32 GetEdgeHashX(float EdgeX)
-    {
-        return GetEdgeHashX(EncodeEdge(EdgeX));
-    }
-
-    FORCEINLINE static uint32 GetEdgeHashY(float EdgeY)
-    {
-        return GetEdgeHashY(EncodeEdge(EdgeY));
-    }
-
-    FORCEINLINE static uint32 GetPositionHash(const FIntPoint& Position, uint8 EdgeX, uint8 EdgeY)
-    {
-        uint32 X = FMath::Clamp<uint32>(Position.X, 0, MAX_uint16);
-        uint32 Y = FMath::Clamp<uint32>(Position.Y, 0, MAX_uint16);
-        X += EdgeX == MQC_VOXEL_EDGE_MAX ? 1 : 0;
-        Y += EdgeY == MQC_VOXEL_EDGE_MAX ? 1 : 0;
-        return X | (Y << 16);
-    }
-
-    FORCEINLINE static uint32 GetPositionHashPacked(const FIntPoint& Position, uint8 EdgeX, uint8 EdgeY)
-    {
-        uint32 PositionHash = GetPositionHash(Position, EdgeX, EdgeY);
-        uint32 EdgeHashX = GetEdgeHashX(EdgeX);
-        uint32 EdgeHashY = GetEdgeHashY(EdgeY);
-        return HashCombine(PositionHash, EdgeHashX | EdgeHashY);
-    }
-
-    FORCEINLINE uint32 GetEdgeHashX() const
-    {
-        return GetEdgeHashX(EdgeX);
-    }
-
-    FORCEINLINE uint32 GetEdgeHashY() const
-    {
-        return GetEdgeHashY(EdgeY);
-    }
+    // 16-bit Position Hash
 
     FORCEINLINE uint32 GetEdgePointHashX() const
     {
@@ -256,5 +207,27 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
     FORCEINLINE uint32 GetPositionHash() const
     {
         return GetPositionHashPacked(Position, EdgeX, EdgeY);
+    }
+
+    // 8-bit Position Hash
+
+    FORCEINLINE uint32 GetEdgePointHashX8() const
+    {
+        return GetPositionHashPacked8(Position, EdgeX, 0);
+    }
+
+    FORCEINLINE uint32 GetEdgePointHashY8() const
+    {
+        return GetPositionHashPacked8(Position, 0, EdgeY);
+    }
+
+    FORCEINLINE uint32 GetPositionOnlyHash8() const
+    {
+        return GetPositionHashPacked8(Position, 0, 0);
+    }
+
+    FORCEINLINE uint32 GetPositionHash8() const
+    {
+        return GetPositionHashPacked8(Position, EdgeX, EdgeY);
     }
 };

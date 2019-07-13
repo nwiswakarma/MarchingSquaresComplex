@@ -114,8 +114,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            uint32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            uint32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddQuadA(cell.i, FeaturePointIndex, !cell.c.IsFilled(), !cell.b.IsFilled());
 		}
         else
@@ -128,8 +127,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddQuadB(cell.i, FeaturePointIndex, !cell.a.IsFilled(), !cell.d.IsFilled());
 		}
         else
@@ -142,8 +140,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddQuadC(cell.i, FeaturePointIndex, !cell.d.IsFilled(), !cell.a.IsFilled());
 		}
         else
@@ -156,8 +153,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddQuadD(cell.i, FeaturePointIndex, !cell.b.IsFilled(), !cell.c.IsFilled());
 		}
         else
@@ -170,8 +166,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddHexagonABC(cell.i, FeaturePointIndex, !cell.d.IsFilled());
 		}
         else
@@ -184,8 +179,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddHexagonABD(cell.i, FeaturePointIndex, !cell.c.IsFilled());
 		}
         else
@@ -198,8 +192,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddHexagonACD(cell.i, FeaturePointIndex, !cell.b.IsFilled());
 		}
         else
@@ -212,8 +205,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddHexagonBCD(cell.i, FeaturePointIndex, !cell.a.IsFilled());
 		}
         else
@@ -226,8 +218,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddPentagonAB(cell.i, FeaturePointIndex, !cell.c.IsFilled(), !cell.d.IsFilled());
 		}
         else
@@ -240,8 +231,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddPentagonAC(cell.i, FeaturePointIndex, !cell.d.IsFilled(), !cell.b.IsFilled());
 		}
         else
@@ -254,8 +244,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddPentagonBD(cell.i, FeaturePointIndex, !cell.a.IsFilled(), !cell.c.IsFilled());
 		}
         else
@@ -268,8 +257,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddPentagonCD(cell.i, FeaturePointIndex, !cell.b.IsFilled(), !cell.a.IsFilled());
 		}
         else
@@ -282,8 +270,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddPentagonADToB(cell.i, FeaturePointIndex, !cell.b.IsFilled());
 		}
         else
@@ -296,8 +283,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddPentagonADToC(cell.i, FeaturePointIndex, !cell.c.IsFilled());
 		}
         else
@@ -310,8 +296,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddPentagonBCToA(cell.i, FeaturePointIndex, !cell.a.IsFilled());
 		}
         else
@@ -324,8 +309,7 @@ public:
     {
 		if (f.exists)
         {
-            uint32 Hash = cell.GetFeaturePointHash(f);
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
 			surface.AddPentagonBCToD(cell.i, FeaturePointIndex, !cell.d.IsFilled());
 		}
         else

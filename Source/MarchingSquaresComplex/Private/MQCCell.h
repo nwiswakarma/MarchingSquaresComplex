@@ -314,12 +314,4 @@ public:
 
         return Material;
     }
-
-    FORCEINLINE uint32 GetFeaturePointHash(const FMQCFeaturePoint& f) const
-    {
-        FIntPoint Position(f.position.X, f.position.Y);
-        uint8 EdgeX = FMQCVoxel::EncodeEdge(f.position.X-Position.X);
-        uint8 EdgeY = FMQCVoxel::EncodeEdge(f.position.Y-Position.Y);
-        return FMQCVoxel::GetPositionHashPacked(Position, EdgeX, EdgeY);
-    }
 };
