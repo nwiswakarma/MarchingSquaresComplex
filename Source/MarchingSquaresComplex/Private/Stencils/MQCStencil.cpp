@@ -33,12 +33,13 @@ void FMQCStencil::ValidateNormalX(FMQCVoxel& xMin, const FMQCVoxel& xMax)
 {
     if (xMin.voxelState < xMax.voxelState)
     {
-        if (xMin.xNormal.X > 0.f)
+        if (xMin.xNormal.X > 0)
         {
             xMin.xNormal = -xMin.xNormal;
         }
     }
-    else if (xMin.xNormal.X < 0.f)
+    else
+    if (xMin.xNormal.X < 0)
     {
         xMin.xNormal = -xMin.xNormal;
     }
@@ -48,12 +49,13 @@ void FMQCStencil::ValidateNormalY(FMQCVoxel& yMin, const FMQCVoxel& yMax)
 {
     if (yMin.voxelState < yMax.voxelState)
     {
-        if (yMin.yNormal.Y > 0.f)
+        if (yMin.yNormal.Y > 0)
         {
             yMin.yNormal = -yMin.yNormal;
         }
     }
-    else if (yMin.yNormal.Y < 0.f)
+    else
+    if (yMin.yNormal.Y < 0)
     {
         yMin.yNormal = -yMin.yNormal;
     }

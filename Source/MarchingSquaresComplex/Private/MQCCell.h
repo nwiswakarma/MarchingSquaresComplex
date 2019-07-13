@@ -83,7 +83,7 @@ public:
     FORCEINLINE FMQCFeaturePoint GetFeatureNEW() const
     {
         FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureEW(), GetFeatureNE(), GetFeatureNW());
-        if (!f.exists)
+        if (! f.exists)
         {
             f.position = (a.GetYEdgePoint() + b.GetYEdgePoint() + c.GetXEdgePoint()) / 3.f;
             f.exists = true;
@@ -94,7 +94,7 @@ public:
     FORCEINLINE FMQCFeaturePoint GetFeatureNSE() const
     {
         FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureNS(), GetFeatureSE(), GetFeatureNE());
-        if (!f.exists)
+        if (! f.exists)
         {
             f.position = (a.GetXEdgePoint() + b.GetYEdgePoint() + c.GetXEdgePoint()) / 3.f;
             f.exists = true;
@@ -105,7 +105,7 @@ public:
     FORCEINLINE FMQCFeaturePoint GetFeatureNSW() const
     {
         FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureNS(), GetFeatureNW(), GetFeatureSW());
-        if (!f.exists)
+        if (! f.exists)
         {
             f.position = (a.GetXEdgePoint() + a.GetYEdgePoint() + c.GetXEdgePoint()) / 3.f;
             f.exists = true;
@@ -116,7 +116,7 @@ public:
     FORCEINLINE FMQCFeaturePoint GetFeatureSEW() const
     {
         FMQCFeaturePoint f = FMQCFeaturePoint::Average(GetFeatureEW(), GetFeatureSE(), GetFeatureSW());
-        if (!f.exists)
+        if (! f.exists)
         {
             f.position = (a.GetXEdgePoint() + a.GetYEdgePoint() + b.GetYEdgePoint()) / 3.f;
             f.exists = true;
@@ -233,8 +233,6 @@ public:
         return IsBelowLine(point, b.GetPosition(), c.GetPosition());
     }
 
-private:
-
     FORCEINLINE static bool IsBelowLine(const FVector2D& p, const FVector2D& start, const FVector2D& end)
     {
         float determinant = (end.X - start.X) * (p.Y - start.Y) - (end.Y - start.Y) * (p.X - start.X);
@@ -315,5 +313,13 @@ private:
         }
 
         return Material;
+    }
+
+    FORCEINLINE uint32 GetFeaturePointHash(const FMQCFeaturePoint& f) const
+    {
+        FIntPoint Position(f.position.X, f.position.Y);
+        uint8 EdgeX = FMQCVoxel::EncodeEdge(f.position.X-Position.X);
+        uint8 EdgeY = FMQCVoxel::EncodeEdge(f.position.Y-Position.Y);
+        return FMQCVoxel::GetPositionHashPacked(Position, EdgeX, EdgeY);
     }
 };

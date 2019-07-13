@@ -28,7 +28,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MQCMaterial.h"
+#include "MQCVoxel.h"
 
 struct FMQCFeaturePoint
 {
@@ -36,77 +36,82 @@ struct FMQCFeaturePoint
     FMQCMaterial Material;
 	bool exists;
 
-    FMQCFeaturePoint() = default;
-
-    FMQCFeaturePoint(const FVector2D& inPosition)
-        : position(inPosition)
-    {
-    }
-
 	static FMQCFeaturePoint Average(const FMQCFeaturePoint& a, const FMQCFeaturePoint& b, const FMQCFeaturePoint& c)
     {
-		
-		FMQCFeaturePoint average(FVector2D::ZeroVector);
-		float features = 0.f;
+		FVector2D Avg(ForceInitToZero);
+		float FeatureCount = 0.f;
+        bool bExists;
+        // Add feature positions
 		if (a.exists)
         {
-			average.position += a.position;
-			features += 1.f;
+			Avg += a.position;
+			FeatureCount += 1.f;
 		}
 		if (b.exists)
         {
-			average.position += b.position;
-			features += 1.f;
+			Avg += b.position;
+			FeatureCount += 1.f;
 		}
 		if (c.exists)
         {
-			average.position += c.position;
-			features += 1.f;
+			Avg += c.position;
+			FeatureCount += 1.f;
 		}
-		if (features > 0.f)
+        // Calculate average position
+		if (FeatureCount > 0.f)
         {
-			average.position /= features;
-			average.exists = true;
+			Avg /= FeatureCount;
+			bExists = true;
 		}
-		else {
-			average.exists = false;
+		else
+        {
+			bExists = false;
 		}
-		return average;
+        FMQCFeaturePoint f;
+        f.position = Avg;
+        f.exists = bExists;
+		return f;
 	}
 
 	static FMQCFeaturePoint Average(const FMQCFeaturePoint& a, const FMQCFeaturePoint& b, const FMQCFeaturePoint& c, const FMQCFeaturePoint& d)
     {
-		FMQCFeaturePoint average(FVector2D::ZeroVector);
-		float features = 0.f;
+		FVector2D Avg(ForceInitToZero);
+		float FeatureCount = 0.f;
+        bool bExists;
+        // Add feature positions
 		if (a.exists)
         {
-			average.position += a.position;
-			features += 1.f;
+			Avg += a.position;
+			FeatureCount += 1.f;
 		}
 		if (b.exists)
         {
-			average.position += b.position;
-			features += 1.f;
+			Avg += b.position;
+			FeatureCount += 1.f;
 		}
 		if (c.exists)
         {
-			average.position += c.position;
-			features += 1.f;
+			Avg += c.position;
+			FeatureCount += 1.f;
 		}
 		if (d.exists)
         {
-			average.position += d.position;
-			features += 1.f;
+			Avg += d.position;
+			FeatureCount += 1.f;
 		}
-		if (features > 0.f)
+        // Calculate average position
+		if (FeatureCount > 0.f)
         {
-			average.position /= features;
-			average.exists = true;
+			Avg /= FeatureCount;
+			bExists = true;
 		}
 		else
         {
-			average.exists = false;
+			bExists = false;
 		}
-		return average;
+        FMQCFeaturePoint f;
+        f.position = Avg;
+        f.exists = bExists;
+		return f;
 	}
 };

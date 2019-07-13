@@ -486,17 +486,17 @@ void FMQCGridChunk::CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const
                 FMQCMaterial EdgeMaterial = (xMin.GetXEdge() > .5f)
                     ? MaterialMax
                     : MaterialMin;
-                RendererMin.CacheEdgeXMinToMax(i, xMin, EdgeMaterial);
-                RendererMax.CacheEdgeXMaxToMin(i, xMin, EdgeMaterial);
+                RendererMin.CacheEdgeX(i, xMin, EdgeMaterial);
+                RendererMax.CacheEdgeX(i, xMin, EdgeMaterial);
             }
             else
             {
-                RendererMin.CacheEdgeXWallMinToMax(i, xMin, MaterialMin);
+                RendererMin.CacheEdgeXWithWall(i, xMin, MaterialMin);
             }
         }
         else
         {
-            RendererMax.CacheEdgeXWallMaxToMin(i, xMin, MaterialMax);
+            RendererMax.CacheEdgeXWithWall(i, xMin, MaterialMax);
         }
     }
 }
@@ -522,17 +522,17 @@ void FMQCGridChunk::CacheNextMiddleEdge(int32 i, const FMQCVoxel& yMin, const FM
                 FMQCMaterial EdgeMaterial = (yMin.GetYEdge() > .5f)
                     ? MaterialMax
                     : MaterialMin;
-                RendererMin.CacheEdgeYMinToMax(i, yMin, EdgeMaterial);
-                RendererMax.CacheEdgeYMaxToMin(i, yMin, EdgeMaterial);
+                RendererMin.CacheEdgeY(i, yMin, EdgeMaterial);
+                RendererMax.CacheEdgeY(i, yMin, EdgeMaterial);
             }
             else
             {
-                RendererMin.CacheEdgeYWallMinToMax(i, yMin, MaterialMin);
+                RendererMin.CacheEdgeYWithWall(i, yMin, MaterialMin);
             }
         }
         else
         {
-            RendererMax.CacheEdgeYWallMaxToMin(i, yMin, MaterialMax);
+            RendererMax.CacheEdgeYWithWall(i, yMin, MaterialMax);
         }
     }
 }

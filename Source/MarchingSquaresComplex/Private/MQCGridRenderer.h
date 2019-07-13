@@ -89,52 +89,33 @@ public:
     {
 		surface.CacheNextCorner(i, voxel);
 	}
-	
-	FORCEINLINE void CacheEdgeXMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+
+	FORCEINLINE void CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-		surface.CacheEdgeXMinToMax(i, voxel, Material);
-	}
-	
-	FORCEINLINE void CacheEdgeXMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-    {
-		surface.CacheEdgeXMaxToMin(i, voxel, Material);
+		surface.CacheEdgeX(i, voxel, Material);
 	}
 
-	FORCEINLINE void CacheEdgeXWallMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	FORCEINLINE void CacheEdgeXWithWall(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-		CacheEdgeXMinToMax(i, voxel, Material);
-	}
-	
-	FORCEINLINE void CacheEdgeXWallMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-    {
-		CacheEdgeXMaxToMin(i, voxel, Material);
+		CacheEdgeX(i, voxel, Material);
 	}
 
-	FORCEINLINE void CacheEdgeYMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	FORCEINLINE void CacheEdgeY(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-		surface.CacheEdgeYMinToMax(i, voxel, Material);
+		surface.CacheEdgeY(i, voxel, Material);
 	}
 
-	FORCEINLINE void CacheEdgeYMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	FORCEINLINE void CacheEdgeYWithWall(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
-		surface.CacheEdgeYMaxToMin(i, voxel, Material);
+		CacheEdgeY(i, voxel, Material);
 	}
 
-	FORCEINLINE void CacheEdgeYWallMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-    {
-		CacheEdgeYMinToMax(i, voxel, Material);
-	}
-
-	FORCEINLINE void CacheEdgeYWallMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-    {
-		CacheEdgeYMaxToMin(i, voxel, Material);
-	}
-
-	void FillA(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillA(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            uint32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddQuadA(cell.i, FeaturePointIndex, !cell.c.IsFilled(), !cell.b.IsFilled());
 		}
         else
@@ -143,11 +124,12 @@ public:
 		}
 	}
 
-	void FillB(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillB(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddQuadB(cell.i, FeaturePointIndex, !cell.a.IsFilled(), !cell.d.IsFilled());
 		}
         else
@@ -156,11 +138,12 @@ public:
 		}
 	}
 	
-	void FillC(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillC(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddQuadC(cell.i, FeaturePointIndex, !cell.d.IsFilled(), !cell.a.IsFilled());
 		}
         else
@@ -169,11 +152,12 @@ public:
 		}
 	}
 	
-	void FillD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillD(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddQuadD(cell.i, FeaturePointIndex, !cell.b.IsFilled(), !cell.c.IsFilled());
 		}
         else
@@ -182,11 +166,12 @@ public:
 		}
 	}
 
-	void FillABC(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillABC(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddHexagonABC(cell.i, FeaturePointIndex, !cell.d.IsFilled());
 		}
         else
@@ -195,11 +180,12 @@ public:
 		}
 	}
 	
-	void FillABD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillABD(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddHexagonABD(cell.i, FeaturePointIndex, !cell.c.IsFilled());
 		}
         else
@@ -208,11 +194,12 @@ public:
 		}
 	}
 	
-	void FillACD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillACD(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddHexagonACD(cell.i, FeaturePointIndex, !cell.b.IsFilled());
 		}
         else
@@ -221,11 +208,12 @@ public:
 		}
 	}
 	
-	void FillBCD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillBCD(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddHexagonBCD(cell.i, FeaturePointIndex, !cell.a.IsFilled());
 		}
         else
@@ -234,11 +222,12 @@ public:
 		}
 	}
 
-	void FillAB(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillAB(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddPentagonAB(cell.i, FeaturePointIndex, !cell.c.IsFilled(), !cell.d.IsFilled());
 		}
         else
@@ -247,11 +236,12 @@ public:
 		}
 	}
 	
-	void FillAC(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillAC(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddPentagonAC(cell.i, FeaturePointIndex, !cell.d.IsFilled(), !cell.b.IsFilled());
 		}
         else
@@ -260,11 +250,12 @@ public:
 		}
 	}
 	
-	void FillBD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillBD(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddPentagonBD(cell.i, FeaturePointIndex, !cell.a.IsFilled(), !cell.c.IsFilled());
 		}
         else
@@ -273,11 +264,12 @@ public:
 		}
 	}
 	
-	void FillCD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillCD(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddPentagonCD(cell.i, FeaturePointIndex, !cell.b.IsFilled(), !cell.a.IsFilled());
 		}
         else
@@ -286,11 +278,12 @@ public:
 		}
 	}
 
-	void FillADToB(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillADToB(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddPentagonADToB(cell.i, FeaturePointIndex, !cell.b.IsFilled());
 		}
         else
@@ -299,11 +292,12 @@ public:
 		}
 	}
 	
-	void FillADToC(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillADToC(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddPentagonADToC(cell.i, FeaturePointIndex, !cell.c.IsFilled());
 		}
         else
@@ -312,11 +306,12 @@ public:
 		}
 	}
 	
-	void FillBCToA(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillBCToA(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddPentagonBCToA(cell.i, FeaturePointIndex, !cell.a.IsFilled());
 		}
         else
@@ -325,11 +320,12 @@ public:
 		}
 	}
 	
-	void FillBCToD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+	inline void FillBCToD(const FMQCCell& cell, const FMQCFeaturePoint& f)
     {
 		if (f.exists)
         {
-            int32 FeaturePointIndex = surface.CacheFeaturePoint(f);
+            uint32 Hash = cell.GetFeaturePointHash(f);
+            int32 FeaturePointIndex = surface.CacheFeaturePoint(Hash, f);
 			surface.AddPentagonBCToD(cell.i, FeaturePointIndex, !cell.d.IsFilled());
 		}
         else
@@ -338,7 +334,7 @@ public:
 		}
 	}
 
-	void FillABCD(const FMQCCell& cell)
+	inline void FillABCD(const FMQCCell& cell)
     {
 		surface.AddQuadABCD(cell.i);
 	}

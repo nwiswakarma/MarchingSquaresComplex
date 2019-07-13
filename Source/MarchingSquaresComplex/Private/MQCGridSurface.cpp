@@ -48,11 +48,11 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 
     // Resize vertex cache containers
     
-    cornersMin.SetNum(VoxelResolution + 1);
-    cornersMax.SetNum(VoxelResolution + 1);
+    cornersMin.SetNumZeroed(VoxelResolution + 1);
+    cornersMax.SetNumZeroed(VoxelResolution + 1);
 
-    xEdgesMin.SetNum(VoxelResolution);
-    xEdgesMax.SetNum(VoxelResolution);
+    xEdgesMin.SetNumZeroed(VoxelResolution);
+    xEdgesMax.SetNumZeroed(VoxelResolution);
 
     // Reserves geometry container spaces
 
@@ -61,6 +61,10 @@ void FMQCGridSurface::Initialize(const FMQCSurfaceConfig& Config)
 
 void FMQCGridSurface::ReserveGeometry()
 {
+    // Reserve vertex map container
+    VertexMap.Reserve(VoxelCount*2);
+
+    // Reserve mesh data container
     if (bGenerateExtrusion)
     {
         ReserveGeometry(SurfaceMeshData);
@@ -79,6 +83,9 @@ void FMQCGridSurface::ReserveGeometry()
 
 void FMQCGridSurface::CompactGeometry()
 {
+    // Shrink vertex map container
+    VertexMap.Shrink();
+    // Shrink mesh data container
     CompactGeometry(SurfaceMeshData);
     CompactGeometry(ExtrudeMeshData);
     CompactGeometry(EdgeMeshData);
@@ -119,6 +126,7 @@ void FMQCGridSurface::Clear()
     GetSurfaceSection().Reset();
     GetExtrudeSection().Reset();
     GetEdgeSection().Reset();
+    VertexMap.Empty();
 }
 
 void FMQCGridSurface::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const

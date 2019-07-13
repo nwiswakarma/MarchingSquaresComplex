@@ -116,14 +116,16 @@ private:
     float MapSizeInv;
     FIntPoint Position;
 
-	TArray<int32> cornersMin;
-	TArray<int32> cornersMax;
+	TArray<uint32> cornersMin;
+	TArray<uint32> cornersMax;
 
-	TArray<int32> xEdgesMin;
-	TArray<int32> xEdgesMax;
+	TArray<uint32> xEdgesMin;
+	TArray<uint32> xEdgesMax;
 
-	int32 yEdgeMin;
-	int32 yEdgeMax;
+	uint32 yEdgeMin;
+	uint32 yEdgeMax;
+
+    TMap<uint32, uint32> VertexMap;
 
     TArray<FEdgeListData> EdgeLists;
     TArray<FEdgeSyncData> EdgeSyncList;
@@ -152,7 +154,7 @@ public:
     void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
     void RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd);
 
-    FORCEINLINE int32 GetVertexCount() const
+    FORCEINLINE uint32 GetVertexCount() const
     {
         return !bExtrusionSurface
             ? SurfaceMeshData.Section.Positions.Num()
@@ -196,42 +198,34 @@ public:
 
 	FORCEINLINE void CacheFirstCorner(const FMQCVoxel& voxel)
     {
-		cornersMax[0] = AddVertex2(voxel.GetPosition(), voxel.Material);
+        uint32 Hash = voxel.GetPositionOnlyHash();
+		cornersMax[0] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
 	}
 
 	FORCEINLINE void CacheNextCorner(int32 i, const FMQCVoxel& voxel)
     {
-		cornersMax[i+1] = AddVertex2(voxel.GetPosition(), voxel.Material);
+        uint32 Hash = voxel.GetPositionOnlyHash();
+		cornersMax[i+1] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
 	}
 
-	inline void CacheEdgeXMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	FORCEINLINE void CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
         FVector2D EdgePoint(voxel.GetXEdgePoint());
-        xEdgesMax[i] = AddVertex2(EdgePoint, Material);
+        uint32 Hash = voxel.GetEdgePointHashX();
+        xEdgesMax[i] = AddVertex2(Hash, EdgePoint, Material);
     }
 
-	inline void CacheEdgeXMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-    {
-        FVector2D EdgePoint(voxel.GetXEdgePoint());
-        xEdgesMax[i] = AddVertex2(EdgePoint, Material);
-    }
-
-	inline void CacheEdgeYMinToMax(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+	FORCEINLINE void CacheEdgeY(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
         FVector2D EdgePoint(voxel.GetYEdgePoint());
-        yEdgeMax = AddVertex2(EdgePoint, Material);
+        uint32 Hash = voxel.GetEdgePointHashY();
+        yEdgeMax = AddVertex2(Hash, EdgePoint, Material);
     }
 
-	inline void CacheEdgeYMaxToMin(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-    {
-        FVector2D EdgePoint(voxel.GetYEdgePoint());
-        yEdgeMax = AddVertex2(EdgePoint, Material);
-    }
-
-	FORCEINLINE int32 CacheFeaturePoint(const FMQCFeaturePoint& f)
+	FORCEINLINE int32 CacheFeaturePoint(uint32 Hash, const FMQCFeaturePoint& f)
     {
         check(f.exists);
-        return AddVertex2(f.position, f.Material);
+        return AddVertex2(Hash, f.position, f.Material);
     }
 
 public:
@@ -527,9 +521,9 @@ private:
         }
     }
 
-    inline int32 AddVertex2(const FVector2D& Vertex, const FMQCMaterial& Material)
+    inline uint32 AddVertex2(const FVector2D& Vertex, const FMQCMaterial& Material)
     {
-        int32 Index = GetVertexCount();
+        uint32 Index = GetVertexCount();
 
         AddVertex(Vertex, Material, bExtrusionSurface);
 
@@ -537,6 +531,32 @@ private:
         {
             AddVertex(Vertex, Material, true);
         }
+
+        return Index;
+    }
+
+    inline uint32 AddVertex2(uint32 Hash, const FVector2D& Vertex, const FMQCMaterial& Material)
+    {
+        uint32* IndexPtr = VertexMap.Find(Hash);
+
+        if (IndexPtr)
+        {
+            //UE_LOG(LogTemp,Warning, TEXT("HASH FOUND: %u"), *IndexPtr);
+            return *IndexPtr;
+        }
+
+        uint32 Index = GetVertexCount();
+
+        AddVertex(Vertex, Material, bExtrusionSurface);
+
+        if (bGenerateExtrusion)
+        {
+            AddVertex(Vertex, Material, true);
+        }
+
+        VertexMap.Emplace(Hash, Index);
+
+        //UE_LOG(LogTemp,Warning, TEXT("NEW INDEX: %u %d %s"), Hash, Index, *Vertex.ToString());
 
         return Index;
     }
