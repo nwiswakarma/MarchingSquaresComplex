@@ -117,7 +117,7 @@ void FMQCMap::ResolveChunkEdgeData()
 
 void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
 {
-    //UE_LOG(LogTemp,Warning, TEXT("StateIndex: %d"), StateIndex);
+    UE_LOG(LogTemp,Warning, TEXT("StateIndex: %d"), StateIndex);
 
     TArray<FEdgeSyncData> ChunkSyncList;
     TArray<TDoubleLinkedList<FEdgeSyncData>> SyncLists;
@@ -133,8 +133,7 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
             FEdgeSyncData& SyncData(ChunkSyncList[i]);
             SyncData.ChunkIndex = ChunkIndex;
 
-            //UE_LOG(LogTemp,Warning, TEXT("SyncData[%d]: %s"),
-            //    i, *SyncData.ToString());
+            UE_LOG(LogTemp,Warning, TEXT("SyncData[%d]: %s"), i, *SyncData.ToString());
         }
     }
 
@@ -197,7 +196,7 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
         }
     }
 
-    //UE_LOG(LogTemp,Warning, TEXT("SyncLists.Num(): %d"), SyncLists.Num());
+    UE_LOG(LogTemp,Warning, TEXT("SyncLists.Num(): %d"), SyncLists.Num());
 
     for (int32 ListIndex=0; ListIndex<SyncLists.Num(); ++ListIndex)
     {
@@ -215,8 +214,7 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
 
         for (const FEdgeSyncData& SyncData : SyncList)
         {
-            //UE_LOG(LogTemp,Warning, TEXT("SyncLists[%d] SyncData[%d]: %s"),
-            //    ListIndex, j++, *SyncData.ToString());
+            UE_LOG(LogTemp,Warning, TEXT("SyncLists[%d] SyncData[%d]: %s"), ListIndex, j++, *SyncData.ToString());
             Length += SyncData.Length;
         }
 
@@ -225,8 +223,7 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
             LengthInv = 1.f/Length;
         }
 
-        //UE_LOG(LogTemp,Warning, TEXT("SyncLists[%d] Total Length: %f (%f)"),
-        //    ListIndex, Length, LengthInv);
+        UE_LOG(LogTemp,Warning, TEXT("SyncLists[%d] Total Length: %f (%f)"), ListIndex, Length, LengthInv);
 
         float UV0 = 0.f;
         float UV1 = 0.f;
@@ -327,7 +324,7 @@ void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCChunkConfig
 void FMQCMap::InitializeChunk(int32 i, const FMQCChunkConfig& ChunkConfig)
 {
     check(chunks.IsValidIndex(i));
-    chunks[i]->Initialize(ChunkConfig);
+    chunks[i]->Configure(ChunkConfig);
 }
 
 void FMQCMap::InitializeChunks()

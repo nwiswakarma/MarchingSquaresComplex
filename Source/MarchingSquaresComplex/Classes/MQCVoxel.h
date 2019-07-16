@@ -33,6 +33,8 @@
 #define MQC_VOXEL_EDGE_MAX 0xFE
 #define MQC_ENCODE_EDGE_CONST 254.999f
 #define MQC_DECODE_EDGE_CONST 0.003937f
+#define MQC_MIN_SNORM8 -127
+#define MQC_MAX_SNORM8 127
 
 struct MARCHINGSQUARESCOMPLEX_API FMQCPointNormal
 {
@@ -70,7 +72,7 @@ FORCEINLINE FMQCPointNormal FMQCPointNormal::operator-() const
 
 FORCEINLINE FVector2D FMQCPointNormal::ToFVector2D() const
 {
-	return FVector2D(Vector.X, Vector.Y) / 127.5f;
+	return FVector2D(Vector.X, Vector.Y) / 127.f;
 }
 
 struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel

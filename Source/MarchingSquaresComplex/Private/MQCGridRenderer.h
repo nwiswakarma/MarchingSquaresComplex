@@ -42,13 +42,18 @@ public:
 
     FMQCGridRenderer(const FMQCSurfaceConfig& Config)
     {
-        Initialize(Config);
+        Configure(Config);
     }
 
-    void Initialize(const FMQCSurfaceConfig& Config)
+    void Configure(const FMQCSurfaceConfig& Config)
     {
-        surface.Initialize(Config);
+        surface.Configure(Config);
     }
+
+	void Initialize()
+    {
+		surface.Initialize();
+	}
 
 	void Clear()
     {

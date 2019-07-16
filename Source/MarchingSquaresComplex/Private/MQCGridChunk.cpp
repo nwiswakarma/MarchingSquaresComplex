@@ -57,7 +57,7 @@ void FMQCGridChunk::EnqueueTask(const TFunction<void()>& Task)
         );
 }
 
-void FMQCGridChunk::Initialize(const FMQCChunkConfig& Config)
+void FMQCGridChunk::Configure(const FMQCChunkConfig& Config)
 {
     Position = Config.Position;
     mapSize = Config.MapSize;
@@ -127,7 +127,7 @@ void FMQCGridChunk::TriangulateInternal()
 {
     for (int32 i=1; i<Renderers.Num(); i++)
     {
-        Renderers[i].Clear();
+        Renderers[i].Initialize();
     }
 
     FillFirstRowCache();

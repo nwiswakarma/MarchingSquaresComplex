@@ -262,7 +262,7 @@ public:
         return (point >= a.GetPosition()) && (point <= d.GetPosition());
     }
 
-    FMQCFeaturePoint GetSharpFeature(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2) const
+    inline FMQCFeaturePoint GetSharpFeature(const FVector2D& p1, const FVector2D& n1, const FVector2D& p2, const FVector2D& n2) const
     {
         FMQCFeaturePoint f;
         if (IsSharpFeature(n1, n2))
@@ -284,7 +284,7 @@ public:
         return f;
     }
 
-    FMQCMaterial GetMaterial(const FVector2D& Position) const
+    inline FMQCMaterial GetMaterial(const FVector2D& Position) const
     {
         FVector2D PointToCenter = Position - ((d.GetPosition()-a.GetPosition()) / 2.f);
         FMQCMaterial Material;

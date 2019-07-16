@@ -64,15 +64,171 @@ private:
     friend class FMQCGridChunk;
     friend class FMQCGridRenderer;
 
-    typedef TPair<int32, int32> FEdgePair;
     typedef TPair<int32, float> FEdgeSegment;
-    typedef TDoubleLinkedList<int32> FEdgeList;
-    typedef TMap<int32, int32> FIndexMap;
+    typedef TMap<uint32, uint32> FIndexMap;
 
-    struct FEdgeListData
+    struct FEdgeLink
     {
-        FEdgeList EdgeList;
-        FGuid Id;
+        uint32 Value;
+        FEdgeLink* Next;
+    };
+
+    struct FEdgeLinkList
+    {
+        int32 ElementCount;
+        FEdgeLink* Head;
+        FEdgeLink* Tail;
+
+        FEdgeLinkList()
+            : ElementCount(0)
+            , Head(nullptr)
+            , Tail(nullptr)
+        {
+        }
+
+        ~FEdgeLinkList()
+        {
+            FEdgeLink* Node = Head;
+            while (Node)
+            {
+                FEdgeLink* Next = Node->Next;
+                delete Node;
+                Node = Next;
+            }
+        }
+
+        FORCEINLINE int32 Num() const
+        {
+            return ElementCount;
+        }
+
+        FORCEINLINE bool IsEmpty() const
+        {
+            return ElementCount == 0;
+        }
+
+        FORCEINLINE void Reset()
+        {
+            check(Head == nullptr);
+            check(Tail == nullptr);
+            ElementCount = 0;
+        }
+
+        FORCEINLINE void AddHead(uint32 Value)
+        {
+            FEdgeLink* Link = new FEdgeLink;
+            Link->Value = Value;
+            Link->Next = Head;
+
+            if (Head)
+            {
+                Head = Link;
+            }
+            else
+            {
+                check(! Tail);
+                Head = Link;
+                Tail = Link;
+            }
+
+            ++ElementCount;
+        }
+
+        FORCEINLINE void AddTail(uint32 Value)
+        {
+            FEdgeLink* Link = new FEdgeLink;
+            Link->Value = Value;
+            Link->Next = nullptr;
+
+            if (Tail)
+            {
+                check(! Tail->Next);
+                Tail->Next = Link;
+                Tail = Link;
+            }
+            else
+            {
+                check(! Head);
+                Head = Link;
+                Tail = Link;
+            }
+
+            ++ElementCount;
+        }
+
+        // Connect an edge to the list.
+        // Index order is not commutative.
+        // List must not be empty.
+        inline bool Connect(uint32 InHeadIndex, uint32 InTailIndex)
+        {
+            check(Head);
+            check(Tail);
+
+            uint32 HeadIndex = Head->Value;
+            uint32 TailIndex = Tail->Value;
+
+            bool bHasConnection = false;
+
+            // Connect edge at tail
+            if (TailIndex == InHeadIndex)
+            {
+                AddTail(InTailIndex);
+                bHasConnection = true;
+            }
+            // Connect edge at head
+            else
+            if (HeadIndex == InTailIndex)
+            {
+                AddHead(InHeadIndex);
+                bHasConnection = true;
+            }
+
+            return bHasConnection;
+        }
+
+        // Merge another list.
+        // Index order is not commutative.
+        // Both lists must not be empty.
+        inline bool Merge(FEdgeLinkList& LinkList)
+        {
+            check(Head);
+            check(Tail);
+
+            check(LinkList.Head);
+            check(LinkList.Tail);
+
+            uint32 HeadValue0 = Head->Value;
+            uint32 TailValue0 = Tail->Value;
+
+            uint32 HeadValue1 = LinkList.Head->Value;
+            uint32 TailValue1 = LinkList.Tail->Value;
+
+            bool bHasConnection = false;
+
+            // Merge list at tail
+            if (TailValue0 == HeadValue1)
+            {
+                Tail->Next = LinkList.Head;
+                Tail = LinkList.Tail;
+                LinkList.Head = nullptr;
+                LinkList.Tail = nullptr;
+                LinkList.Reset();
+                bHasConnection = true;
+            }
+            // Merge list at head
+            else
+            if (HeadValue0 == TailValue1)
+            {
+                LinkList.Tail->Next = Head;
+                Head = LinkList.Head;
+                LinkList.Head = nullptr;
+                LinkList.Tail = nullptr;
+                LinkList.Reset();
+                bHasConnection = true;
+            }
+
+            return bHasConnection;
+        }
     };
 
     struct FMeshData
@@ -117,18 +273,25 @@ private:
     float MapSizeInv;
     FIntPoint Position;
 
-	TArray<uint32> cornersMin;
-	TArray<uint32> cornersMax;
+	TArray<uint32> cornersMinArr;
+	TArray<uint32> cornersMaxArr;
 
-	TArray<uint32> xEdgesMin;
-	TArray<uint32> xEdgesMax;
+	TArray<uint32> xEdgesMinArr;
+	TArray<uint32> xEdgesMaxArr;
+
+	uint32* cornersMin;
+	uint32* cornersMax;
+
+	uint32* xEdgesMin;
+	uint32* xEdgesMax;
 
 	uint32 yEdgeMin;
 	uint32 yEdgeMax;
 
     TMap<uint32, uint32> VertexMap;
+    TMap<uint32, uint32> EdgeMap;
 
-    TArray<FEdgeListData> EdgeLists;
+    TIndirectArray<FEdgeLinkList> EdgeLinks;
     TArray<FEdgeSyncData> EdgeSyncList;
 
     FMeshData SurfaceMeshData;
@@ -138,6 +301,7 @@ private:
     TMap<FMQCMaterialBlend, FIndexMap> MaterialIndexMaps;
     TMap<FMQCMaterialBlend, FPMUMeshSection> MaterialSectionMap;
 
+    void ResetGeometry();
     void ReserveGeometry();
     void CompactGeometry();
 
@@ -148,7 +312,8 @@ private:
 
 public:
 
-    void Initialize(const FMQCSurfaceConfig& Config);
+    void Configure(const FMQCSurfaceConfig& Config);
+    void Initialize();
 	void Finalize();
 	void Clear();
 
@@ -193,8 +358,8 @@ public:
 
 	FORCEINLINE void PrepareCacheForNextRow()
     {
-        cornersMin = cornersMax;
-        xEdgesMin = xEdgesMax;
+        Swap(cornersMin, cornersMax);
+        Swap(xEdgesMin, xEdgesMax);
 	}
 
 	FORCEINLINE void CacheFirstCorner(const FMQCVoxel& voxel)
@@ -220,6 +385,7 @@ public:
             : voxel.GetEdgePointHashX8();
         FVector2D EdgePoint(voxel.GetXEdgePoint());
         xEdgesMax[i] = AddVertex2(Hash, EdgePoint, Material);
+        MapEdge(xEdgesMax[i], Hash);
     }
 
 	FORCEINLINE void CacheEdgeY(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
@@ -229,13 +395,16 @@ public:
             : voxel.GetEdgePointHashY8();
         FVector2D EdgePoint(voxel.GetYEdgePoint());
         yEdgeMax = AddVertex2(Hash, EdgePoint, Material);
+        MapEdge(yEdgeMax, Hash);
     }
 
 	FORCEINLINE int32 CacheFeaturePoint(const FMQCFeaturePoint& f)
     {
         check(f.exists);
         uint32 Hash = bRequireHash16 ? f.GetHash() : f.GetHash8();
-        return AddVertex2(Hash, f.position, f.Material);
+        uint32 FeaturePointIndex = AddVertex2(Hash, f.position, f.Material);
+        MapEdge(FeaturePointIndex, Hash);
+        return FeaturePointIndex;
     }
 
 public:
@@ -250,53 +419,53 @@ public:
 	FORCEINLINE void AddTriangleA(int32 i, const bool bWall0)
     {
 		AddTriangle(cornersMin[i], yEdgeMin, xEdgesMin[i]);
-        if (bWall0) AddEdgeFace(yEdgeMin, xEdgesMin[i]);
+        if (bWall0) AddEdge(yEdgeMin, xEdgesMin[i]);
 	}
 	
 	FORCEINLINE void AddQuadA(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
     {
 		AddQuad(FeatureVertexIndex, xEdgesMin[i], cornersMin[i], yEdgeMin);
-        if (bWall0) AddEdgeFace(yEdgeMin, FeatureVertexIndex);
-        if (bWall1) AddEdgeFace(FeatureVertexIndex, xEdgesMin[i]);
+        if (bWall0) AddEdge(yEdgeMin, FeatureVertexIndex);
+        if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMin[i]);
 	}
 	
 	FORCEINLINE void AddTriangleB(int32 i, const bool bWall0)
     {
 		AddTriangle(cornersMin[i + 1], xEdgesMin[i], yEdgeMax);
-		if (bWall0) AddEdgeFace(xEdgesMin[i], yEdgeMax);
+		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMax);
 	}
 	
 	FORCEINLINE void AddQuadB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
     {
 		AddQuad(FeatureVertexIndex, yEdgeMax, cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdgeFace(xEdgesMin[i], FeatureVertexIndex);
-		if (bWall1) AddEdgeFace(FeatureVertexIndex, yEdgeMax);
+		if (bWall0) AddEdge(xEdgesMin[i], FeatureVertexIndex);
+		if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMax);
 	}
 	
 	FORCEINLINE void AddTriangleC(int32 i, const bool bWall0)
     {
 		AddTriangle(cornersMax[i], xEdgesMax[i], yEdgeMin);
-		if (bWall0) AddEdgeFace(xEdgesMax[i], yEdgeMin);
+		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMin);
 	}
 	
 	FORCEINLINE void AddQuadC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
     {
 		AddQuad(FeatureVertexIndex, yEdgeMin, cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdgeFace(xEdgesMax[i], FeatureVertexIndex);
-		if (bWall1) AddEdgeFace(FeatureVertexIndex, yEdgeMin);
+		if (bWall0) AddEdge(xEdgesMax[i], FeatureVertexIndex);
+		if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMin);
 	}
 	
 	FORCEINLINE void AddTriangleD(int32 i, const bool bWall0)
     {
 		AddTriangle(cornersMax[i + 1], yEdgeMax, xEdgesMax[i]);
-		if (bWall0) AddEdgeFace(yEdgeMax, xEdgesMax[i]);
+		if (bWall0) AddEdge(yEdgeMax, xEdgesMax[i]);
 	}
 	
 	FORCEINLINE void AddQuadD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
     {
 		AddQuad(FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdgeFace(yEdgeMax, FeatureVertexIndex);
-		if (bWall1) AddEdgeFace(FeatureVertexIndex, xEdgesMax[i]);
+		if (bWall0) AddEdge(yEdgeMax, FeatureVertexIndex);
+		if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMax[i]);
 	}
 	
 	FORCEINLINE void AddPentagonABC(int32 i, const bool bWall0)
@@ -304,7 +473,7 @@ public:
 		AddPentagon(
 			cornersMin[i], cornersMax[i], xEdgesMax[i],
 			yEdgeMax, cornersMin[i + 1]);
-		if (bWall0) AddEdgeFace(xEdgesMax[i], yEdgeMax);
+		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax);
 	}
 	
 	FORCEINLINE void AddHexagonABC(int32 i, int32 FeatureVertexIndex, const bool bWall0)
@@ -312,7 +481,7 @@ public:
 		AddHexagon(
 			FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
 			cornersMin[i], cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdgeFace(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
+		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
 	}
 	
 	FORCEINLINE void AddPentagonABD(int32 i, const bool bWall0)
@@ -320,7 +489,7 @@ public:
 		AddPentagon(
 			cornersMin[i + 1], cornersMin[i], yEdgeMin,
 			xEdgesMax[i], cornersMax[i + 1]);
-		if (bWall0) AddEdgeFace(yEdgeMin, xEdgesMax[i]);
+		if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i]);
 	}
 	
 	FORCEINLINE void AddHexagonABD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
@@ -328,7 +497,7 @@ public:
 		AddHexagon(
 			FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
 			cornersMin[i + 1], cornersMin[i], yEdgeMin);
-		if (bWall0) AddEdgeFace(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
+		if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
 	}
 	
 	FORCEINLINE void AddPentagonACD(int32 i, const bool bWall0)
@@ -336,7 +505,7 @@ public:
 		AddPentagon(
 			cornersMax[i], cornersMax[i + 1], yEdgeMax,
 			xEdgesMin[i], cornersMin[i]);
-		if (bWall0) AddEdgeFace(yEdgeMax, xEdgesMin[i]);
+		if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i]);
 	}
 	
 	FORCEINLINE void AddHexagonACD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
@@ -344,7 +513,7 @@ public:
 		AddHexagon(
 			FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
 			cornersMax[i], cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdgeFace(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
+		if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
 	}
 	
 	FORCEINLINE void AddPentagonBCD(int32 i, const bool bWall0)
@@ -352,7 +521,7 @@ public:
 		AddPentagon(
 			cornersMax[i + 1], cornersMin[i + 1], xEdgesMin[i],
 			yEdgeMin, cornersMax[i]);
-		if (bWall0) AddEdgeFace(xEdgesMin[i], yEdgeMin);
+		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin);
 	}
 	
 	FORCEINLINE void AddHexagonBCD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
@@ -360,13 +529,13 @@ public:
 		AddHexagon(
 			FeatureVertexIndex, yEdgeMin, cornersMax[i],
 			cornersMax[i + 1], cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdgeFace(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
+		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
 	}
 	
 	FORCEINLINE void AddQuadAB(int32 i, const bool bWall0)
     {
 		AddQuad(cornersMin[i], yEdgeMin, yEdgeMax, cornersMin[i + 1]);
-		if (bWall0) AddEdgeFace(yEdgeMin, yEdgeMax);
+		if (bWall0) AddEdge(yEdgeMin, yEdgeMax);
 	}
 	
 	FORCEINLINE void AddPentagonAB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
@@ -374,14 +543,14 @@ public:
 		AddPentagon(
 			FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
 			cornersMin[i], yEdgeMin);
-		if (bWall0) AddEdgeFace(yEdgeMin, FeatureVertexIndex);
-		if (bWall1) AddEdgeFace(FeatureVertexIndex, yEdgeMax);
+		if (bWall0) AddEdge(yEdgeMin, FeatureVertexIndex);
+		if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMax);
 	}
 	
 	FORCEINLINE void AddQuadAC(int32 i, const bool bWall0)
     {
 		AddQuad(cornersMin[i], cornersMax[i], xEdgesMax[i], xEdgesMin[i]);
-		if (bWall0) AddEdgeFace(xEdgesMax[i], xEdgesMin[i]);
+		if (bWall0) AddEdge(xEdgesMax[i], xEdgesMin[i]);
 	}
 	
 	FORCEINLINE void AddPentagonAC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
@@ -389,14 +558,14 @@ public:
 		AddPentagon(
 			FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
 			cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdgeFace(xEdgesMax[i], FeatureVertexIndex);
-		if (bWall1) AddEdgeFace(FeatureVertexIndex, xEdgesMin[i]);
+		if (bWall0) AddEdge(xEdgesMax[i], FeatureVertexIndex);
+		if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMin[i]);
 	}
 	
 	FORCEINLINE void AddQuadBD(int32 i, const bool bWall0)
     {
 		AddQuad(xEdgesMin[i], xEdgesMax[i], cornersMax[i + 1], cornersMin[i + 1]);
-		if (bWall0) AddEdgeFace(xEdgesMin[i], xEdgesMax[i]);
+		if (bWall0) AddEdge(xEdgesMin[i], xEdgesMax[i]);
 	}
 	
 	FORCEINLINE void AddPentagonBD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
@@ -404,14 +573,14 @@ public:
 		AddPentagon(
 			FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
 			cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdgeFace(xEdgesMin[i], FeatureVertexIndex);
-		if (bWall1) AddEdgeFace(FeatureVertexIndex, xEdgesMax[i]);
+		if (bWall0) AddEdge(xEdgesMin[i], FeatureVertexIndex);
+		if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMax[i]);
 	}
 	
 	FORCEINLINE void AddQuadCD(int32 i, const bool bWall0)
     {
 		AddQuad(yEdgeMin, cornersMax[i], cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdgeFace(yEdgeMax, yEdgeMin);
+		if (bWall0) AddEdge(yEdgeMax, yEdgeMin);
 	}
 	
 	FORCEINLINE void AddPentagonCD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
@@ -419,14 +588,14 @@ public:
 		AddPentagon(
 			FeatureVertexIndex, yEdgeMin, cornersMax[i],
 			cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdgeFace(yEdgeMax, FeatureVertexIndex);
-		if (bWall1) AddEdgeFace(FeatureVertexIndex, yEdgeMin);
+		if (bWall0) AddEdge(yEdgeMax, FeatureVertexIndex);
+		if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMin);
 	}
 	
 	FORCEINLINE void AddQuadBCToA(int32 i, const bool bWall0)
     {
 		AddQuad(yEdgeMin, cornersMax[i], cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdgeFace(xEdgesMin[i], yEdgeMin);
+		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin);
 	}
 	
 	FORCEINLINE void AddPentagonBCToA(int32 i, int32 FeatureVertexIndex, const bool bWall0)
@@ -434,13 +603,13 @@ public:
 		AddPentagon(
 			FeatureVertexIndex, yEdgeMin, cornersMax[i],
 			cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdgeFace(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
+		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
 	}
 	
 	FORCEINLINE void AddQuadBCToD(int32 i, const bool bWall0)
     {
 		AddQuad(yEdgeMax, cornersMin[i + 1], cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdgeFace(xEdgesMax[i], yEdgeMax);
+		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax);
 	}
 	
 	FORCEINLINE void AddPentagonBCToD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
@@ -448,13 +617,13 @@ public:
 		AddPentagon(
 			FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
 			cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdgeFace(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
+		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
 	}
 	
 	FORCEINLINE void AddQuadADToB(int32 i, const bool bWall0)
     {
 		AddQuad(xEdgesMin[i], cornersMin[i], cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdgeFace(yEdgeMax, xEdgesMin[i]);
+		if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i]);
 	}
 	
 	FORCEINLINE void AddPentagonADToB(int32 i, int32 FeatureVertexIndex, const bool bWall0)
@@ -462,13 +631,13 @@ public:
 		AddPentagon(
 			FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
 			cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdgeFace(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
+		if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
 	}
 	
 	FORCEINLINE void AddQuadADToC(int32 i, const bool bWall0)
     {
 		AddQuad(xEdgesMax[i], cornersMax[i + 1], cornersMin[i], yEdgeMin);
-		if (bWall0) AddEdgeFace(yEdgeMin, xEdgesMax[i]);
+		if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i]);
 	}
 	
 	FORCEINLINE void AddPentagonADToC(int32 i, int32 FeatureVertexIndex, const bool bWall0)
@@ -476,33 +645,33 @@ public:
 		AddPentagon(
 			FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
 			cornersMin[i], yEdgeMin);
-		if (bWall0) AddEdgeFace(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
+		if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
 	}
 
 private:
 
     // Geometry Generation Functions
 
-	void AddTriangle(int32 a, int32 b, int32 c);
-	void AddQuad(int32 a, int32 b, int32 c, int32 d);
-	void AddQuadCorners(int32 a, int32 b, int32 c, int32 d);
-	void AddPentagon(int32 a, int32 b, int32 c, int32 d, int32 e);
-	void AddHexagon(int32 a, int32 b, int32 c, int32 d, int32 e, int32 f);
+	void AddTriangle(uint32 a, uint32 b, uint32 c);
+	void AddQuad(uint32 a, uint32 b, uint32 c, uint32 d);
+	void AddQuadCorners(uint32 a, uint32 b, uint32 c, uint32 d);
+	void AddPentagon(uint32 a, uint32 b, uint32 c, uint32 d, uint32 e);
+	void AddHexagon(uint32 a, uint32 b, uint32 c, uint32 d, uint32 e, uint32 f);
 
-    static int32 DuplicateVertex(
+    static uint32 DuplicateVertex(
         const FMeshData& SrcMeshData,
         FMeshData& DstMeshData,
-        int32 VertexIndex
+        uint32 VertexIndex
         );
 
-    static int32 DuplicateVertex(
+    static uint32 DuplicateVertex(
         const FPMUMeshSection& SrcSection,
         FPMUMeshSection& DstSection,
-        int32 VertexIndex
+        uint32 VertexIndex
         );
 
-    void GenerateEdgeVertex(TArray<int32>& EdgeIndices, int32 SourceIndex);
-    float GenerateEdgeSegment(TArray<int32>& EdgeIndices0, TArray<int32>& EdgeIndices1);
+    void GenerateEdgeVertex(TArray<uint32>& EdgeIndices, uint32 SourceIndex);
+    float GenerateEdgeSegment(TArray<uint32>& EdgeIndices0, TArray<uint32>& EdgeIndices1);
     void GenerateEdgeSyncData(int32 EdgeListId, const TArray<FEdgeSegment>& EdgeSegments);
 
     void AddVertex(
@@ -511,25 +680,8 @@ private:
         bool bIsExtrusion
         );
 
-    void AddEdgeFace(int32 a, int32 b);
-    void AddMaterialFace(int32 a, int32 b, int32 c);
-
-    FORCEINLINE void AddEdgeFace(int32 a, int32 b, int32 c)
-    {
-        if (bGenerateExtrusion)
-        {
-            AddEdgeFace(a, c);
-            AddEdgeFace(c, b);
-        }
-    }
-
-    FORCEINLINE void AddMaterialFaceSafe(int32 a, int32 b, int32 c)
-    {
-        if (a != b && a != c && b != c)
-        {
-            AddMaterialFace(a, b, c);
-        }
-    }
+    void AddEdge(uint32 a, uint32 b);
+    void AddMaterialFace(uint32 a, uint32 b, uint32 c);
 
     inline uint32 AddVertex2(uint32 Hash, const FVector2D& Vertex, const FMQCMaterial& Material)
     {
@@ -555,5 +707,27 @@ private:
         //UE_LOG(LogTemp,Warning, TEXT("NEW INDEX: %d %u %d %s"), bRequireHash16, Hash, Index, *Vertex.ToString());
 
         return Index;
+    }
+
+    FORCEINLINE void MapEdge(uint32 VertexIndex, uint32 Hash)
+    {
+        EdgeMap.Emplace(VertexIndex, Hash);
+    }
+
+    FORCEINLINE void AddEdge(uint32 a, uint32 b, uint32 c)
+    {
+        if (bGenerateExtrusion)
+        {
+            AddEdge(a, c);
+            AddEdge(c, b);
+        }
+    }
+
+    FORCEINLINE void AddMaterialFaceSafe(uint32 a, uint32 b, uint32 c)
+    {
+        if (a != b && a != c && b != c)
+        {
+            AddMaterialFace(a, b, c);
+        }
     }
 };

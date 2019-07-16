@@ -128,7 +128,7 @@ public:
     FMQCGridChunk* yNeighbor = nullptr;
     FMQCGridChunk* xyNeighbor = nullptr;
 
-    void Initialize(const FMQCChunkConfig& Config);
+    void Configure(const FMQCChunkConfig& Config);
     void ResetVoxels();
 
     void Triangulate();
