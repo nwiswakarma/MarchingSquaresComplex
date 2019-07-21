@@ -247,9 +247,19 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return GetPositionHashPacked(Position, EdgeX, 0);
     }
 
+    FORCEINLINE uint32 GetEdgePointHashX(const FIntPoint& Offset) const
+    {
+        return GetPositionHashPacked(Offset+Position, EdgeX, 0);
+    }
+
     FORCEINLINE uint32 GetEdgePointHashY() const
     {
         return GetPositionHashPacked(Position, 0, EdgeY);
+    }
+
+    FORCEINLINE uint32 GetEdgePointHashY(const FIntPoint& Offset) const
+    {
+        return GetPositionHashPacked(Offset+Position, 0, EdgeY);
     }
 
     FORCEINLINE uint32 GetPositionOnlyHash() const
@@ -257,9 +267,9 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return GetPositionHashPacked(Position, 0, 0);
     }
 
-    FORCEINLINE uint32 GetPositionHash() const
+    FORCEINLINE uint32 GetPositionOnlyHash(const FIntPoint& Offset) const
     {
-        return GetPositionHashPacked(Position, EdgeX, EdgeY);
+        return GetPositionHashPacked(Offset+Position, 0, 0);
     }
 
     // 8-bit Position Hash
@@ -269,9 +279,19 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return GetPositionHashPacked8(Position, EdgeX, 0);
     }
 
+    FORCEINLINE uint32 GetEdgePointHashX8(const FIntPoint& Offset) const
+    {
+        return GetPositionHashPacked8(Offset+Position, EdgeX, 0);
+    }
+
     FORCEINLINE uint32 GetEdgePointHashY8() const
     {
         return GetPositionHashPacked8(Position, 0, EdgeY);
+    }
+
+    FORCEINLINE uint32 GetEdgePointHashY8(const FIntPoint& Offset) const
+    {
+        return GetPositionHashPacked8(Offset+Position, 0, EdgeY);
     }
 
     FORCEINLINE uint32 GetPositionOnlyHash8() const
@@ -279,8 +299,8 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return GetPositionHashPacked8(Position, 0, 0);
     }
 
-    FORCEINLINE uint32 GetPositionHash8() const
+    FORCEINLINE uint32 GetPositionOnlyHash8(const FIntPoint& Offset) const
     {
-        return GetPositionHashPacked8(Position, EdgeX, EdgeY);
+        return GetPositionHashPacked8(Offset+Position, 0, 0);
     }
 };

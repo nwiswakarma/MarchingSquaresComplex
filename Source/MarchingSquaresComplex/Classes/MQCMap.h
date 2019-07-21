@@ -33,30 +33,25 @@
 #include "Mesh/Simplifier/PMUMeshSimplifierOptions.h"
 
 #include "MQCVoxelTypes.h"
+#include "MQCGeometryTypes.h"
 #include "MQCMaterial.h"
 #include "MQCMap.generated.h"
 
 class FMQCGridChunk;
 class UPMUMeshComponent;
+class UMQCPrefabBuilder;
 
 class MARCHINGSQUARESCOMPLEX_API FMQCMap
 {
 private:
 
-    struct FPrefabData
-    {
-        TArray<FBox2D> Bounds;
-
-        FPrefabData(const TArray<FBox2D>& InBounds)
-            : Bounds(InBounds)
-        {
-        }
-    };
-
     friend class FMQCStencil;
 
-    TArray<FPrefabData> AppliedPrefabs;
+    typedef TArray<FMQCEdgeSyncData> FEdgeSyncList;
+    typedef TArray<FEdgeSyncList> FStateEdgeSyncList;
+
     TArray<FMQCGridChunk*> chunks;
+    TArray<FStateEdgeSyncList> EdgeSyncGroups;
 
     bool bRequireFinalizeAsync = false;
 
@@ -86,7 +81,6 @@ public:
     EMQCMaterialType MaterialType;
 
     TArray<FMQCSurfaceState> SurfaceStates;
-    TArray<class UStaticMesh*> meshPrefabs;
 
     void Initialize();
     void Clear();
@@ -112,6 +106,9 @@ public:
     int32 GetChunkCount() const;
     const FMQCGridChunk& GetChunk(int32 ChunkIndex) const;
     FMQCGridChunk& GetChunk(int32 ChunkIndex);
+
+    // TRIANGULATION FUNCTIONS
+
     void Triangulate();
     void TriangulateAsync();
     void WaitForAsyncTask();
@@ -119,19 +116,10 @@ public:
     void ResetChunkStates(const TArray<int32>& ChunkIndices);
     void ResetAllChunkStates();
 
-    // PREFAB FUNCTIONS
+    // GEOMETRY FUNCTIONS
 
-    FORCEINLINE bool HasPrefab(int32 PrefabIndex) const
-    {
-        return meshPrefabs.IsValidIndex(PrefabIndex) && IsValid(meshPrefabs[PrefabIndex]);
-    }
-
-    bool IsPrefabValid(int32 PrefabIndex, int32 LODIndex, int32 SectionIndex) const;
-    bool HasIntersectingBounds(const TArray<FBox2D>& Bounds) const;
-    void GetPrefabBounds(int32 PrefabIndex, TArray<FBox2D>& Bounds) const;
-    TArray<FBox2D> GetPrefabBounds(int32 PrefabIndex) const;
-
-    bool TryPlacePrefabAt(int32 PrefabIndex, const FVector2D& Center);
+    int32 GetEdgeListCount(int32 StateIndex) const;
+    void GetEdgeList(TArray<FMQCEdgePointList>& OutLists, int32 StateIndex) const;
 };
 
 UCLASS(BlueprintType, Blueprintable)
@@ -163,9 +151,6 @@ public:
 
     UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
     float MaxParallelAngle;
-
-    UPROPERTY(BlueprintReadWrite, Category="Prefabs")
-    TArray<class UStaticMesh*> MeshPrefabs;
 
     UMQCMapRef();
     ~UMQCMapRef();
@@ -245,14 +230,6 @@ public:
 
     UFUNCTION(BlueprintCallable)
     FPMUMeshSectionRef GetEdgeSection(int32 ChunkIndex, int32 StateIndex);
-
-    // PREFAB FUNCTIONS
-
-    UFUNCTION(BlueprintCallable)
-    bool HasPrefab(int32 PrefabIndex) const;
-
-    UFUNCTION(BlueprintCallable)
-    TArray<FBox2D> GetPrefabBounds(int32 PrefabIndex) const;
 };
 
 UCLASS(BlueprintType)
@@ -308,9 +285,6 @@ public:
     AMQCMap();
     ~AMQCMap();
 
-    UPROPERTY(BlueprintReadWrite, Category="Prefabs")
-    TArray<class UStaticMesh*> MeshPrefabs;
-
     UFUNCTION(BlueprintCallable)
     void Initialize();
 
@@ -357,6 +331,9 @@ public:
 
     UFUNCTION(BlueprintCallable)
     void SimplifyMesh(int32 StateIndex, FPMUMeshSimplifierOptions Options);
+
+    UFUNCTION(BlueprintCallable)
+    UMQCPrefabBuilder* CreatePrefabBuilder(TSubclassOf<UMQCPrefabBuilder> Type);
 };
 
 // Blueprint Inlines

@@ -106,6 +106,8 @@ void FMQCMap::FinalizeAsync()
 
 void FMQCMap::ResolveChunkEdgeData()
 {
+    EdgeSyncGroups.SetNum(SurfaceStates.Num()+1, false);
+
     for (int32 i=0; i<SurfaceStates.Num(); ++i)
     {
         if (SurfaceStates[i].bRemapEdgeUVs)
@@ -117,92 +119,101 @@ void FMQCMap::ResolveChunkEdgeData()
 
 void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
 {
-    UE_LOG(LogTemp,Warning, TEXT("StateIndex: %d"), StateIndex);
+    TArray<FMQCEdgeSyncData> SyncCandidates;
+    TArray<TDoubleLinkedList<FMQCEdgeSyncData>> EdgeSyncLists;
 
-    TArray<FEdgeSyncData> ChunkSyncList;
-    TArray<TDoubleLinkedList<FEdgeSyncData>> SyncLists;
-
+    // Gather edge sync data from all chunks
     for (int32 ChunkIndex=0; ChunkIndex<chunks.Num(); ++ChunkIndex)
     {
         FMQCGridChunk& Chunk(*chunks[ChunkIndex]);
 
-        int32 SyncOffetIndex = Chunk.AppendEdgeSyncData(StateIndex, ChunkSyncList);
+        // Get chunk edge sync data
+        int32 SyncOffetIndex = Chunk.AppendEdgeSyncData(StateIndex, SyncCandidates);
 
-        for (int32 i=SyncOffetIndex; i<ChunkSyncList.Num(); ++i)
+        // Assign edge sync chunk index
+        for (int32 i=SyncOffetIndex; i<SyncCandidates.Num(); ++i)
         {
-            FEdgeSyncData& SyncData(ChunkSyncList[i]);
+            FMQCEdgeSyncData& SyncData(SyncCandidates[i]);
             SyncData.ChunkIndex = ChunkIndex;
-
-            UE_LOG(LogTemp,Warning, TEXT("SyncData[%d]: %s"), i, *SyncData.ToString());
         }
     }
 
-    while (ChunkSyncList.Num() > 0)
+    // Construct edge sync data connection list
+    while (SyncCandidates.Num() > 0)
     {
-        SyncLists.SetNum(SyncLists.Num()+1);
-        TDoubleLinkedList<FEdgeSyncData>& SyncList(SyncLists.Last());
+        EdgeSyncLists.SetNum(EdgeSyncLists.Num()+1);
+        TDoubleLinkedList<FMQCEdgeSyncData>& SyncList(EdgeSyncLists.Last());
 
-        SyncList.AddTail(ChunkSyncList[0]);
+        SyncList.AddTail(SyncCandidates[0]);
 
-        ChunkSyncList.RemoveAtSwap(0, 1, false);
+        SyncCandidates.RemoveAtSwap(0, 1, false);
 
-        int32 i = 0;
+        int32 It = 0;
 
-        while (i < ChunkSyncList.Num())
+        // Iterate over edge sync list
+        while (It < SyncCandidates.Num())
         {
-            const FEdgeSyncData& HeadSyncData(SyncList.GetHead()->GetValue());
-            const FEdgeSyncData& TailSyncData(SyncList.GetTail()->GetValue());
-            FVector2D HeadPos = HeadSyncData.HeadPos;
-            FVector2D TailPos = TailSyncData.TailPos;
+            const FMQCEdgeSyncData& HeadSyncData(SyncList.GetHead()->GetValue());
+            const FMQCEdgeSyncData& TailSyncData(SyncList.GetTail()->GetValue());
+            uint32 HeadHash = HeadSyncData.HeadHash;
+            uint32 TailHash = TailSyncData.TailHash;
 
-            const FEdgeSyncData& SyncData(ChunkSyncList[i]);
-            FVector2D a = SyncData.HeadPos;
-            FVector2D b = SyncData.TailPos;
+            const FMQCEdgeSyncData& SyncData(SyncCandidates[It]);
+            uint32 a = SyncData.HeadHash;
+            uint32 b = SyncData.TailHash;
 
             bool bHasConnection = false;
 
-            if (a.Equals(HeadPos, .001f))
-            {
-                SyncList.AddHead(SyncData);
-                bHasConnection = true;
-            }
-            else
-            if (a.Equals(TailPos, .001f))
+            // Find edge list connection
+            if (a == TailHash)
             {
                 SyncList.AddTail(SyncData);
                 bHasConnection = true;
             }
             else
-            if (b.Equals(HeadPos, .001f))
+            if (b == HeadHash)
             {
                 SyncList.AddHead(SyncData);
-                bHasConnection = true;
-            }
-            else
-            if (b.Equals(TailPos, .001f))
-            {
-                SyncList.AddTail(SyncData);
                 bHasConnection = true;
             }
 
+            // Connection found remove current edge list and start over iteration
             if (bHasConnection)
             {
-                ChunkSyncList.RemoveAtSwap(i, 1, false);
-                i = 0;
+                SyncCandidates.RemoveAtSwap(It, 1, false);
+                It = 0;
                 continue;
             }
 
-            ++i;
+            ++It;
         }
     }
 
-    UE_LOG(LogTemp,Warning, TEXT("SyncLists.Num(): %d"), SyncLists.Num());
+    FStateEdgeSyncList& EdgeSyncGroup(EdgeSyncGroups[StateIndex]);
 
-    for (int32 ListIndex=0; ListIndex<SyncLists.Num(); ++ListIndex)
+    EdgeSyncGroup.Reset();
+    EdgeSyncGroup.SetNum(EdgeSyncLists.Num(), true);
+
+    for (int32 i=0; i<EdgeSyncLists.Num(); ++i)
     {
-        const TDoubleLinkedList<FEdgeSyncData>& SyncList(SyncLists[ListIndex]);
+        const TDoubleLinkedList<FMQCEdgeSyncData>& List(EdgeSyncLists[i]);
+        FEdgeSyncList& EdgeSyncArr(EdgeSyncGroup[i]);
 
-        // Skip edge list that does not have any connection
+        EdgeSyncArr.Reserve(List.Num());
+
+        for (const FMQCEdgeSyncData& SyncData : List)
+        {
+            EdgeSyncArr.Emplace(SyncData);
+        }
+    }
+
+#if 0
+    // Remap connected edge distances and uvs
+    for (int32 ListIndex=0; ListIndex<EdgeSyncLists.Num(); ++ListIndex)
+    {
+        const FEdgeSyncList& SyncList(EdgeSyncLists[ListIndex]);
+
+        // Skip edge list that does not have any connection (remap not required)
         if (SyncList.Num() < 2)
         {
             continue;
@@ -212,23 +223,27 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
         float Length = 0.f;
         float LengthInv = 0.f;
 
-        for (const FEdgeSyncData& SyncData : SyncList)
+        // Find edge list total length
+
+        for (const FMQCEdgeSyncData& SyncData : SyncList)
         {
-            UE_LOG(LogTemp,Warning, TEXT("SyncLists[%d] SyncData[%d]: %s"), ListIndex, j++, *SyncData.ToString());
             Length += SyncData.Length;
         }
+
+        // Calculate inversed edge total length
 
         if (Length > 0.f)
         {
             LengthInv = 1.f/Length;
         }
 
-        UE_LOG(LogTemp,Warning, TEXT("SyncLists[%d] Total Length: %f (%f)"), ListIndex, Length, LengthInv);
+        // Remap edge list uv
 
         float UV0 = 0.f;
         float UV1 = 0.f;
 
-        for (const FEdgeSyncData& SyncData : SyncList)
+        // Remap edge uvs
+        for (const FMQCEdgeSyncData& SyncData : SyncList)
         {
             UV0 = UV1;
             UV1 = UV0 + SyncData.Length * LengthInv;
@@ -237,25 +252,7 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
             Chunk.RemapEdgeUVs(StateIndex, SyncData.EdgeListIndex, UV0, UV1);
         }
     }
-}
-
-void FMQCMap::ResetChunkStates(const TArray<int32>& ChunkIndices)
-{
-    for (int32 i : ChunkIndices)
-    {
-        if (chunks.IsValidIndex(i))
-        {
-            chunks[i]->ResetVoxels();
-        }
-    }
-}
-
-void FMQCMap::ResetAllChunkStates()
-{
-    for (FMQCGridChunk* Chunk : chunks)
-    {
-        Chunk->ResetVoxels();
-    }
+#endif
 }
 
 void FMQCMap::InitializeSettings()
@@ -356,151 +353,79 @@ void FMQCMap::Clear()
     chunks.Empty();
 }
 
-bool FMQCMap::IsPrefabValid(int32 PrefabIndex, int32 LODIndex, int32 SectionIndex) const
+void FMQCMap::ResetChunkStates(const TArray<int32>& ChunkIndices)
 {
-    if (! HasPrefab(PrefabIndex))
+    for (int32 i : ChunkIndices)
     {
-        return false;
-    }
-
-    const UStaticMesh* Mesh = meshPrefabs[PrefabIndex];
-
-    if (Mesh->bAllowCPUAccess &&
-        Mesh->RenderData      &&
-        Mesh->RenderData->LODResources.IsValidIndex(LODIndex) && 
-        Mesh->RenderData->LODResources[LODIndex].Sections.IsValidIndex(SectionIndex)
-        )
-    {
-        return true;
-    }
-
-    return false;
-}
-
-bool FMQCMap::HasIntersectingBounds(const TArray<FBox2D>& Bounds) const
-{
-    if (Bounds.Num() > 0)
-    {
-        for (const FPrefabData& PrefabData : AppliedPrefabs)
+        if (chunks.IsValidIndex(i))
         {
-            const TArray<FBox2D>& AppliedBounds(PrefabData.Bounds);
-
-            for (const FBox2D& Box0 : Bounds)
-            for (const FBox2D& Box1 : AppliedBounds)
-            {
-                if (Box0.Intersect(Box1))
-                {
-                    // Skip exactly intersecting box
-
-                    if (FMath::IsNearlyEqual(Box0.Min.X, Box1.Max.X, 1.e-3f) ||
-                        FMath::IsNearlyEqual(Box1.Min.X, Box0.Max.X, 1.e-3f))
-                    {
-                        continue;
-                    }
-
-                    if (FMath::IsNearlyEqual(Box0.Min.Y, Box1.Max.Y, 1.e-3f) ||
-                        FMath::IsNearlyEqual(Box1.Min.Y, Box0.Max.Y, 1.e-3f))
-                    {
-                        continue;
-                    }
-
-                    return true;
-                }
-            }
+            chunks[i]->ResetVoxels();
         }
     }
-
-    return false;
 }
 
-bool FMQCMap::TryPlacePrefabAt(int32 PrefabIndex, const FVector2D& Center)
+void FMQCMap::ResetAllChunkStates()
 {
-    TArray<FBox2D> Bounds;
-    GetPrefabBounds(PrefabIndex, Bounds);
-
-    // Offset prefab bounds towards the specified center location
-    for (FBox2D& Box : Bounds)
+    for (FMQCGridChunk* Chunk : chunks)
     {
-        Box = Box.ShiftBy(Center);
+        Chunk->ResetVoxels();
     }
-
-    if (! HasIntersectingBounds(Bounds))
-    {
-        AppliedPrefabs.Emplace(Bounds);
-        return true;
-    }
-
-    return false;
 }
 
-void FMQCMap::GetPrefabBounds(int32 PrefabIndex, TArray<FBox2D>& Bounds) const
+int32 FMQCMap::GetEdgeListCount(int32 StateIndex) const
 {
-    Bounds.Empty();
+    return EdgeSyncGroups.IsValidIndex(StateIndex)
+        ? EdgeSyncGroups[StateIndex].Num()
+        : 0;
+}
 
-    if (! HasPrefab(PrefabIndex))
+void FMQCMap::GetEdgeList(TArray<FMQCEdgePointList>& OutLists, int32 StateIndex) const
+{
+    // Invalid state, abort
+    if (! EdgeSyncGroups.IsValidIndex(StateIndex))
     {
         return;
     }
 
-    const UStaticMesh& Mesh(*meshPrefabs[PrefabIndex]);
-    const TArray<UStaticMeshSocket*>& Sockets(Mesh.Sockets);
+    const FStateEdgeSyncList& EdgeSyncs(EdgeSyncGroups[StateIndex]);
 
-    typedef TKeyValuePair<UStaticMeshSocket*, UStaticMeshSocket*> FBoundsPair;
-    TArray<FBoundsPair> BoundSockets;
+    OutLists.Reset();
+    OutLists.SetNum(EdgeSyncs.Num(), true);
 
-    const FString MIN_PREFIX(TEXT("Bounds_MIN_"));
-    const FString MAX_PREFIX(TEXT("Bounds_MAX_"));
-    const int32 PREFIX_LEN = MIN_PREFIX.Len();
-
-    for (UStaticMeshSocket* Socket0 : Sockets)
+    for (int32 i=0; i<EdgeSyncs.Num(); ++i)
     {
-        // Invalid socket, skip
-        if (! IsValid(Socket0))
+        const FEdgeSyncList& SyncList(EdgeSyncs[i]);
+        TArray<FMQCEdgePoint>& Points(OutLists[i].Points);
+        float Distance = 0.f;
+
+        Points.Reset(SyncList.Num());
+
+        // Generate connected edge point list
+        for (const FMQCEdgeSyncData& SyncData : SyncList)
         {
-            continue;
+            const FMQCGridChunk& Chunk(GetChunk(SyncData.ChunkIndex));
+            const FMQCGridSurface& Surface(Chunk.GetSurface(StateIndex));
+
+            //UE_LOG(LogTemp,Warning, TEXT("GetEdgeList() SyncData: %s"), *SyncData.ToString());
+
+            Surface.GetConnectedEdgePoints(Points, SyncData, Distance);
+
+            Distance += SyncData.Length;
         }
 
-        FString MinSocketName(Socket0->SocketName.ToString());
-        FString MaxSocketName(MAX_PREFIX);
-
-        // Not a min bounds socket, skip
-        if (! MinSocketName.StartsWith(*MIN_PREFIX, ESearchCase::IgnoreCase))
+        // Check for circular edge list
+        if (Points.Num() > 2)
         {
-            continue;
-        }
+            const FMQCEdgePoint& P0(Points[0]);
+            const FMQCEdgePoint& PN(Points.Last());
 
-        MaxSocketName += MinSocketName.RightChop(PREFIX_LEN);
-
-        for (UStaticMeshSocket* Socket1 : Sockets)
-        {
-            if (IsValid(Socket1) && Socket1->SocketName.ToString() == MaxSocketName)
+            // Copy first point normal to the last if circular
+            if (P0.Position.Equals(PN.Position))
             {
-                BoundSockets.Emplace(Socket0, Socket1);
-                break;
+                Points.Last().Normal = Points[0].Normal;
             }
         }
     }
-
-    for (FBoundsPair BoundsPair : BoundSockets)
-    {
-        FBox2D Box;
-        const FVector& Min(BoundsPair.Key->RelativeLocation);
-        const FVector& Max(BoundsPair.Value->RelativeLocation);
-        const float MinX = FMath::RoundHalfFromZero(Min.X);
-        const float MinY = FMath::RoundHalfFromZero(Min.Y);
-        const float MaxX = FMath::RoundHalfFromZero(Max.X);
-        const float MaxY = FMath::RoundHalfFromZero(Max.Y);
-        Box += FVector2D(MinX, MinY);
-        Box += FVector2D(MaxX, MaxY);
-        Bounds.Emplace(Box);
-    }
-}
-
-TArray<FBox2D> FMQCMap::GetPrefabBounds(int32 PrefabIndex) const
-{
-    TArray<FBox2D> Bounds;
-    GetPrefabBounds(PrefabIndex, Bounds);
-    return Bounds;
 }
 
 // ----------------------------------------------------------------------------
@@ -533,7 +458,6 @@ void UMQCMapRef::ApplyMapSettings()
     VoxelMap.MaxParallelAngle = MaxParallelAngle;
 
     VoxelMap.SurfaceStates = SurfaceStates;
-    VoxelMap.meshPrefabs = MeshPrefabs;
 }
 
 void UMQCMapRef::InitializeVoxelMap()
@@ -638,20 +562,6 @@ FPMUMeshSectionRef UMQCMapRef::GetEdgeSection(int32 ChunkIndex, int32 StateIndex
     }
 }
 
-// PREFAB FUNCTIONS
-
-TArray<FBox2D> UMQCMapRef::GetPrefabBounds(int32 PrefabIndex) const
-{
-    return IsInitialized()
-        ? VoxelMap.GetPrefabBounds(PrefabIndex)
-        : TArray<FBox2D>();
-}
-
-bool UMQCMapRef::HasPrefab(int32 PrefabIndex) const
-{
-    return IsInitialized() ? VoxelMap.HasPrefab(PrefabIndex) : false;
-}
-
 // MAP ACTOR
 
 AMQCMap::AMQCMap()
@@ -741,7 +651,6 @@ void AMQCMap::Initialize()
     MapRef->ExtrusionHeight = ExtrusionHeight;
     MapRef->MaxFeatureAngle = MaxFeatureAngle;
     MapRef->MaxParallelAngle = MaxParallelAngle;
-    MapRef->MeshPrefabs = MeshPrefabs;
     MapRef->InitializeVoxelMap();
 
     // Set mesh anchor offset
@@ -1083,4 +992,9 @@ void AMQCMap::SimplifyMesh(int32 StateIndex, FPMUMeshSimplifierOptions Options)
     {
         FPMUMeshSimplifier::SimplifyMeshSection(SectionRef, Options);
     }
+}
+
+UMQCPrefabBuilder* AMQCMap::CreatePrefabBuilder(TSubclassOf<UMQCPrefabBuilder> Type)
+{
+    return NewObject<UMQCPrefabBuilder>(this, Type);
 }

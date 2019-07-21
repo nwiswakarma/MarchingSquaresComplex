@@ -31,31 +31,8 @@
 #include "Mesh/PMUMeshTypes.h"
 #include "MQCVoxel.h"
 #include "MQCVoxelTypes.h"
+#include "MQCGeometryTypes.h"
 #include "MQCMaterial.h"
-
-struct FEdgeSyncData
-{
-    int32 ChunkIndex;
-    int32 EdgeListIndex;
-    FVector2D HeadPos;
-    FVector2D TailPos;
-    int32 HeadIndex;
-    int32 TailIndex;
-    float Length;
-
-    FORCEINLINE FString ToString() const
-    {
-        return FString::Printf(TEXT("(ChunkIndex: %d, EdgeListIndex: %d, HeadPos: %s, TailPos: %s, HeadIndex: %d, TailIndex: %d, Length: %f)"),
-            ChunkIndex,
-            EdgeListIndex,
-            *HeadPos.ToString(),
-            *TailPos.ToString(),
-            HeadIndex,
-            TailIndex,
-            Length
-            );
-    }
-};
 
 class FMQCGridSurface
 {
@@ -64,8 +41,12 @@ private:
     friend class FMQCGridChunk;
     friend class FMQCGridRenderer;
 
-    typedef TPair<int32, float> FEdgeSegment;
-    typedef TMap<uint32, uint32> FIndexMap;
+    struct FEdgePoint
+    {
+        uint32 VertexIndex;
+        FVector2D Normal;
+        float Distance;
+    };
 
     struct FEdgeLink
     {
@@ -197,6 +178,11 @@ private:
             check(LinkList.Head);
             check(LinkList.Tail);
 
+            if (LinkList.Head == LinkList.Tail)
+            {
+                return false;
+            }
+
             uint32 HeadValue0 = Head->Value;
             uint32 TailValue0 = Tail->Value;
 
@@ -208,7 +194,8 @@ private:
             // Merge list at tail
             if (TailValue0 == HeadValue1)
             {
-                Tail->Next = LinkList.Head;
+                Tail->Next = LinkList.Head->Next;
+                delete LinkList.Head;
                 Tail = LinkList.Tail;
                 LinkList.Head = nullptr;
                 LinkList.Tail = nullptr;
@@ -219,7 +206,8 @@ private:
             else
             if (HeadValue0 == TailValue1)
             {
-                LinkList.Tail->Next = Head;
+                LinkList.Tail->Next = Head->Next;
+                delete Head;
                 Head = LinkList.Head;
                 LinkList.Head = nullptr;
                 LinkList.Tail = nullptr;
@@ -256,6 +244,9 @@ private:
         }
     };
 
+    typedef TMap<uint32, uint32> FIndexMap;
+    typedef TArray<struct FEdgePoint> FEdgePointList;
+
 	const FName SHAPE_HEIGHT_MAP_NAME   = TEXT("PMU_VOXEL_SHAPE_HEIGHT_MAP");
 	const FName SURFACE_HEIGHT_MAP_NAME = TEXT("PMU_VOXEL_SURFACE_HEIGHT_MAP");
 	const FName EXTRUDE_HEIGHT_MAP_NAME = TEXT("PMU_VOXEL_EXTRUDE_HEIGHT_MAP");
@@ -263,15 +254,16 @@ private:
     bool bGenerateExtrusion;
     bool bExtrusionSurface;
     bool bRemapEdgeUVs;
-    EMQCMaterialType MaterialType;
-	float ExtrusionHeight;
 
 	int32 VoxelResolution;
     int32 VoxelCount;
     bool bRequireHash16;
     float MapSize;
     float MapSizeInv;
+	float ExtrusionHeight;
     FIntPoint Position;
+
+    EMQCMaterialType MaterialType;
 
 	TArray<uint32> cornersMinArr;
 	TArray<uint32> cornersMaxArr;
@@ -291,8 +283,9 @@ private:
     TMap<uint32, uint32> VertexMap;
     TMap<uint32, uint32> EdgeMap;
 
-    TIndirectArray<FEdgeLinkList> EdgeLinks;
-    TArray<FEdgeSyncData> EdgeSyncList;
+    TIndirectArray<FEdgeLinkList> EdgeLinkLists;
+    TArray<FMQCEdgeSyncData> EdgeSyncList;
+    TArray<FEdgePointList> EdgePointLists;
 
     FMeshData SurfaceMeshData;
     FMeshData ExtrudeMeshData;
@@ -320,6 +313,9 @@ public:
     void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
     void RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd);
 
+    void GetEdgePoint(FMQCEdgePoint& EdgePoint, const FEdgePoint& SourcePoint, float DistanceOffset) const;
+    void GetConnectedEdgePoints(TArray<FMQCEdgePoint>& OutPoints, const FMQCEdgeSyncData& SyncData, float DistanceOffset) const;
+
     FORCEINLINE uint32 GetVertexCount() const
     {
         return !bExtrusionSurface
@@ -342,7 +338,43 @@ public:
         return EdgeMeshData.Section;
     }
 
-    FORCEINLINE int32 AppendEdgeSyncData(TArray<FEdgeSyncData>& OutSyncData) const
+    FORCEINLINE const FPMUMeshSection& GetSurfaceSection() const
+    {
+        return SurfaceMeshData.Section;
+    }
+
+    FORCEINLINE const FPMUMeshSection& GetExtrudeSection() const
+    {
+        return ExtrudeMeshData.Section;
+    }
+
+    FORCEINLINE const FPMUMeshSection& GetEdgeSection() const
+    {
+        return EdgeMeshData.Section;
+    }
+
+    FORCEINLINE FVector2D GetPositionByHash(uint32 Hash) const
+    {
+        const uint32* IndexPtr = VertexMap.Find(Hash);
+
+        if (IndexPtr)
+        {
+            return !bExtrusionSurface
+                ? FVector2D(GetSurfaceSection().Positions[*IndexPtr])
+                : FVector2D(GetExtrudeSection().Positions[*IndexPtr]);
+        }
+
+        return FVector2D();
+    }
+
+    FORCEINLINE FVector2D GetPositionByIndex(uint32 Index) const
+    {
+        return !bExtrusionSurface
+            ? FVector2D(GetSurfaceSection().Positions[Index])
+            : FVector2D(GetExtrudeSection().Positions[Index]);
+    }
+
+    FORCEINLINE int32 AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData) const
     {
         int32 StartIndex = OutSyncData.Num();
         OutSyncData.Append(EdgeSyncList);
@@ -365,24 +397,24 @@ public:
 	FORCEINLINE void CacheFirstCorner(const FMQCVoxel& voxel)
     {
         uint32 Hash = bRequireHash16
-            ? voxel.GetPositionOnlyHash()
-            : voxel.GetPositionOnlyHash8();
+            ? voxel.GetPositionOnlyHash(Position)
+            : voxel.GetPositionOnlyHash8(Position);
 		cornersMax[0] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
 	}
 
 	FORCEINLINE void CacheNextCorner(int32 i, const FMQCVoxel& voxel)
     {
         uint32 Hash = bRequireHash16
-            ? voxel.GetPositionOnlyHash()
-            : voxel.GetPositionOnlyHash8();
+            ? voxel.GetPositionOnlyHash(Position)
+            : voxel.GetPositionOnlyHash8(Position);
 		cornersMax[i+1] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
 	}
 
 	FORCEINLINE void CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
         uint32 Hash = bRequireHash16
-            ? voxel.GetEdgePointHashX()
-            : voxel.GetEdgePointHashX8();
+            ? voxel.GetEdgePointHashX(Position)
+            : voxel.GetEdgePointHashX8(Position);
         FVector2D EdgePoint(voxel.GetXEdgePoint());
         xEdgesMax[i] = AddVertex2(Hash, EdgePoint, Material);
         MapEdge(xEdgesMax[i], Hash);
@@ -391,8 +423,8 @@ public:
 	FORCEINLINE void CacheEdgeY(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
     {
         uint32 Hash = bRequireHash16
-            ? voxel.GetEdgePointHashY()
-            : voxel.GetEdgePointHashY8();
+            ? voxel.GetEdgePointHashY(Position)
+            : voxel.GetEdgePointHashY8(Position);
         FVector2D EdgePoint(voxel.GetYEdgePoint());
         yEdgeMax = AddVertex2(Hash, EdgePoint, Material);
         MapEdge(yEdgeMax, Hash);
@@ -401,7 +433,7 @@ public:
 	FORCEINLINE int32 CacheFeaturePoint(const FMQCFeaturePoint& f)
     {
         check(f.exists);
-        uint32 Hash = bRequireHash16 ? f.GetHash() : f.GetHash8();
+        uint32 Hash = bRequireHash16 ? f.GetHash(Position) : f.GetHash8(Position);
         uint32 FeaturePointIndex = AddVertex2(Hash, f.position, f.Material);
         MapEdge(FeaturePointIndex, Hash);
         return FeaturePointIndex;
@@ -672,7 +704,7 @@ private:
 
     void GenerateEdgeVertex(TArray<uint32>& EdgeIndices, uint32 SourceIndex);
     float GenerateEdgeSegment(TArray<uint32>& EdgeIndices0, TArray<uint32>& EdgeIndices1);
-    void GenerateEdgeSyncData(int32 EdgeListId, const TArray<FEdgeSegment>& EdgeSegments);
+    void GenerateEdgeSyncData(int32 EdgeListId);
 
     void AddVertex(
         const FVector2D& Vertex,

@@ -33,7 +33,7 @@ void FMQCGridSurface::Configure(const FMQCSurfaceConfig& Config)
 
     VoxelResolution = Config.VoxelResolution;
     VoxelCount = VoxelResolution * VoxelResolution;
-    bRequireHash16 = VoxelResolution > 256;
+    bRequireHash16 = Config.MapSize > 256;
     MapSize = Config.MapSize-1;
     MapSizeInv = MapSize > 0.f ? (1.f/MapSize) : KINDA_SMALL_NUMBER;
     Position = Config.Position;
@@ -206,7 +206,7 @@ void FMQCGridSurface::AddEdge(uint32 a, uint32 b)
 
     FEdgeLinkList* Connection = nullptr;
 
-    for (FEdgeLinkList& LinkList : EdgeLinks)
+    for (FEdgeLinkList& LinkList : EdgeLinkLists)
     {
         check(! LinkList.IsEmpty());
 
@@ -223,7 +223,7 @@ void FMQCGridSurface::AddEdge(uint32 a, uint32 b)
         FEdgeLinkList* LinkList = new FEdgeLinkList;
         LinkList->AddTail(a);
         LinkList->AddTail(b);
-        EdgeLinks.Add(LinkList);
+        EdgeLinkLists.Add(LinkList);
     }
     // Connection found, merge any edge list connected to the new edge
     else
@@ -233,9 +233,9 @@ void FMQCGridSurface::AddEdge(uint32 a, uint32 b)
         int32 It = 0;
 
         // Iterate existing edge lists
-        while (It < EdgeLinks.Num())
+        while (It < EdgeLinkLists.Num())
         {
-            FEdgeLinkList& LinkList(EdgeLinks[It]);
+            FEdgeLinkList& LinkList(EdgeLinkLists[It]);
 
             if (Connection != &LinkList)
             {
@@ -248,7 +248,7 @@ void FMQCGridSurface::AddEdge(uint32 a, uint32 b)
                 // to look for another possible connection
                 if (bMerged)
                 {
-                    EdgeLinks.RemoveAtSwap(It, 1, false);
+                    EdgeLinkLists.RemoveAtSwap(It, 1, false);
                     It = 0;
                     continue;
                 }
@@ -455,14 +455,103 @@ float FMQCGridSurface::GenerateEdgeSegment(TArray<uint32>& EdgeIndices0, TArray<
     return E01.Size();
 }
 
-void FMQCGridSurface::GenerateEdgeSyncData(int32 EdgeListId, const TArray<FEdgeSegment>& EdgeSegments)
+void FMQCGridSurface::GenerateEdgeGeometry()
 {
-    check(EdgeLinks.IsValidIndex(EdgeListId));
-    check(EdgeSegments.Num() > 0);
+    // Only generate edge geometry on surface that generate extrusion
+    if (! bGenerateExtrusion)
+    {
+        return;
+    }
 
+    EdgePointLists.Reset();
+    EdgePointLists.SetNum(EdgeLinkLists.Num());
+
+    for (int32 ListId=0; ListId<EdgeLinkLists.Num(); ++ListId)
+    {
+        FEdgeLinkList& EdgeList(EdgeLinkLists[ListId]);
+        const int32 EdgeCount = EdgeList.Num();
+
+        check(EdgeCount >= 2);
+
+        if (EdgeCount < 2)
+        {
+            continue;
+        }
+
+        FEdgeLink* EdgeNode0 = EdgeList.Head;
+        FEdgeLink* EdgeNode1 = EdgeNode0->Next;
+        uint32 VertexIndex0 = -1;
+        uint32 VertexIndex1 = -1;
+
+        float TotalLength = 0.f;
+
+        FEdgePointList& EdgePoints(EdgePointLists[ListId]);
+        EdgePoints.Reset(EdgeCount+1);
+
+        // Generate edge segments
+        while (EdgeNode1)
+        {
+            // Get edge node vertex indices
+
+            VertexIndex0 = EdgeNode0->Value;
+            VertexIndex1 = EdgeNode1->Value;
+
+            // Calculate edge direction and length
+
+            const FVector2D EdgePos0 = GetPositionByIndex(VertexIndex0);
+            const FVector2D EdgePos1 = GetPositionByIndex(VertexIndex1);
+            const FVector2D Edge01 = EdgePos1 - EdgePos0;
+
+            FVector2D Normal;
+            float Length;
+
+            Edge01.ToDirectionAndLength(Normal, Length);
+
+            check(Length > 0.f);
+
+            // Generate edge segment data
+
+            FEdgePoint EdgePoint = { VertexIndex0, Normal, TotalLength };
+            EdgePoints.Emplace(EdgePoint);
+
+            // Accumulate total edge length
+
+            TotalLength += Length;
+
+            // Advance node iteration
+
+            EdgeNode0 = EdgeNode1;
+            EdgeNode1 = EdgeNode0->Next;
+        }
+
+        // Add edge segment end point
+        {
+            VertexIndex0 = EdgeNode0->Value;
+
+            FVector2D Normal = (EdgeNode0->Value == EdgeList.Head->Value)
+                ? EdgePoints[0].Normal
+                : FVector2D(1.f,0.f);
+
+            FEdgePoint EdgePoint = { VertexIndex0, Normal, TotalLength };
+            EdgePoints.Emplace(EdgePoint);
+        }
+
+        // Generate edge connection data
+        GenerateEdgeSyncData(ListId);
+    }
+}
+
+void FMQCGridSurface::GenerateEdgeSyncData(int32 EdgeListId)
+{
+    check(EdgePointLists.IsValidIndex(EdgeListId));
+
+    const FEdgePointList& EdgePoints(EdgePointLists[EdgeListId]);
+
+#if 0
     FPMUMeshSection& EdgeSection(GetEdgeSection());
 
-    float EdgeLength = EdgeSegments.Last().Value;
+    //float EdgeLength = EdgeSegments.Last().Get<2>();
+    float EdgeLength = EdgeSegments.Last().Length;
 
     // Calculate inverse edge length
 
@@ -478,7 +567,8 @@ void FMQCGridSurface::GenerateEdgeSyncData(int32 EdgeListId, const TArray<FEdgeS
     {
         const FEdgeSegment& SegmentData(EdgeSegments[i]);
 
-        uint32 vi = SegmentData.Key;
+        //uint32 vi = SegmentData.Get<0>();
+        uint32 vi = SegmentData.VertexIndex;
 
         uint32 i0 = vi;
         uint32 i1 = vi+1;
@@ -490,7 +580,8 @@ void FMQCGridSurface::GenerateEdgeSyncData(int32 EdgeListId, const TArray<FEdgeS
         uint32 it2 = i2*2;
         uint32 it3 = i3*2;
 
-        float UVX = SegmentData.Value * EdgeLengthInv;
+        //float UVX = SegmentData.Get<2>() * EdgeLengthInv;
+        float UVX = SegmentData.Length * EdgeLengthInv;
 
         EdgeSection.UVs[i0].Set(UVX, 0.f);
         EdgeSection.UVs[i1].Set(UVX, 0.33333f);
@@ -500,81 +591,47 @@ void FMQCGridSurface::GenerateEdgeSyncData(int32 EdgeListId, const TArray<FEdgeS
 
     // Create edge list sync data
 
-    EdgeSyncList.SetNum(EdgeSyncList.Num()+1);
-    FEdgeSyncData& SyncData(EdgeSyncList.Last());
-
-    uint32 evi0 = EdgeSegments[0].Key;
-    uint32 evi1 = EdgeSegments.Last().Key;
-
-    SyncData.EdgeListIndex = EdgeListId;
-    SyncData.HeadPos = FVector2D(EdgeSection.Positions[evi0]);
-    SyncData.TailPos = FVector2D(EdgeSection.Positions[evi1]);
-    SyncData.HeadIndex = evi0;
-    SyncData.TailIndex = evi1;
-    SyncData.Length = EdgeLength;
-}
-
-void FMQCGridSurface::GenerateEdgeGeometry()
-{
-    // Only generate edge geometry on surface that generate extrusion
-    if (! bGenerateExtrusion)
     {
-        return;
+        EdgeSyncList.SetNum(EdgeSyncList.Num()+1);
+        FMQCEdgeSyncData& SyncData(EdgeSyncList.Last());
+
+        const FEdgeSegment& Segment0(EdgeSegments[0]);
+        const FEdgeSegment& SegmentN(EdgeSegments.Last());
+
+        SyncData.EdgeListIndex = EdgeListId;
+        //SyncData.HeadHash = EdgeMap.FindChecked(Segment0.Get<1>());
+        //SyncData.TailHash = EdgeMap.FindChecked(SegmentN.Get<1>());
+        SyncData.HeadHash = EdgeMap.FindChecked(Segment0.VertexIndex);
+        SyncData.TailHash = EdgeMap.FindChecked(SegmentN.VertexIndex);
+        //SyncData.HeadIndex = Segment0.Get<0>();
+        //SyncData.TailIndex = SegmentN.Get<0>();
+        SyncData.Length = EdgeLength;
     }
+#endif
 
-    for (int32 ListId=0; ListId<EdgeLinks.Num(); ++ListId)
+    // Create edge list sync data
+
     {
-        FEdgeLinkList& EdgeList(EdgeLinks[ListId]);
+        EdgeSyncList.SetNum(EdgeSyncList.Num()+1);
+        FMQCEdgeSyncData& SyncData(EdgeSyncList.Last());
 
-        check(EdgeList.Num() >= 2);
+        const FEdgePoint& Point0(EdgePoints[0]);
+        const FEdgePoint& PointN(EdgePoints.Last());
 
-        if (EdgeList.Num() < 2)
-        {
-            continue;
-        }
-
-        FEdgeLink* EdgeNode = EdgeList.Head->Next;
-        uint32 nvi = EdgeList.Head->Value;
-
-        TArray<uint32> EdgeIndices0;
-        TArray<uint32> EdgeIndices1;
-
-        GenerateEdgeVertex(EdgeIndices1, nvi);
-
-        TArray<FEdgeSegment> EdgeSegments;
-        float EdgeLength = 0.f;
-
-        EdgeSegments.Reserve(EdgeList.Num()+1);
-        EdgeSegments.Emplace(EdgeIndices1[0], 0.f);
-
-        // Calculate edge distance data
-        do
-        {
-            nvi = EdgeNode->Value;
-
-            EdgeIndices0 = EdgeIndices1;
-
-            GenerateEdgeVertex(EdgeIndices1, nvi);
-            EdgeLength += GenerateEdgeSegment(EdgeIndices0, EdgeIndices1);
-            EdgeSegments.Emplace(EdgeIndices1[0], EdgeLength);
-
-            EdgeNode = EdgeNode->Next;
-        }
-        while (EdgeNode);
-
-        if (bRemapEdgeUVs)
-        {
-            GenerateEdgeSyncData(ListId, EdgeSegments);
-        }
+        SyncData.EdgeListIndex = EdgeListId;
+        SyncData.HeadHash = EdgeMap.FindChecked(Point0.VertexIndex);
+        SyncData.TailHash = EdgeMap.FindChecked(PointN.VertexIndex);
+        SyncData.Length = PointN.Distance;
     }
 }
 
 void FMQCGridSurface::RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd)
 {
+#if 0
     if (bRemapEdgeUVs)
     {
         FPMUMeshSection& EdgeSection(GetEdgeSection());
-        const FEdgeSyncData& SyncData(EdgeSyncList[EdgeListId]);
+        const FMQCEdgeSyncData& SyncData(EdgeSyncList[EdgeListId]);
         uint32 HeadIndex = SyncData.HeadIndex / 4;
         uint32 TailIndex = SyncData.TailIndex / 4;
         float UVRange = UVEnd-UVStart;
@@ -595,6 +652,46 @@ void FMQCGridSurface::RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd)
             EdgeSection.UVs[i2].X = UVX;
             EdgeSection.UVs[i3].X = UVX;
         }
+    }
+#endif
+}
+
+void FMQCGridSurface::GetEdgePoint(FMQCEdgePoint& EdgePoint, const FEdgePoint& SourcePoint, float DistanceOffset) const
+{
+    EdgePoint.Position = GetPositionByIndex(SourcePoint.VertexIndex);
+    EdgePoint.Normal = SourcePoint.Normal;
+    EdgePoint.Distance = SourcePoint.Distance + DistanceOffset;
+}
+
+void FMQCGridSurface::GetConnectedEdgePoints(TArray<FMQCEdgePoint>& OutPoints, const FMQCEdgeSyncData& SyncData, float DistanceOffset) const
+{
+    check(EdgePointLists.IsValidIndex(SyncData.EdgeListIndex));
+
+    const FEdgePointList& Points(EdgePointLists[SyncData.EdgeListIndex]);
+
+    if (Points.Num() < 1)
+    {
+        return;
+    }
+
+    OutPoints.Reserve(OutPoints.Num()+Points.Num());
+
+    if (OutPoints.Num() > 0)
+    {
+        GetEdgePoint(OutPoints.Last(), Points[0], DistanceOffset);
+    }
+    else
+    {
+        FMQCEdgePoint FirstPoint;
+        GetEdgePoint(FirstPoint, Points[0], DistanceOffset);
+        OutPoints.Emplace(FirstPoint);
+    }
+
+    for (int32 i=1; i<Points.Num(); ++i)
+    {
+        FMQCEdgePoint Point;
+        GetEdgePoint(Point, Points[i], DistanceOffset);
+        OutPoints.Emplace(Point);
     }
 }
 

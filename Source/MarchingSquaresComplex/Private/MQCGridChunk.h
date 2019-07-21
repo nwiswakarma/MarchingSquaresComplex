@@ -178,7 +178,7 @@ public:
             : nullptr;
     }
 
-    FORCEINLINE int32 AppendEdgeSyncData(int32 StateIndex, TArray<FEdgeSyncData>& OutSyncData) const
+    FORCEINLINE int32 AppendEdgeSyncData(int32 StateIndex, TArray<FMQCEdgeSyncData>& OutSyncData) const
     {
         if (HasRenderer(StateIndex))
         {
