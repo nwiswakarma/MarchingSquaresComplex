@@ -562,6 +562,29 @@ FPMUMeshSectionRef UMQCMapRef::GetEdgeSection(int32 ChunkIndex, int32 StateIndex
     }
 }
 
+void UMQCMapRef::GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListId)
+{
+    if (! IsInitialized())
+    {
+        return;
+    }
+
+    TArray<FMQCEdgePointList> EdgeLists;
+    VoxelMap.GetEdgeList(EdgeLists, StateIndex);
+
+    if (EdgeLists.IsValidIndex(EdgeListId))
+    {
+        const TArray<FMQCEdgePoint>& EdgePoints(EdgeLists[EdgeListId].Points);
+
+        OutPoints.Reset(EdgePoints.Num());
+
+        for (const FMQCEdgePoint& EdgePoint : EdgePoints)
+        {
+            OutPoints.Emplace(EdgePoint.Position);
+        }
+    }
+}
+
 // MAP ACTOR
 
 AMQCMap::AMQCMap()

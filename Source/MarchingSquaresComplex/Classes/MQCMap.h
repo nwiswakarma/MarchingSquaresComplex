@@ -230,6 +230,9 @@ public:
 
     UFUNCTION(BlueprintCallable)
     FPMUMeshSectionRef GetEdgeSection(int32 ChunkIndex, int32 StateIndex);
+
+    UFUNCTION(BlueprintCallable)
+    void GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListId);
 };
 
 UCLASS(BlueprintType)

@@ -333,6 +333,27 @@ void UMQCPrefabBuilder::BuildEdgePrefabs(FMQCMap& Map, const TArray<FMQCEdgePoin
             }
 
             // Transform position
+#if 1
+            const uint32 pi0 = FMath::Max(0, PointIndex-1);
+            const uint32 pi1 = PointIndex;
+            const uint32 pi2 = FMath::Min(PointIndex+1, PointCount-1);
+            const FMQCEdgePoint& EdgePoint0(EdgePoints[pi0]);
+            const FMQCEdgePoint& EdgePoint1(EdgePoints[pi1]);
+            const FMQCEdgePoint& EdgePoint2(EdgePoints[pi2]);
+            float Dist12 = EdgePoint2.Distance-EdgePoint1.Distance;
+            float Dist1P = CurrentDistance-EdgePoint1.Distance;
+            float DistAlpha = Dist12 > SMALL_NUMBER ? Dist1P/Dist12 : 0.f;
+            FVector2D Normal0(EdgePoint0.Normal);
+            FVector2D Normal1(EdgePoint1.Normal);
+            FVector2D InterpNormal;
+            InterpNormal = FMath::LerpStable(Normal0, Normal1, DistAlpha);
+            InterpNormal.Normalize();
+            FVector2D Offset(EdgePoint1.Position);
+            FVector2D TransformedPoint(-InterpNormal.Y, InterpNormal.X);
+            TransformedPoint *= SrcPos.Y;
+            TransformedPoint += Offset+InterpNormal*Dist1P;
+            DstPositions[DstIndex] = FVector(TransformedPoint, SrcPos.Z);
+#else
             const FMQCEdgePoint& EdgePoint(EdgePoints[PointIndex]);
             float DistanceDelta = CurrentDistance - EdgePoint.Distance;
             FVector2D Offset(EdgePoint.Position);
@@ -340,6 +361,7 @@ void UMQCPrefabBuilder::BuildEdgePrefabs(FMQCMap& Map, const TArray<FMQCEdgePoin
             TransformedPoint *= SrcPos.Y;
             TransformedPoint += Offset+EdgePoint.Normal*DistanceDelta;
             DstPositions[DstIndex] = FVector(TransformedPoint, SrcPos.Z);
+#endif
 
             // Expand bounding box
             GeneratedSection.SectionLocalBox += DstPositions[DstIndex];
