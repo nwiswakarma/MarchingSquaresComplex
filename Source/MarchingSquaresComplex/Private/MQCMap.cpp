@@ -1016,8 +1016,3 @@ void AMQCMap::SimplifyMesh(int32 StateIndex, FPMUMeshSimplifierOptions Options)
         FPMUMeshSimplifier::SimplifyMeshSection(SectionRef, Options);
     }
 }
-
-UMQCPrefabBuilder* AMQCMap::CreatePrefabBuilder(TSubclassOf<UMQCPrefabBuilder> Type)
-{
-    return NewObject<UMQCPrefabBuilder>(this, Type);
-}

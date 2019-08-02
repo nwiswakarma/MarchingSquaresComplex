@@ -39,7 +39,6 @@
 
 class FMQCGridChunk;
 class UPMUMeshComponent;
-class UMQCPrefabBuilder;
 
 class MARCHINGSQUARESCOMPLEX_API FMQCMap
 {
@@ -334,9 +333,6 @@ public:
 
     UFUNCTION(BlueprintCallable)
     void SimplifyMesh(int32 StateIndex, FPMUMeshSimplifierOptions Options);
-
-    UFUNCTION(BlueprintCallable)
-    UMQCPrefabBuilder* CreatePrefabBuilder(TSubclassOf<UMQCPrefabBuilder> Type);
 };
 
 // Blueprint Inlines
