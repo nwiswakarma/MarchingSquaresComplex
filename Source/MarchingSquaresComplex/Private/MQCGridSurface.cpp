@@ -28,6 +28,19 @@
 #include "MQCGridSurface.h"
 #include "MQCMaterialUtility.h"
 
+FMQCGridSurface::FMQCGridSurface()
+{
+}
+
+FMQCGridSurface::FMQCGridSurface(const FMQCSurfaceConfig& Config)
+{
+    Configure(Config);
+}
+
+FMQCGridSurface::~FMQCGridSurface()
+{
+}
+
 void FMQCGridSurface::Configure(const FMQCSurfaceConfig& Config)
 {
     // Position & dimension configuration

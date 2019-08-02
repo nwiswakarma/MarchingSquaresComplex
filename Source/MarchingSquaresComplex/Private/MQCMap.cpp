@@ -119,7 +119,7 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
         FMQCGridChunk& Chunk(*Chunks[ChunkIndex]);
 
         // Get chunk edge sync data
-        int32 SyncOffetIndex = Chunk.AppendEdgeSyncData(StateIndex, SyncCandidates);
+        int32 SyncOffetIndex = Chunk.AppendEdgeSyncData(SyncCandidates, StateIndex);
 
         // Assign edge sync chunk index
         for (int32 i=SyncOffetIndex; i<SyncCandidates.Num(); ++i)
@@ -398,11 +398,10 @@ void FMQCMap::GetEdgeList(TArray<FMQCEdgePointList>& OutLists, int32 StateIndex)
         for (const FMQCEdgeSyncData& SyncData : SyncList)
         {
             const FMQCGridChunk& Chunk(GetChunk(SyncData.ChunkIndex));
-            const FMQCGridSurface& Surface(Chunk.GetSurface(StateIndex));
 
             //UE_LOG(LogTemp,Warning, TEXT("GetEdgeList() SyncData: %s"), *SyncData.ToString());
 
-            Surface.GetConnectedEdgePoints(Points, SyncData, Distance);
+            Chunk.GetConnectedEdgePoints(Points, StateIndex, SyncData, Distance);
 
             Distance += SyncData.Length;
         }

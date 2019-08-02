@@ -26,6 +26,7 @@
 // 
 
 #include "MQCGridChunk.h"
+#include "MQCGridSurface.h"
 #include "MQCStencil.h"
 
 FMQCGridChunk::FMQCGridChunk()
@@ -38,25 +39,6 @@ FMQCGridChunk::FMQCGridChunk()
 FMQCGridChunk::~FMQCGridChunk()
 {
     WaitForAsyncTask();
-}
-
-void FMQCGridChunk::EnqueueTask(const TFunction<void()>& Task)
-{
-    // Wait for any outstanding async task
-    WaitForAsyncTask();
-
-    // Create task promise
-    TPromise<void>* TaskPromise;
-    TaskPromise = new TPromise<void>([TaskPromise](){ delete TaskPromise; });
-
-    // Assign task future
-    OutstandingTask = TaskPromise->GetFuture();
-
-    // Dispatch task when ready
-    TGraphTask<FAsyncTask>::CreateTask().ConstructAndDispatchWhenReady(
-        Task,
-        *TaskPromise
-        );
 }
 
 void FMQCGridChunk::Configure(const FMQCChunkConfig& Config)
@@ -74,19 +56,19 @@ void FMQCGridChunk::Configure(const FMQCChunkConfig& Config)
     for (int32 y=0, i=0; y<VoxelResolution; y++)
     for (int32 x=0     ; x<VoxelResolution; x++, i++)
     {
-        CreateVoxel(i, x, y);
+        voxels[i].Set(x, y);
     }
 
-    CreateRenderers(Config);
+    CreateSurfaces(Config);
 }
 
-void FMQCGridChunk::CreateRenderers(const FMQCChunkConfig& GridConfig)
+void FMQCGridChunk::CreateSurfaces(const FMQCChunkConfig& GridConfig)
 {
     // Construct renderer count
 
-    const int32 RendererCount = 1 + GridConfig.States.Num();
+    const int32 StateCount = 1 + GridConfig.States.Num();
 
-    for (int32 i=0; i<RendererCount; ++i)
+    for (int32 i=0; i<StateCount; ++i)
     {
         FMQCSurfaceConfig Config;
         Config.Position        = Position;
@@ -111,7 +93,7 @@ void FMQCGridChunk::CreateRenderers(const FMQCChunkConfig& GridConfig)
             Config.bRemapEdgeUVs = false;
         }
 
-        Renderers.Add(new FMQCGridRenderer(Config));
+        Surfaces.Add(new FMQCGridSurface(Config));
     }
 }
 
@@ -140,11 +122,196 @@ void FMQCGridChunk::SetNeighbourXY(const FMQCGridChunk* InNeighbour)
     xyNeighbor = InNeighbour;
 }
 
+FPMUMeshSection* FMQCGridChunk::GetSurfaceSection(int32 StateIndex)
+{
+    return HasSurface(StateIndex)
+        ? &Surfaces[StateIndex].GetSurfaceSection()
+        : nullptr;
+}
+
+FPMUMeshSection* FMQCGridChunk::GetExtrudeSection(int32 StateIndex)
+{
+    return HasSurface(StateIndex)
+        ? &Surfaces[StateIndex].GetExtrudeSection()
+        : nullptr;
+}
+
+FPMUMeshSection* FMQCGridChunk::GetEdgeSection(int32 StateIndex)
+{
+    return HasSurface(StateIndex)
+        ? &Surfaces[StateIndex].GetEdgeSection()
+        : nullptr;
+}
+
+FPMUMeshSection* FMQCGridChunk::GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material)
+{
+    FPMUMeshSection* Section = nullptr;
+
+    if (HasSurface(StateIndex))
+    {
+        Section = Surfaces[StateIndex].MaterialSectionMap.Find(Material);
+    }
+
+    return Section;
+}
+
+int32 FMQCGridChunk::AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData, int32 StateIndex) const
+{
+    if (HasSurface(StateIndex))
+    {
+        int32 StartIndex = OutSyncData.Num();
+        Surfaces[StateIndex].AppendEdgeSyncData(OutSyncData);
+        return StartIndex;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+void FMQCGridChunk::RemapEdgeUVs(int32 StateIndex, int32 EdgeListId, float UVStart, float UVEnd)
+{
+    if (HasSurface(StateIndex))
+    {
+        Surfaces[StateIndex].RemapEdgeUVs(EdgeListId, UVStart, UVEnd);
+    }
+}
+
+void FMQCGridChunk::GetConnectedEdgePoints(TArray<FMQCEdgePoint>& OutPoints, int32 StateIndex, const FMQCEdgeSyncData& SyncData, float DistanceOffset) const
+{
+    if (HasSurface(StateIndex))
+    {
+        Surfaces[StateIndex].GetConnectedEdgePoints(OutPoints, SyncData, DistanceOffset);
+    }
+}
+
+void FMQCGridChunk::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
+{
+    for (int32 StateIndex=1; StateIndex<Surfaces.Num(); StateIndex++)
+    {
+        Surfaces[StateIndex].GetMaterialSet(MaterialSet);
+    }
+}
+
+// Public Triangulation Interface
+
+void FMQCGridChunk::Triangulate()
+{
+    WaitForAsyncTask();
+    TriangulateInternal();
+}
+
+void FMQCGridChunk::SetStates(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    WaitForAsyncTask();
+    SetStatesInternal(Stencil, X0, X1, Y0, Y1);
+}
+
+void FMQCGridChunk::SetCrossings(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    WaitForAsyncTask();
+    SetCrossingsInternal(Stencil, X0, X1, Y0, Y1);
+}
+
+void FMQCGridChunk::SetMaterials(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    WaitForAsyncTask();
+    SetMaterialsInternal(Stencil, X0, X1, Y0, Y1);
+}
+
+void FMQCGridChunk::TriangulateAsync()
+{
+    EnqueueTask([this](){ TriangulateInternal(); });
+}
+
+void FMQCGridChunk::SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    // Invalid stencil fill type, abort
+    if (! HasSurface(Stencil.GetFillType()))
+    {
+        return;
+    }
+
+    struct FTaskParam
+    {
+        const FMQCStencil* Stencil;
+        int32 X0;
+        int32 X1;
+        int32 Y0;
+        int32 Y1;
+    };
+    FTaskParam Param = { &Stencil, X0, X1, Y0, Y1 };
+
+    EnqueueTask(
+        [this, Param]()
+        {
+            SetStatesInternal(
+                *Param.Stencil,
+                Param.X0,
+                Param.X1,
+                Param.Y0,
+                Param.Y1
+                );
+        } );
+}
+
+void FMQCGridChunk::SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    // Invalid stencil fill type, abort
+    if (! HasSurface(Stencil.GetFillType()))
+    {
+        return;
+    }
+
+    struct FTaskParam
+    {
+        const FMQCStencil* Stencil;
+        int32 X0;
+        int32 X1;
+        int32 Y0;
+        int32 Y1;
+    };
+    FTaskParam Param = { &Stencil, X0, X1, Y0, Y1 };
+
+    EnqueueTask(
+        [this, Param]()
+        {
+            SetCrossingsInternal(*Param.Stencil, Param.X0, Param.X1, Param.Y0, Param.Y1);
+        } );
+}
+
+void FMQCGridChunk::SetMaterialsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
+{
+    // Invalid stencil fill type, abort
+    if (! HasSurface(Stencil.GetFillType()))
+    {
+        return;
+    }
+
+    struct FTaskParam
+    {
+        const FMQCStencil* Stencil;
+        int32 X0;
+        int32 X1;
+        int32 Y0;
+        int32 Y1;
+    };
+    FTaskParam Param = { &Stencil, X0, X1, Y0, Y1 };
+
+    EnqueueTask(
+        [this, Param]()
+        {
+            SetMaterialsInternal(*Param.Stencil, Param.X0, Param.X1, Param.Y0, Param.Y1);
+        } );
+}
+
+// -- Internal Triangulation Interface
+
 void FMQCGridChunk::TriangulateInternal()
 {
-    for (int32 i=1; i<Renderers.Num(); i++)
+    for (int32 i=1; i<Surfaces.Num(); i++)
     {
-        Renderers[i].Initialize();
+        Surfaces[i].Initialize();
     }
 
     FillFirstRowCache();
@@ -155,16 +322,16 @@ void FMQCGridChunk::TriangulateInternal()
         TriangulateGapRow();
     }
 
-    for (int32 i=1; i<Renderers.Num(); i++)
+    for (int32 i=1; i<Surfaces.Num(); i++)
     {
-        Renderers[i].Finalize();
+        Surfaces[i].Finalize();
     }
 }
 
 void FMQCGridChunk::SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
 {
     // Invalid stencil fill type, abort
-    if (! HasRenderer(Stencil.GetFillType()))
+    if (! HasSurface(Stencil.GetFillType()))
     {
         return;
     }
@@ -183,7 +350,7 @@ void FMQCGridChunk::SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int3
 void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
 {
     // Invalid stencil fill type, abort
-    if (! HasRenderer(Stencil.GetFillType()))
+    if (! HasSurface(Stencil.GetFillType()))
     {
         return;
     }
@@ -292,7 +459,7 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
 void FMQCGridChunk::SetMaterialsInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
 {
     // Invalid stencil fill type, abort
-    if (! HasRenderer(Stencil.GetFillType()))
+    if (! HasSurface(Stencil.GetFillType()))
     {
         return;
     }
@@ -308,145 +475,26 @@ void FMQCGridChunk::SetMaterialsInternal(const FMQCStencil& Stencil, int32 X0, i
     }
 }
 
-FMQCGridSurface& FMQCGridChunk::GetSurface(int32 StateIndex)
+void FMQCGridChunk::EnqueueTask(const TFunction<void()>& Task)
 {
-    return Renderers[StateIndex].GetSurface();
-}
-
-const FMQCGridSurface& FMQCGridChunk::GetSurface(int32 StateIndex) const
-{
-    return Renderers[StateIndex].GetSurface();
-}
-
-void FMQCGridChunk::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
-{
-    for (int32 i=1; i<Renderers.Num(); i++)
-    {
-        GetSurface(i).GetMaterialSet(MaterialSet);
-    }
-}
-
-FPMUMeshSection* FMQCGridChunk::GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material)
-{
-    FPMUMeshSection* Section = nullptr;
-
-    if (HasRenderer(StateIndex))
-    {
-        Section = GetSurface(StateIndex).MaterialSectionMap.Find(Material);
-    }
-
-    return Section;
-}
-
-void FMQCGridChunk::Triangulate()
-{
+    // Wait for any outstanding async task
     WaitForAsyncTask();
-    TriangulateInternal();
+
+    // Create task promise
+    TPromise<void>* TaskPromise;
+    TaskPromise = new TPromise<void>([TaskPromise](){ delete TaskPromise; });
+
+    // Assign task future
+    OutstandingTask = TaskPromise->GetFuture();
+
+    // Dispatch task when ready
+    TGraphTask<FAsyncTask>::CreateTask().ConstructAndDispatchWhenReady(
+        Task,
+        *TaskPromise
+        );
 }
 
-void FMQCGridChunk::SetStates(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
-{
-    WaitForAsyncTask();
-    SetStatesInternal(Stencil, X0, X1, Y0, Y1);
-}
-
-void FMQCGridChunk::SetCrossings(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
-{
-    WaitForAsyncTask();
-    SetCrossingsInternal(Stencil, X0, X1, Y0, Y1);
-}
-
-void FMQCGridChunk::SetMaterials(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
-{
-    WaitForAsyncTask();
-    SetMaterialsInternal(Stencil, X0, X1, Y0, Y1);
-}
-
-void FMQCGridChunk::TriangulateAsync()
-{
-    EnqueueTask([this](){ TriangulateInternal(); });
-}
-
-void FMQCGridChunk::SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
-{
-    // Invalid stencil fill type, abort
-    if (! HasRenderer(Stencil.GetFillType()))
-    {
-        return;
-    }
-
-    struct FTaskParam
-    {
-        const FMQCStencil* Stencil;
-        int32 X0;
-        int32 X1;
-        int32 Y0;
-        int32 Y1;
-    };
-    FTaskParam Param = { &Stencil, X0, X1, Y0, Y1 };
-
-    EnqueueTask(
-        [this, Param]()
-        {
-            SetStatesInternal(
-                *Param.Stencil,
-                Param.X0,
-                Param.X1,
-                Param.Y0,
-                Param.Y1
-                );
-        } );
-}
-
-void FMQCGridChunk::SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
-{
-    // Invalid stencil fill type, abort
-    if (! HasRenderer(Stencil.GetFillType()))
-    {
-        return;
-    }
-
-    struct FTaskParam
-    {
-        const FMQCStencil* Stencil;
-        int32 X0;
-        int32 X1;
-        int32 Y0;
-        int32 Y1;
-    };
-    FTaskParam Param = { &Stencil, X0, X1, Y0, Y1 };
-
-    EnqueueTask(
-        [this, Param]()
-        {
-            SetCrossingsInternal(*Param.Stencil, Param.X0, Param.X1, Param.Y0, Param.Y1);
-        } );
-}
-
-void FMQCGridChunk::SetMaterialsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1)
-{
-    // Invalid stencil fill type, abort
-    if (! HasRenderer(Stencil.GetFillType()))
-    {
-        return;
-    }
-
-    struct FTaskParam
-    {
-        const FMQCStencil* Stencil;
-        int32 X0;
-        int32 X1;
-        int32 Y0;
-        int32 Y1;
-    };
-    FTaskParam Param = { &Stencil, X0, X1, Y0, Y1 };
-
-    EnqueueTask(
-        [this, Param]()
-        {
-            SetMaterialsInternal(*Param.Stencil, Param.X0, Param.X1, Param.Y0, Param.Y1);
-        } );
-}
+// -- Geometry Cache Functions
 
 void FMQCGridChunk::FillFirstRowCache()
 {
@@ -465,19 +513,27 @@ void FMQCGridChunk::FillFirstRowCache()
     }
 }
 
+void FMQCGridChunk::SwapRowCaches()
+{
+    for (int32 i=1; i<Surfaces.Num(); i++)
+    {
+        Surfaces[i].PrepareCacheForNextRow();
+    }
+}
+
 void FMQCGridChunk::CacheFirstCorner(const FMQCVoxel& voxel)
 {
     if (voxel.IsFilled())
     {
-        check(Renderers.IsValidIndex(voxel.voxelState));
-        Renderers[voxel.voxelState].CacheFirstCorner(voxel);
+        check(Surfaces.IsValidIndex(voxel.voxelState));
+        Surfaces[voxel.voxelState].CacheFirstCorner(voxel);
     }
 }
 
 void FMQCGridChunk::CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const FMQCVoxel& xMax)
 {
-    FMQCGridRenderer& RendererMin(Renderers[xMin.voxelState]);
-    FMQCGridRenderer& RendererMax(Renderers[xMax.voxelState]);
+    FMQCGridSurface& SurfaceMin(Surfaces[xMin.voxelState]);
+    FMQCGridSurface& SurfaceMax(Surfaces[xMax.voxelState]);
 
     const FMQCMaterial& MaterialMin(xMin.Material);
     const FMQCMaterial& MaterialMax(xMax.Material);
@@ -490,7 +546,7 @@ void FMQCGridChunk::CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const
 
     if (bFilledMax)
     {
-        RendererMax.CacheNextCorner(i, xMax);
+        SurfaceMax.CacheNextCorner(i, xMax);
     }
 
     if (StateMin != StateMax)
@@ -502,31 +558,31 @@ void FMQCGridChunk::CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const
                 FMQCMaterial EdgeMaterial = (xMin.GetXEdge() > .5f)
                     ? MaterialMax
                     : MaterialMin;
-                RendererMin.CacheEdgeX(i, xMin, EdgeMaterial);
-                RendererMax.CacheEdgeX(i, xMin, EdgeMaterial);
+                SurfaceMin.CacheEdgeX(i, xMin, EdgeMaterial);
+                SurfaceMax.CacheEdgeX(i, xMin, EdgeMaterial);
             }
             else
             {
-                RendererMin.CacheEdgeXWithWall(i, xMin, MaterialMin);
+                SurfaceMin.CacheEdgeXWithWall(i, xMin, MaterialMin);
             }
         }
         else
         {
-            RendererMax.CacheEdgeXWithWall(i, xMin, MaterialMax);
+            SurfaceMax.CacheEdgeXWithWall(i, xMin, MaterialMax);
         }
     }
 }
 
-void FMQCGridChunk::CacheNextMiddleEdge(int32 i, const FMQCVoxel& yMin, const FMQCVoxel& yMax)
+void FMQCGridChunk::CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& yMax)
 {
-    for (int32 r=1; r<Renderers.Num(); r++)
+    for (int32 r=1; r<Surfaces.Num(); r++)
     {
-        Renderers[r].PrepareCacheForNextCell();
+        Surfaces[r].PrepareCacheForNextCell();
     }
     if (yMin.voxelState != yMax.voxelState)
     {
-        FMQCGridRenderer& RendererMin(Renderers[yMin.voxelState]);
-        FMQCGridRenderer& RendererMax(Renderers[yMax.voxelState]);
+        FMQCGridSurface& SurfaceMin(Surfaces[yMin.voxelState]);
+        FMQCGridSurface& SurfaceMax(Surfaces[yMax.voxelState]);
 
         const FMQCMaterial& MaterialMin(yMin.Material);
         const FMQCMaterial& MaterialMax(yMax.Material);
@@ -538,28 +594,22 @@ void FMQCGridChunk::CacheNextMiddleEdge(int32 i, const FMQCVoxel& yMin, const FM
                 FMQCMaterial EdgeMaterial = (yMin.GetYEdge() > .5f)
                     ? MaterialMax
                     : MaterialMin;
-                RendererMin.CacheEdgeY(i, yMin, EdgeMaterial);
-                RendererMax.CacheEdgeY(i, yMin, EdgeMaterial);
+                SurfaceMin.CacheEdgeY(yMin, EdgeMaterial);
+                SurfaceMax.CacheEdgeY(yMin, EdgeMaterial);
             }
             else
             {
-                RendererMin.CacheEdgeYWithWall(i, yMin, MaterialMin);
+                SurfaceMin.CacheEdgeYWithWall(yMin, MaterialMin);
             }
         }
         else
         {
-            RendererMax.CacheEdgeYWithWall(i, yMin, MaterialMax);
+            SurfaceMax.CacheEdgeYWithWall(yMin, MaterialMax);
         }
     }
 }
 
-void FMQCGridChunk::SwapRowCaches()
-{
-    for (int32 i=1; i<Renderers.Num(); i++)
-    {
-        Renderers[i].PrepareCacheForNextRow();
-    }
-}
+// -- Triangulation Functions
 
 void FMQCGridChunk::TriangulateCellRows()
 {
@@ -568,7 +618,7 @@ void FMQCGridChunk::TriangulateCellRows()
     {
         SwapRowCaches();
         CacheFirstCorner(voxels[i + VoxelResolution]);
-        CacheFirstMiddleEdge(voxels[i], voxels[i + VoxelResolution]);
+        CacheNextMiddleEdge(voxels[i], voxels[i + VoxelResolution]);
 
         for (int32 x=0; x<cells; x++, i++)
         {
@@ -578,7 +628,7 @@ void FMQCGridChunk::TriangulateCellRows()
                 c(voxels[i + VoxelResolution]),
                 d(voxels[i + VoxelResolution + 1]);
             CacheNextEdgeAndCorner(x, c, d);
-            CacheNextMiddleEdge(x, b, d);
+            CacheNextMiddleEdge(b, d);
             TriangulateCell(x, a, b, c, d);
         }
 
@@ -598,7 +648,7 @@ void FMQCGridChunk::TriangulateGapRow()
     int32 offset = cells * VoxelResolution;
     SwapRowCaches();
     CacheFirstCorner(dummyY);
-    CacheFirstMiddleEdge(voxels[cells * VoxelResolution], dummyY);
+    CacheNextMiddleEdge(voxels[cells * VoxelResolution], dummyY);
 
     for (int32 x=0; x<cells; x++)
     {
@@ -606,7 +656,7 @@ void FMQCGridChunk::TriangulateGapRow()
         dummyY.BecomeYDummyOf(yNeighbor->voxels[x + 1], VoxelResolution);
 
         CacheNextEdgeAndCorner(x, dummyT, dummyY);
-        CacheNextMiddleEdge(x, voxels[x + offset + 1], dummyY);
+        CacheNextMiddleEdge(voxels[x + offset + 1], dummyY);
         TriangulateCell(
             x,
             voxels[x + offset],
@@ -623,7 +673,7 @@ void FMQCGridChunk::TriangulateGapRow()
         dummyT.BecomeXYDummyOf(xyNeighbor->voxels[0], VoxelResolution);
 
         CacheNextEdgeAndCorner(cells, dummyY, dummyT);
-        CacheNextMiddleEdge(cells, dummyX, dummyT);
+        CacheNextMiddleEdge(dummyX, dummyT);
         TriangulateCell(
             cells,
             voxels[voxels.Num() - 1],
@@ -643,7 +693,7 @@ void FMQCGridChunk::TriangulateGapCell(int32 i)
 
     int32 cacheIndex = VoxelResolution - 1;
     CacheNextEdgeAndCorner(cacheIndex, voxels[i + VoxelResolution], dummyX);
-    CacheNextMiddleEdge(cacheIndex, dummyT, dummyX);
+    CacheNextMiddleEdge(dummyT, dummyX);
 
     TriangulateCell(
         cacheIndex,
@@ -653,8 +703,6 @@ void FMQCGridChunk::TriangulateGapCell(int32 i)
         dummyX
         );
 }
-
-// Triangulation Functions
 
 void FMQCGridChunk::TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel& b, const FMQCVoxel& c, const FMQCVoxel& d)
 {
@@ -923,4 +971,156 @@ void FMQCGridChunk::Triangulate0123()
     FillJoinedCorners(
         cell.GetFeatureSW(), cell.GetFeatureSE(),
         cell.GetFeatureNW(), cell.GetFeatureNE());
+}
+
+// -- Fill Functions
+
+void FMQCGridChunk::FillA(const FMQCFeaturePoint& f)
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillA(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillB(const FMQCFeaturePoint& f)
+{
+    if (cell.b.IsFilled())
+    {
+        Surfaces[cell.b.voxelState].FillB(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillC(const FMQCFeaturePoint& f)
+{
+    if (cell.c.IsFilled())
+    {
+        Surfaces[cell.c.voxelState].FillC(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillD(const FMQCFeaturePoint& f)
+{
+    if (cell.d.IsFilled())
+    {
+        Surfaces[cell.d.voxelState].FillD(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillABC(const FMQCFeaturePoint& f)
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillABC(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillABD(const FMQCFeaturePoint& f)
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillABD(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillACD(const FMQCFeaturePoint& f)
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillACD(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillBCD(const FMQCFeaturePoint& f)
+{
+    if (cell.b.IsFilled())
+    {
+        Surfaces[cell.b.voxelState].FillBCD(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillAB(const FMQCFeaturePoint& f)
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillAB(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillAC(const FMQCFeaturePoint& f)
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillAC(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillBD(const FMQCFeaturePoint& f)
+{
+    if (cell.b.IsFilled())
+    {
+        Surfaces[cell.b.voxelState].FillBD(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillCD(const FMQCFeaturePoint& f)
+{
+    if (cell.c.IsFilled())
+    {
+        Surfaces[cell.c.voxelState].FillCD(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillADToB(const FMQCFeaturePoint& f)
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillADToB(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillADToC(const FMQCFeaturePoint& f)
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillADToC(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillBCToA(const FMQCFeaturePoint& f)
+{
+    if (cell.b.IsFilled())
+    {
+        Surfaces[cell.b.voxelState].FillBCToA(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillBCToD(const FMQCFeaturePoint& f)
+{
+    if (cell.b.IsFilled())
+    {
+        Surfaces[cell.b.voxelState].FillBCToD(cell, f);
+    }
+}
+
+void FMQCGridChunk::FillABCD()
+{
+    if (cell.a.IsFilled())
+    {
+        Surfaces[cell.a.voxelState].FillABCD(cell);
+    }
+}
+
+void FMQCGridChunk::FillJoinedCorners(
+    const FMQCFeaturePoint& fA,
+    const FMQCFeaturePoint& fB,
+    const FMQCFeaturePoint& fC,
+    const FMQCFeaturePoint& fD
+    )
+{
+    FMQCFeaturePoint point = cell.GetFeatureAverage(fA, fB, fC, fD);
+    FillA(point);
+    FillB(point);
+    FillC(point);
+    FillD(point);
 }

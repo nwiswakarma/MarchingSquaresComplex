@@ -305,6 +305,10 @@ private:
 
 public:
 
+    FMQCGridSurface();
+    FMQCGridSurface(const FMQCSurfaceConfig& Config);
+    ~FMQCGridSurface();
+
     void Configure(const FMQCSurfaceConfig& Config);
     void Initialize();
 	void Finalize();
@@ -381,308 +385,80 @@ public:
         return StartIndex;
     }
 
-    // Corner and Edge Caching
+    // -- Corner and Edge Caching
 
-	FORCEINLINE void PrepareCacheForNextCell()
-    {
-		yEdgeMin = yEdgeMax;
-	}
+	void PrepareCacheForNextCell();
+	void PrepareCacheForNextRow();
+	void CacheFirstCorner(const FMQCVoxel& voxel);
+	void CacheNextCorner(int32 i, const FMQCVoxel& voxel);
+	void CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material);
+	void CacheEdgeXWithWall(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material);
+	void CacheEdgeY(const FMQCVoxel& voxel, const FMQCMaterial& Material);
+	void CacheEdgeYWithWall(const FMQCVoxel& voxel, const FMQCMaterial& Material);
+	int32 CacheFeaturePoint(const FMQCFeaturePoint& f);
 
-	FORCEINLINE void PrepareCacheForNextRow()
-    {
-        Swap(cornersMin, cornersMax);
-        Swap(xEdgesMin, xEdgesMax);
-	}
+    // -- Fill Functions
 
-	FORCEINLINE void CacheFirstCorner(const FMQCVoxel& voxel)
-    {
-        uint32 Hash = bRequireHash16
-            ? voxel.GetPositionOnlyHash(Position)
-            : voxel.GetPositionOnlyHash8(Position);
-		cornersMax[0] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
-	}
-
-	FORCEINLINE void CacheNextCorner(int32 i, const FMQCVoxel& voxel)
-    {
-        uint32 Hash = bRequireHash16
-            ? voxel.GetPositionOnlyHash(Position)
-            : voxel.GetPositionOnlyHash8(Position);
-		cornersMax[i+1] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
-	}
-
-	FORCEINLINE void CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-    {
-        uint32 Hash = bRequireHash16
-            ? voxel.GetEdgePointHashX(Position)
-            : voxel.GetEdgePointHashX8(Position);
-        FVector2D EdgePoint(voxel.GetXEdgePoint());
-        xEdgesMax[i] = AddVertex2(Hash, EdgePoint, Material);
-        MapEdge(xEdgesMax[i], Hash);
-    }
-
-	FORCEINLINE void CacheEdgeY(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-    {
-        uint32 Hash = bRequireHash16
-            ? voxel.GetEdgePointHashY(Position)
-            : voxel.GetEdgePointHashY8(Position);
-        FVector2D EdgePoint(voxel.GetYEdgePoint());
-        yEdgeMax = AddVertex2(Hash, EdgePoint, Material);
-        MapEdge(yEdgeMax, Hash);
-    }
-
-	FORCEINLINE int32 CacheFeaturePoint(const FMQCFeaturePoint& f)
-    {
-        check(f.exists);
-        uint32 Hash = bRequireHash16 ? f.GetHash(Position) : f.GetHash8(Position);
-        uint32 FeaturePointIndex = AddVertex2(Hash, f.position, f.Material);
-        MapEdge(FeaturePointIndex, Hash);
-        return FeaturePointIndex;
-    }
-
-public:
-
-    // Triangulation Functions
-
-	FORCEINLINE void AddQuadABCD(int32 i)
-    {
-		AddQuadCorners(cornersMin[i], cornersMax[i], cornersMax[i + 1], cornersMin[i + 1]);
-	}
-	
-	FORCEINLINE void AddTriangleA(int32 i, const bool bWall0)
-    {
-		AddTriangle(cornersMin[i], yEdgeMin, xEdgesMin[i]);
-        if (bWall0) AddEdge(yEdgeMin, xEdgesMin[i]);
-	}
-	
-	FORCEINLINE void AddQuadA(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
-    {
-		AddQuad(FeatureVertexIndex, xEdgesMin[i], cornersMin[i], yEdgeMin);
-        if (bWall0) AddEdge(yEdgeMin, FeatureVertexIndex);
-        if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMin[i]);
-	}
-	
-	FORCEINLINE void AddTriangleB(int32 i, const bool bWall0)
-    {
-		AddTriangle(cornersMin[i + 1], xEdgesMin[i], yEdgeMax);
-		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMax);
-	}
-	
-	FORCEINLINE void AddQuadB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
-    {
-		AddQuad(FeatureVertexIndex, yEdgeMax, cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdge(xEdgesMin[i], FeatureVertexIndex);
-		if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMax);
-	}
-	
-	FORCEINLINE void AddTriangleC(int32 i, const bool bWall0)
-    {
-		AddTriangle(cornersMax[i], xEdgesMax[i], yEdgeMin);
-		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMin);
-	}
-	
-	FORCEINLINE void AddQuadC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
-    {
-		AddQuad(FeatureVertexIndex, yEdgeMin, cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdge(xEdgesMax[i], FeatureVertexIndex);
-		if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMin);
-	}
-	
-	FORCEINLINE void AddTriangleD(int32 i, const bool bWall0)
-    {
-		AddTriangle(cornersMax[i + 1], yEdgeMax, xEdgesMax[i]);
-		if (bWall0) AddEdge(yEdgeMax, xEdgesMax[i]);
-	}
-	
-	FORCEINLINE void AddQuadD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
-    {
-		AddQuad(FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdge(yEdgeMax, FeatureVertexIndex);
-		if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMax[i]);
-	}
-	
-	FORCEINLINE void AddPentagonABC(int32 i, const bool bWall0)
-    {
-		AddPentagon(
-			cornersMin[i], cornersMax[i], xEdgesMax[i],
-			yEdgeMax, cornersMin[i + 1]);
-		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax);
-	}
-	
-	FORCEINLINE void AddHexagonABC(int32 i, int32 FeatureVertexIndex, const bool bWall0)
-    {
-		AddHexagon(
-			FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
-			cornersMin[i], cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
-	}
-	
-	FORCEINLINE void AddPentagonABD(int32 i, const bool bWall0)
-    {
-		AddPentagon(
-			cornersMin[i + 1], cornersMin[i], yEdgeMin,
-			xEdgesMax[i], cornersMax[i + 1]);
-		if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i]);
-	}
-	
-	FORCEINLINE void AddHexagonABD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
-    {
-		AddHexagon(
-			FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
-			cornersMin[i + 1], cornersMin[i], yEdgeMin);
-		if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
-	}
-	
-	FORCEINLINE void AddPentagonACD(int32 i, const bool bWall0)
-    {
-		AddPentagon(
-			cornersMax[i], cornersMax[i + 1], yEdgeMax,
-			xEdgesMin[i], cornersMin[i]);
-		if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i]);
-	}
-	
-	FORCEINLINE void AddHexagonACD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
-    {
-		AddHexagon(
-			FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
-			cornersMax[i], cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
-	}
-	
-	FORCEINLINE void AddPentagonBCD(int32 i, const bool bWall0)
-    {
-		AddPentagon(
-			cornersMax[i + 1], cornersMin[i + 1], xEdgesMin[i],
-			yEdgeMin, cornersMax[i]);
-		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin);
-	}
-	
-	FORCEINLINE void AddHexagonBCD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
-    {
-		AddHexagon(
-			FeatureVertexIndex, yEdgeMin, cornersMax[i],
-			cornersMax[i + 1], cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
-	}
-	
-	FORCEINLINE void AddQuadAB(int32 i, const bool bWall0)
-    {
-		AddQuad(cornersMin[i], yEdgeMin, yEdgeMax, cornersMin[i + 1]);
-		if (bWall0) AddEdge(yEdgeMin, yEdgeMax);
-	}
-	
-	FORCEINLINE void AddPentagonAB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
-    {
-		AddPentagon(
-			FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
-			cornersMin[i], yEdgeMin);
-		if (bWall0) AddEdge(yEdgeMin, FeatureVertexIndex);
-		if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMax);
-	}
-	
-	FORCEINLINE void AddQuadAC(int32 i, const bool bWall0)
-    {
-		AddQuad(cornersMin[i], cornersMax[i], xEdgesMax[i], xEdgesMin[i]);
-		if (bWall0) AddEdge(xEdgesMax[i], xEdgesMin[i]);
-	}
-	
-	FORCEINLINE void AddPentagonAC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
-    {
-		AddPentagon(
-			FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
-			cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdge(xEdgesMax[i], FeatureVertexIndex);
-		if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMin[i]);
-	}
-	
-	FORCEINLINE void AddQuadBD(int32 i, const bool bWall0)
-    {
-		AddQuad(xEdgesMin[i], xEdgesMax[i], cornersMax[i + 1], cornersMin[i + 1]);
-		if (bWall0) AddEdge(xEdgesMin[i], xEdgesMax[i]);
-	}
-	
-	FORCEINLINE void AddPentagonBD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
-    {
-		AddPentagon(
-			FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
-			cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdge(xEdgesMin[i], FeatureVertexIndex);
-		if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMax[i]);
-	}
-	
-	FORCEINLINE void AddQuadCD(int32 i, const bool bWall0)
-    {
-		AddQuad(yEdgeMin, cornersMax[i], cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdge(yEdgeMax, yEdgeMin);
-	}
-	
-	FORCEINLINE void AddPentagonCD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
-    {
-		AddPentagon(
-			FeatureVertexIndex, yEdgeMin, cornersMax[i],
-			cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdge(yEdgeMax, FeatureVertexIndex);
-		if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMin);
-	}
-	
-	FORCEINLINE void AddQuadBCToA(int32 i, const bool bWall0)
-    {
-		AddQuad(yEdgeMin, cornersMax[i], cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin);
-	}
-	
-	FORCEINLINE void AddPentagonBCToA(int32 i, int32 FeatureVertexIndex, const bool bWall0)
-    {
-		AddPentagon(
-			FeatureVertexIndex, yEdgeMin, cornersMax[i],
-			cornersMin[i + 1], xEdgesMin[i]);
-		if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
-	}
-	
-	FORCEINLINE void AddQuadBCToD(int32 i, const bool bWall0)
-    {
-		AddQuad(yEdgeMax, cornersMin[i + 1], cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax);
-	}
-	
-	FORCEINLINE void AddPentagonBCToD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
-    {
-		AddPentagon(
-			FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
-			cornersMax[i], xEdgesMax[i]);
-		if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
-	}
-	
-	FORCEINLINE void AddQuadADToB(int32 i, const bool bWall0)
-    {
-		AddQuad(xEdgesMin[i], cornersMin[i], cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i]);
-	}
-	
-	FORCEINLINE void AddPentagonADToB(int32 i, int32 FeatureVertexIndex, const bool bWall0)
-    {
-		AddPentagon(
-			FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
-			cornersMax[i + 1], yEdgeMax);
-		if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
-	}
-	
-	FORCEINLINE void AddQuadADToC(int32 i, const bool bWall0)
-    {
-		AddQuad(xEdgesMax[i], cornersMax[i + 1], cornersMin[i], yEdgeMin);
-		if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i]);
-	}
-	
-	FORCEINLINE void AddPentagonADToC(int32 i, int32 FeatureVertexIndex, const bool bWall0)
-    {
-		AddPentagon(
-			FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
-			cornersMin[i], yEdgeMin);
-		if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
-	}
+	void FillA(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillB(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillC(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillD(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillABC(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillABD(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillACD(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillBCD(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillAB(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillAC(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillBD(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillCD(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillADToB(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillADToC(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillBCToA(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillBCToD(const FMQCCell& cell, const FMQCFeaturePoint& f);
+	void FillABCD(const FMQCCell& cell);
 
 private:
 
-    // Geometry Generation Functions
+    // -- Triangulation Functions
+
+    // Triangulation \wo feature point
+	void AddQuadABCD(int32 i);
+	void AddTriangleA(int32 i, const bool bWall0);
+	void AddTriangleB(int32 i, const bool bWall0);
+	void AddTriangleC(int32 i, const bool bWall0);
+	void AddTriangleD(int32 i, const bool bWall0);
+	void AddPentagonABC(int32 i, const bool bWall0);
+	void AddPentagonABD(int32 i, const bool bWall0);
+	void AddPentagonACD(int32 i, const bool bWall0);
+	void AddPentagonBCD(int32 i, const bool bWall0);
+	void AddQuadAB(int32 i, const bool bWall0);
+	void AddQuadAC(int32 i, const bool bWall0);
+	void AddQuadBD(int32 i, const bool bWall0);
+	void AddQuadCD(int32 i, const bool bWall0);
+	void AddQuadBCToA(int32 i, const bool bWall0);
+	void AddQuadBCToD(int32 i, const bool bWall0);
+	void AddQuadADToB(int32 i, const bool bWall0);
+	void AddQuadADToC(int32 i, const bool bWall0);
+
+    // Triangulation \w feature point
+	void AddQuadA(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1);
+	void AddQuadB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1);
+	void AddQuadC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1);
+	void AddQuadD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1);
+	void AddHexagonABC(int32 i, int32 FeatureVertexIndex, const bool bWall0);
+	void AddHexagonABD(int32 i, int32 FeatureVertexIndex, const bool bWall0);
+	void AddHexagonACD(int32 i, int32 FeatureVertexIndex, const bool bWall0);
+	void AddHexagonBCD(int32 i, int32 FeatureVertexIndex, const bool bWall0);
+	void AddPentagonAB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1);
+	void AddPentagonAC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1);
+	void AddPentagonBD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1);
+	void AddPentagonCD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1);
+	void AddPentagonBCToA(int32 i, int32 FeatureVertexIndex, const bool bWall0);
+	void AddPentagonBCToD(int32 i, int32 FeatureVertexIndex, const bool bWall0);
+	void AddPentagonADToB(int32 i, int32 FeatureVertexIndex, const bool bWall0);
+	void AddPentagonADToC(int32 i, int32 FeatureVertexIndex, const bool bWall0);
+
+    // -- Geometry Generation Functions
 
 	void AddTriangle(uint32 a, uint32 b, uint32 c);
 	void AddQuad(uint32 a, uint32 b, uint32 c, uint32 d);
@@ -721,7 +497,6 @@ private:
 
         if (IndexPtr)
         {
-            //UE_LOG(LogTemp,Warning, TEXT("HASH FOUND: %d %u"), bRequireHash16, *IndexPtr);
             return *IndexPtr;
         }
 
@@ -735,8 +510,6 @@ private:
         }
 
         VertexMap.Emplace(Hash, Index);
-
-        //UE_LOG(LogTemp,Warning, TEXT("NEW INDEX: %d %u %d %s"), bRequireHash16, Hash, Index, *Vertex.ToString());
 
         return Index;
     }
@@ -763,3 +536,525 @@ private:
         }
     }
 };
+
+// -- Corner and Edge Caching
+
+FORCEINLINE void FMQCGridSurface::PrepareCacheForNextCell()
+{
+    yEdgeMin = yEdgeMax;
+}
+
+FORCEINLINE void FMQCGridSurface::PrepareCacheForNextRow()
+{
+    Swap(cornersMin, cornersMax);
+    Swap(xEdgesMin, xEdgesMax);
+}
+
+FORCEINLINE void FMQCGridSurface::CacheFirstCorner(const FMQCVoxel& voxel)
+{
+    uint32 Hash = bRequireHash16
+        ? voxel.GetPositionOnlyHash(Position)
+        : voxel.GetPositionOnlyHash8(Position);
+    cornersMax[0] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
+}
+
+FORCEINLINE void FMQCGridSurface::CacheNextCorner(int32 i, const FMQCVoxel& voxel)
+{
+    uint32 Hash = bRequireHash16
+        ? voxel.GetPositionOnlyHash(Position)
+        : voxel.GetPositionOnlyHash8(Position);
+    cornersMax[i+1] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
+}
+
+FORCEINLINE void FMQCGridSurface::CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+{
+    uint32 Hash = bRequireHash16
+        ? voxel.GetEdgePointHashX(Position)
+        : voxel.GetEdgePointHashX8(Position);
+    FVector2D EdgePoint(voxel.GetXEdgePoint());
+    xEdgesMax[i] = AddVertex2(Hash, EdgePoint, Material);
+    MapEdge(xEdgesMax[i], Hash);
+}
+
+FORCEINLINE void FMQCGridSurface::CacheEdgeXWithWall(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
+{
+    CacheEdgeX(i, voxel, Material);
+}
+
+FORCEINLINE void FMQCGridSurface::CacheEdgeY(const FMQCVoxel& voxel, const FMQCMaterial& Material)
+{
+    uint32 Hash = bRequireHash16
+        ? voxel.GetEdgePointHashY(Position)
+        : voxel.GetEdgePointHashY8(Position);
+    FVector2D EdgePoint(voxel.GetYEdgePoint());
+    yEdgeMax = AddVertex2(Hash, EdgePoint, Material);
+    MapEdge(yEdgeMax, Hash);
+}
+
+FORCEINLINE void FMQCGridSurface::CacheEdgeYWithWall(const FMQCVoxel& voxel, const FMQCMaterial& Material)
+{
+    CacheEdgeY(voxel, Material);
+}
+
+FORCEINLINE int32 FMQCGridSurface::CacheFeaturePoint(const FMQCFeaturePoint& f)
+{
+    check(f.exists);
+    uint32 Hash = bRequireHash16 ? f.GetHash(Position) : f.GetHash8(Position);
+    uint32 FeaturePointIndex = AddVertex2(Hash, f.position, f.Material);
+    MapEdge(FeaturePointIndex, Hash);
+    return FeaturePointIndex;
+}
+
+// -- Fill Functions
+
+FORCEINLINE void FMQCGridSurface::FillA(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        uint32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddQuadA(cell.i, FeaturePointIndex, !cell.c.IsFilled(), !cell.b.IsFilled());
+    }
+    else
+    {
+        AddTriangleA(cell.i, !cell.b.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillB(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddQuadB(cell.i, FeaturePointIndex, !cell.a.IsFilled(), !cell.d.IsFilled());
+    }
+    else
+    {
+        AddTriangleB(cell.i, !cell.a.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillC(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddQuadC(cell.i, FeaturePointIndex, !cell.d.IsFilled(), !cell.a.IsFilled());
+    }
+    else
+    {
+        AddTriangleC(cell.i, !cell.a.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddQuadD(cell.i, FeaturePointIndex, !cell.b.IsFilled(), !cell.c.IsFilled());
+    }
+    else
+    {
+        AddTriangleD(cell.i, !cell.b.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillABC(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddHexagonABC(cell.i, FeaturePointIndex, !cell.d.IsFilled());
+    }
+    else
+    {
+        AddPentagonABC(cell.i, !cell.d.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillABD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddHexagonABD(cell.i, FeaturePointIndex, !cell.c.IsFilled());
+    }
+    else
+    {
+        AddPentagonABD(cell.i, !cell.c.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillACD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddHexagonACD(cell.i, FeaturePointIndex, !cell.b.IsFilled());
+    }
+    else
+    {
+        AddPentagonACD(cell.i, !cell.b.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillBCD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddHexagonBCD(cell.i, FeaturePointIndex, !cell.a.IsFilled());
+    }
+    else
+    {
+        AddPentagonBCD(cell.i, !cell.a.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillAB(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddPentagonAB(cell.i, FeaturePointIndex, !cell.c.IsFilled(), !cell.d.IsFilled());
+    }
+    else
+    {
+        AddQuadAB(cell.i, !cell.c.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillAC(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddPentagonAC(cell.i, FeaturePointIndex, !cell.d.IsFilled(), !cell.b.IsFilled());
+    }
+    else
+    {
+        AddQuadAC(cell.i, !cell.b.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillBD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddPentagonBD(cell.i, FeaturePointIndex, !cell.a.IsFilled(), !cell.c.IsFilled());
+    }
+    else
+    {
+        AddQuadBD(cell.i, !cell.a.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillCD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddPentagonCD(cell.i, FeaturePointIndex, !cell.b.IsFilled(), !cell.a.IsFilled());
+    }
+    else
+    {
+        AddQuadCD(cell.i, !cell.a.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillADToB(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddPentagonADToB(cell.i, FeaturePointIndex, !cell.b.IsFilled());
+    }
+    else
+    {
+        AddQuadADToB(cell.i, !cell.b.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillADToC(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddPentagonADToC(cell.i, FeaturePointIndex, !cell.c.IsFilled());
+    }
+    else
+    {
+        AddQuadADToC(cell.i, !cell.c.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillBCToA(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddPentagonBCToA(cell.i, FeaturePointIndex, !cell.a.IsFilled());
+    }
+    else
+    {
+        AddQuadBCToA(cell.i, !cell.a.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillBCToD(const FMQCCell& cell, const FMQCFeaturePoint& f)
+{
+    if (f.exists)
+    {
+        int32 FeaturePointIndex = CacheFeaturePoint(f);
+        AddPentagonBCToD(cell.i, FeaturePointIndex, !cell.d.IsFilled());
+    }
+    else
+    {
+        AddQuadBCToD(cell.i, !cell.d.IsFilled());
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FillABCD(const FMQCCell& cell)
+{
+    AddQuadABCD(cell.i);
+}
+
+// -- Triangulation Functions
+
+FORCEINLINE void FMQCGridSurface::AddQuadABCD(int32 i)
+{
+    AddQuadCorners(cornersMin[i], cornersMax[i], cornersMax[i + 1], cornersMin[i + 1]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddTriangleA(int32 i, const bool bWall0)
+{
+    AddTriangle(cornersMin[i], yEdgeMin, xEdgesMin[i]);
+    if (bWall0) AddEdge(yEdgeMin, xEdgesMin[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadA(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
+{
+    AddQuad(FeatureVertexIndex, xEdgesMin[i], cornersMin[i], yEdgeMin);
+    if (bWall0) AddEdge(yEdgeMin, FeatureVertexIndex);
+    if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMin[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddTriangleB(int32 i, const bool bWall0)
+{
+    AddTriangle(cornersMin[i + 1], xEdgesMin[i], yEdgeMax);
+    if (bWall0) AddEdge(xEdgesMin[i], yEdgeMax);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
+{
+    AddQuad(FeatureVertexIndex, yEdgeMax, cornersMin[i + 1], xEdgesMin[i]);
+    if (bWall0) AddEdge(xEdgesMin[i], FeatureVertexIndex);
+    if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMax);
+}
+
+FORCEINLINE void FMQCGridSurface::AddTriangleC(int32 i, const bool bWall0)
+{
+    AddTriangle(cornersMax[i], xEdgesMax[i], yEdgeMin);
+    if (bWall0) AddEdge(xEdgesMax[i], yEdgeMin);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
+{
+    AddQuad(FeatureVertexIndex, yEdgeMin, cornersMax[i], xEdgesMax[i]);
+    if (bWall0) AddEdge(xEdgesMax[i], FeatureVertexIndex);
+    if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMin);
+}
+
+FORCEINLINE void FMQCGridSurface::AddTriangleD(int32 i, const bool bWall0)
+{
+    AddTriangle(cornersMax[i + 1], yEdgeMax, xEdgesMax[i]);
+    if (bWall0) AddEdge(yEdgeMax, xEdgesMax[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
+{
+    AddQuad(FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1], yEdgeMax);
+    if (bWall0) AddEdge(yEdgeMax, FeatureVertexIndex);
+    if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMax[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonABC(int32 i, const bool bWall0)
+{
+    AddPentagon(
+        cornersMin[i], cornersMax[i], xEdgesMax[i],
+        yEdgeMax, cornersMin[i + 1]);
+    if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax);
+}
+
+FORCEINLINE void FMQCGridSurface::AddHexagonABC(int32 i, int32 FeatureVertexIndex, const bool bWall0)
+{
+    AddHexagon(
+        FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
+        cornersMin[i], cornersMax[i], xEdgesMax[i]);
+    if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonABD(int32 i, const bool bWall0)
+{
+    AddPentagon(
+        cornersMin[i + 1], cornersMin[i], yEdgeMin,
+        xEdgesMax[i], cornersMax[i + 1]);
+    if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddHexagonABD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
+{
+    AddHexagon(
+        FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
+        cornersMin[i + 1], cornersMin[i], yEdgeMin);
+    if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonACD(int32 i, const bool bWall0)
+{
+    AddPentagon(
+        cornersMax[i], cornersMax[i + 1], yEdgeMax,
+        xEdgesMin[i], cornersMin[i]);
+    if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddHexagonACD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
+{
+    AddHexagon(
+        FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
+        cornersMax[i], cornersMax[i + 1], yEdgeMax);
+    if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonBCD(int32 i, const bool bWall0)
+{
+    AddPentagon(
+        cornersMax[i + 1], cornersMin[i + 1], xEdgesMin[i],
+        yEdgeMin, cornersMax[i]);
+    if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin);
+}
+
+FORCEINLINE void FMQCGridSurface::AddHexagonBCD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
+{
+    AddHexagon(
+        FeatureVertexIndex, yEdgeMin, cornersMax[i],
+        cornersMax[i + 1], cornersMin[i + 1], xEdgesMin[i]);
+    if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadAB(int32 i, const bool bWall0)
+{
+    AddQuad(cornersMin[i], yEdgeMin, yEdgeMax, cornersMin[i + 1]);
+    if (bWall0) AddEdge(yEdgeMin, yEdgeMax);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonAB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
+{
+    AddPentagon(
+        FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
+        cornersMin[i], yEdgeMin);
+    if (bWall0) AddEdge(yEdgeMin, FeatureVertexIndex);
+    if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMax);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadAC(int32 i, const bool bWall0)
+{
+    AddQuad(cornersMin[i], cornersMax[i], xEdgesMax[i], xEdgesMin[i]);
+    if (bWall0) AddEdge(xEdgesMax[i], xEdgesMin[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonAC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
+{
+    AddPentagon(
+        FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
+        cornersMax[i], xEdgesMax[i]);
+    if (bWall0) AddEdge(xEdgesMax[i], FeatureVertexIndex);
+    if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMin[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadBD(int32 i, const bool bWall0)
+{
+    AddQuad(xEdgesMin[i], xEdgesMax[i], cornersMax[i + 1], cornersMin[i + 1]);
+    if (bWall0) AddEdge(xEdgesMin[i], xEdgesMax[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonBD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
+{
+    AddPentagon(
+        FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
+        cornersMin[i + 1], xEdgesMin[i]);
+    if (bWall0) AddEdge(xEdgesMin[i], FeatureVertexIndex);
+    if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMax[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadCD(int32 i, const bool bWall0)
+{
+    AddQuad(yEdgeMin, cornersMax[i], cornersMax[i + 1], yEdgeMax);
+    if (bWall0) AddEdge(yEdgeMax, yEdgeMin);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonCD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
+{
+    AddPentagon(
+        FeatureVertexIndex, yEdgeMin, cornersMax[i],
+        cornersMax[i + 1], yEdgeMax);
+    if (bWall0) AddEdge(yEdgeMax, FeatureVertexIndex);
+    if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMin);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadBCToA(int32 i, const bool bWall0)
+{
+    AddQuad(yEdgeMin, cornersMax[i], cornersMin[i + 1], xEdgesMin[i]);
+    if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonBCToA(int32 i, int32 FeatureVertexIndex, const bool bWall0)
+{
+    AddPentagon(
+        FeatureVertexIndex, yEdgeMin, cornersMax[i],
+        cornersMin[i + 1], xEdgesMin[i]);
+    if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadBCToD(int32 i, const bool bWall0)
+{
+    AddQuad(yEdgeMax, cornersMin[i + 1], cornersMax[i], xEdgesMax[i]);
+    if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonBCToD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
+{
+    AddPentagon(
+        FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
+        cornersMax[i], xEdgesMax[i]);
+    if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadADToB(int32 i, const bool bWall0)
+{
+    AddQuad(xEdgesMin[i], cornersMin[i], cornersMax[i + 1], yEdgeMax);
+    if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonADToB(int32 i, int32 FeatureVertexIndex, const bool bWall0)
+{
+    AddPentagon(
+        FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
+        cornersMax[i + 1], yEdgeMax);
+    if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadADToC(int32 i, const bool bWall0)
+{
+    AddQuad(xEdgesMax[i], cornersMax[i + 1], cornersMin[i], yEdgeMin);
+    if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i]);
+}
+
+FORCEINLINE void FMQCGridSurface::AddPentagonADToC(int32 i, int32 FeatureVertexIndex, const bool bWall0)
+{
+    AddPentagon(
+        FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
+        cornersMin[i], yEdgeMin);
+    if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
+}

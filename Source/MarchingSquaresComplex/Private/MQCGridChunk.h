@@ -32,9 +32,8 @@
 #include "MQCVoxel.h"
 #include "MQCCell.h"
 #include "MQCFeaturePoint.h"
-#include "MQCGridRenderer.h"
-#include "MQCGridSurface.h"
 #include "MQCVoxelTypes.h"
+#include "MQCGeometryTypes.h"
 
 class FMQCGridSurface;
 class FMQCStencil;
@@ -76,7 +75,7 @@ private:
 
     FMQCCell cell;
 
-    TIndirectArray<FMQCGridRenderer> Renderers;
+    TIndirectArray<FMQCGridSurface> Surfaces;
     TArray<FMQCVoxel> voxels;
 
     FIntPoint Position;
@@ -93,286 +92,30 @@ private:
     FMQCVoxel dummyY;
     FMQCVoxel dummyT;
 
-    void EnqueueTask(const TFunction<void()>& Task);
+    void CreateSurfaces(const FMQCChunkConfig& Config);
 
-    void CreateRenderers(const FMQCChunkConfig& Config);
+    // -- Internal Triangulation Interface
 
     void TriangulateInternal();
     void SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
     void SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
     void SetMaterialsInternal(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void EnqueueTask(const TFunction<void()>& Task);
 
-    // Triangulation Functions
+    // -- Geometry Cache Functions
 
     void FillFirstRowCache();
     void SwapRowCaches();
     void CacheFirstCorner(const FMQCVoxel& voxel);
     void CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const FMQCVoxel& xMax);
-    void CacheNextMiddleEdge(int32 i, const FMQCVoxel& yMin, const FMQCVoxel& yMax);
+    void CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& yMax);
 
-    FORCEINLINE void CacheFirstMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& yMax)
-    {
-        CacheNextMiddleEdge(-1, yMin, yMax);
-    }
+    // -- Triangulation Functions
     
     void TriangulateCellRows();
     void TriangulateGapRow();
     void TriangulateGapCell(int32 i);
-
     void TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel& b, const FMQCVoxel& c, const FMQCVoxel& d);
-
-public:
-
-    FMQCGridChunk();
-    ~FMQCGridChunk();
-
-    void Configure(const FMQCChunkConfig& Config);
-    void ResetVoxels();
-
-    void SetNeighbourX(const FMQCGridChunk* InNeighbour);
-    void SetNeighbourY(const FMQCGridChunk* InNeighbour);
-    void SetNeighbourXY(const FMQCGridChunk* InNeighbour);
-
-    void Triangulate();
-    void SetStates(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
-    void SetCrossings(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
-    void SetMaterials(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
-
-    void TriangulateAsync();
-    void SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
-    void SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
-    void SetMaterialsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
-
-    FMQCGridSurface& GetSurface(int32 StateIndex);
-    const FMQCGridSurface& GetSurface(int32 StateIndex) const;
-
-    void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
-    FPMUMeshSection* GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material);
-
-    FORCEINLINE FIntPoint GetOffsetId() const
-    {
-        return Position;
-    }
-
-    FORCEINLINE int32 GetVoxelResolution() const
-    {
-        return VoxelResolution;
-    }
-
-    FORCEINLINE bool HasRenderer(int32 RendererIndex) const
-    {
-        return Renderers.IsValidIndex(RendererIndex);
-    }
-
-    FORCEINLINE FPMUMeshSection* GetSurfaceSection(int32 StateIndex)
-    {
-        return HasRenderer(StateIndex)
-            ? &Renderers[StateIndex].GetSurface().GetSurfaceSection()
-            : nullptr;
-    }
-
-    FORCEINLINE FPMUMeshSection* GetExtrudeSection(int32 StateIndex)
-    {
-        return HasRenderer(StateIndex)
-            ? &Renderers[StateIndex].GetSurface().GetExtrudeSection()
-            : nullptr;
-    }
-
-    FORCEINLINE FPMUMeshSection* GetEdgeSection(int32 StateIndex)
-    {
-        return HasRenderer(StateIndex)
-            ? &Renderers[StateIndex].GetSurface().GetEdgeSection()
-            : nullptr;
-    }
-
-    FORCEINLINE int32 AppendEdgeSyncData(int32 StateIndex, TArray<FMQCEdgeSyncData>& OutSyncData) const
-    {
-        if (HasRenderer(StateIndex))
-        {
-            int32 StartIndex = OutSyncData.Num();
-            Renderers[StateIndex].GetSurface().AppendEdgeSyncData(OutSyncData);
-            return StartIndex;
-        }
-        else
-        {
-            return -1;
-        }
-    }
-
-    FORCEINLINE void RemapEdgeUVs(int32 StateIndex, int32 EdgeListId, float UVStart, float UVEnd)
-    {
-        if (HasRenderer(StateIndex))
-        {
-            Renderers[StateIndex].GetSurface().RemapEdgeUVs(EdgeListId, UVStart, UVEnd);
-        }
-    }
-
-    FORCEINLINE void WaitForAsyncTask()
-    {
-        if (OutstandingTask.IsValid())
-        {
-            OutstandingTask.Wait();
-        }
-    }
-
-private:
-
-    FORCEINLINE void CreateVoxel(int32 i, int32 x, int32 y)
-    {
-        voxels[i].Set(x, y);
-    }
-    
-    FORCEINLINE void FillA(const FMQCFeaturePoint& f)
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillA(cell, f);
-        }
-    }
-
-    FORCEINLINE void FillB(const FMQCFeaturePoint& f)
-    {
-        if (cell.b.IsFilled())
-        {
-            Renderers[cell.b.voxelState].FillB(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillC(const FMQCFeaturePoint& f)
-    {
-        if (cell.c.IsFilled())
-        {
-            Renderers[cell.c.voxelState].FillC(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillD(const FMQCFeaturePoint& f)
-    {
-        if (cell.d.IsFilled())
-        {
-            Renderers[cell.d.voxelState].FillD(cell, f);
-        }
-    }
-
-    FORCEINLINE void FillABC(const FMQCFeaturePoint& f)
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillABC(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillABD(const FMQCFeaturePoint& f)
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillABD(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillACD(const FMQCFeaturePoint& f)
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillACD(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillBCD(const FMQCFeaturePoint& f)
-    {
-        if (cell.b.IsFilled())
-        {
-            Renderers[cell.b.voxelState].FillBCD(cell, f);
-        }
-    }
-
-    FORCEINLINE void FillAB(const FMQCFeaturePoint& f)
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillAB(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillAC(const FMQCFeaturePoint& f)
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillAC(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillBD(const FMQCFeaturePoint& f)
-    {
-        if (cell.b.IsFilled())
-        {
-            Renderers[cell.b.voxelState].FillBD(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillCD(const FMQCFeaturePoint& f)
-    {
-        if (cell.c.IsFilled())
-        {
-            Renderers[cell.c.voxelState].FillCD(cell, f);
-        }
-    }
-
-    FORCEINLINE void FillADToB(const FMQCFeaturePoint& f)
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillADToB(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillADToC(const FMQCFeaturePoint& f)
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillADToC(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillBCToA(const FMQCFeaturePoint& f)
-    {
-        if (cell.b.IsFilled())
-        {
-            Renderers[cell.b.voxelState].FillBCToA(cell, f);
-        }
-    }
-    
-    FORCEINLINE void FillBCToD(const FMQCFeaturePoint& f)
-    {
-        if (cell.b.IsFilled())
-        {
-            Renderers[cell.b.voxelState].FillBCToD(cell, f);
-        }
-    }
-
-    FORCEINLINE void FillABCD()
-    {
-        if (cell.a.IsFilled())
-        {
-            Renderers[cell.a.voxelState].FillABCD(cell);
-        }
-    }
-
-    FORCEINLINE void FillJoinedCorners(
-        const FMQCFeaturePoint& fA,
-        const FMQCFeaturePoint& fB,
-        const FMQCFeaturePoint& fC,
-        const FMQCFeaturePoint& fD
-        )
-    {
-        FMQCFeaturePoint point = cell.GetFeatureAverage(fA, fB, fC, fD);
-        FillA(point);
-        FillB(point);
-        FillC(point);
-        FillD(point);
-    }
-
-    // TRIANGULATION FUNCTIONS
 
     void Triangulate0000();
     void Triangulate0001();
@@ -389,4 +132,87 @@ private:
     void Triangulate0112();
     void Triangulate0120();
     void Triangulate0123();
+
+    // -- Fill Functions
+
+    void FillA(const FMQCFeaturePoint& f);
+    void FillB(const FMQCFeaturePoint& f);
+    void FillC(const FMQCFeaturePoint& f);
+    void FillD(const FMQCFeaturePoint& f);
+    void FillABC(const FMQCFeaturePoint& f);
+    void FillABD(const FMQCFeaturePoint& f);
+    void FillACD(const FMQCFeaturePoint& f);
+    void FillBCD(const FMQCFeaturePoint& f);
+    void FillAB(const FMQCFeaturePoint& f);
+    void FillAC(const FMQCFeaturePoint& f);
+    void FillBD(const FMQCFeaturePoint& f);
+    void FillCD(const FMQCFeaturePoint& f);
+    void FillADToB(const FMQCFeaturePoint& f);
+    void FillADToC(const FMQCFeaturePoint& f);
+    void FillBCToA(const FMQCFeaturePoint& f);
+    void FillBCToD(const FMQCFeaturePoint& f);
+    void FillABCD();
+    void FillJoinedCorners(
+        const FMQCFeaturePoint& fA,
+        const FMQCFeaturePoint& fB,
+        const FMQCFeaturePoint& fC,
+        const FMQCFeaturePoint& fD
+        );
+
+public:
+
+    FMQCGridChunk();
+    ~FMQCGridChunk();
+
+    void Configure(const FMQCChunkConfig& Config);
+    void ResetVoxels();
+
+    void SetNeighbourX(const FMQCGridChunk* InNeighbour);
+    void SetNeighbourY(const FMQCGridChunk* InNeighbour);
+    void SetNeighbourXY(const FMQCGridChunk* InNeighbour);
+
+    FORCEINLINE FIntPoint GetOffsetId() const
+    {
+        return Position;
+    }
+
+    FORCEINLINE int32 GetVoxelResolution() const
+    {
+        return VoxelResolution;
+    }
+
+    FORCEINLINE bool HasSurface(int32 StateIndex) const
+    {
+        return Surfaces.IsValidIndex(StateIndex);
+    }
+
+    FORCEINLINE void WaitForAsyncTask()
+    {
+        if (OutstandingTask.IsValid())
+        {
+            OutstandingTask.Wait();
+        }
+    }
+
+    FPMUMeshSection* GetSurfaceSection(int32 StateIndex);
+    FPMUMeshSection* GetExtrudeSection(int32 StateIndex);
+    FPMUMeshSection* GetEdgeSection(int32 StateIndex);
+    FPMUMeshSection* GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material);
+
+    int32 AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData, int32 StateIndex) const;
+    void RemapEdgeUVs(int32 StateIndex, int32 EdgeListId, float UVStart, float UVEnd);
+    void GetConnectedEdgePoints(TArray<FMQCEdgePoint>& OutPoints, int32 StateIndex, const FMQCEdgeSyncData& SyncData, float DistanceOffset) const;
+    void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
+
+    // Public Triangulation Interface
+
+    void Triangulate();
+    void SetStates(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetCrossings(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetMaterials(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+
+    void TriangulateAsync();
+    void SetStatesAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
+    void SetMaterialsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
 };
