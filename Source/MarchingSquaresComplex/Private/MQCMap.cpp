@@ -35,50 +35,41 @@
 #include "Mesh/Simplifier/PMUMeshSimplifier.h"
 
 #include "MQCGridChunk.h"
+#include "MQCMaterialUtility.h"
 
-bool FMQCMap::HasChunk(int32 ChunkIndex) const
+FMQCMap::FMQCMap()
+    : VoxelResolution(8)
+    , ChunkResolution(2)
+    , MaxFeatureAngle(135.f)
+    , MaxParallelAngle(8.f)
+    , ExtrusionHeight(-1.f)
+    , MaterialType(EMQCMaterialType::MT_COLOR)
 {
-    return chunks.IsValidIndex(ChunkIndex);
 }
 
-int32 FMQCMap::GetChunkCount() const
+FMQCMap::~FMQCMap()
 {
-    return chunks.Num();
+    Clear();
 }
 
-const FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex) const
+FMQCMaterial FMQCMap::GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor)
 {
-    return *chunks[ChunkIndex];
-}
-
-FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex)
-{
-    return *chunks[ChunkIndex];
+    return UMQCMaterialUtility::GetTypedInputMaterial(MaterialType, MaterialIndex, MaterialColor);
 }
 
 void FMQCMap::Triangulate()
 {
-    for (FMQCGridChunk* Chunk : chunks)
+    for (FMQCGridChunk* Chunk : Chunks)
     {
         Chunk->Triangulate();
     }
 
     ResolveChunkEdgeData();
-
-    //TSet<FMQCMaterialBlend> MaterialSet;
-    //for (FMQCGridChunk* Chunk : chunks)
-    //{
-    //    Chunk->GetMaterialSet(MaterialSet);
-    //}
-    //for (const FMQCMaterialBlend& M : MaterialSet)
-    //{
-    //    UE_LOG(LogTemp,Warning, TEXT("M: %s"), *M.ToString());
-    //}
 }
 
 void FMQCMap::TriangulateAsync()
 {
-    for (FMQCGridChunk* Chunk : chunks)
+    for (FMQCGridChunk* Chunk : Chunks)
     {
         Chunk->TriangulateAsync();
     }
@@ -88,7 +79,7 @@ void FMQCMap::TriangulateAsync()
 
 void FMQCMap::WaitForAsyncTask()
 {
-    for (FMQCGridChunk* Chunk : chunks)
+    for (FMQCGridChunk* Chunk : Chunks)
     {
         Chunk->WaitForAsyncTask();
     }
@@ -123,9 +114,9 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
     TArray<TDoubleLinkedList<FMQCEdgeSyncData>> EdgeSyncLists;
 
     // Gather edge sync data from all chunks
-    for (int32 ChunkIndex=0; ChunkIndex<chunks.Num(); ++ChunkIndex)
+    for (int32 ChunkIndex=0; ChunkIndex<Chunks.Num(); ++ChunkIndex)
     {
-        FMQCGridChunk& Chunk(*chunks[ChunkIndex]);
+        FMQCGridChunk& Chunk(*Chunks[ChunkIndex]);
 
         // Get chunk edge sync data
         int32 SyncOffetIndex = Chunk.AppendEdgeSyncData(StateIndex, SyncCandidates);
@@ -255,118 +246,121 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
 #endif
 }
 
-void FMQCMap::InitializeSettings()
+void FMQCMap::InitializeSettings(const FMQCMapConfig& MapConfig)
 {
     // Invalid resolution, abort
-    if (chunkResolution < 1 || voxelResolution < 1)
+    if (MapConfig.ChunkResolution < 1 || MapConfig.VoxelResolution < 1)
     {
         return;
     }
 
     // Initialize map settings
 
-    check(chunkResolution > 0);
-    check(voxelResolution > 0);
+    VoxelResolution = MapConfig.VoxelResolution;
+    ChunkResolution = MapConfig.ChunkResolution;
+    MaxFeatureAngle = MapConfig.MaxFeatureAngle;
+    MaxParallelAngle = MapConfig.MaxParallelAngle;
+    ExtrusionHeight = MapConfig.ExtrusionHeight;
+    MaterialType = MapConfig.MaterialType;
+    SurfaceStates = MapConfig.States;
+
+    check(ChunkResolution > 0);
+    check(VoxelResolution > 0);
     check(! bRequireFinalizeAsync);
 
     // Create uninitialized chunks
 
     Clear();
 
-    chunks.SetNumUninitialized(chunkResolution * chunkResolution);
+    Chunks.SetNumUninitialized(ChunkResolution * ChunkResolution);
 
-    for (int32 i=0; i<chunks.Num(); ++i)
+    for (int32 i=0; i<Chunks.Num(); ++i)
     {
-        chunks[i] = new FMQCGridChunk;
+        Chunks[i] = new FMQCGridChunk;
     }
 }
 
-void FMQCMap::InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCChunkConfig& ChunkConfig)
+void FMQCMap::InitializeChunk(int32 i, int32 x, int32 y)
 {
-    check(chunks.IsValidIndex(i));
+    check(Chunks.IsValidIndex(i));
 
     // Initialize chunk
 
-    FIntPoint chunkPosition(x * voxelResolution, y * voxelResolution);
+    FIntPoint ChunkPosition(x * VoxelResolution, y * VoxelResolution);
 
+    FMQCChunkConfig ChunkConfig;
     ChunkConfig.States = SurfaceStates;
-    ChunkConfig.Position = chunkPosition;
-    ChunkConfig.MapSize = GetVoxelCount();
-    ChunkConfig.VoxelResolution = voxelResolution;
+    ChunkConfig.Position = ChunkPosition;
+    ChunkConfig.MapSize = GetVoxelDimension();
+    ChunkConfig.VoxelResolution = VoxelResolution;
     ChunkConfig.MaxFeatureAngle = MaxFeatureAngle;
     ChunkConfig.MaxParallelAngle = MaxParallelAngle;
-    ChunkConfig.ExtrusionHeight = extrusionHeight;
+    ChunkConfig.ExtrusionHeight = ExtrusionHeight;
     ChunkConfig.MaterialType = MaterialType;
 
     // Link chunk neighbours
 
-    FMQCGridChunk& Chunk(*chunks[i]);
+    FMQCGridChunk& Chunk(*Chunks[i]);
 
     if (x > 0)
     {
-        chunks[i - 1]->xNeighbor = &Chunk;
+        Chunks[i - 1]->SetNeighbourX(&Chunk);
     }
 
     if (y > 0)
     {
-        chunks[i - chunkResolution]->yNeighbor = &Chunk;
+        Chunks[i - ChunkResolution]->SetNeighbourY(&Chunk);
 
         if (x > 0)
         {
-            chunks[i - chunkResolution - 1]->xyNeighbor = &Chunk;
+            Chunks[i - ChunkResolution - 1]->SetNeighbourXY(&Chunk);
         }
     }
-}
 
-void FMQCMap::InitializeChunk(int32 i, const FMQCChunkConfig& ChunkConfig)
-{
-    check(chunks.IsValidIndex(i));
-    chunks[i]->Configure(ChunkConfig);
+    Chunk.Configure(ChunkConfig);
 }
 
 void FMQCMap::InitializeChunks()
 {
-    check(chunks.Num() == (chunkResolution * chunkResolution));
+    check(Chunks.Num() == (ChunkResolution * ChunkResolution));
 
-    for (int32 y=0, i=0; y<chunkResolution; y++)
-    for (int32 x=0     ; x<chunkResolution; x++, i++)
+    for (int32 y=0, i=0; y<ChunkResolution; y++)
+    for (int32 x=0     ; x<ChunkResolution; x++, i++)
     {
-        FMQCChunkConfig ChunkConfig;
-        InitializeChunkSettings(i, x, y, ChunkConfig);
-        InitializeChunk(i, ChunkConfig);
+        InitializeChunk(i, x, y);
     }
 }
 
-void FMQCMap::Initialize()
+void FMQCMap::Initialize(const FMQCMapConfig& MapConfig)
 {
-    InitializeSettings();
+    InitializeSettings(MapConfig);
     InitializeChunks();
 }
 
 void FMQCMap::Clear()
 {
-    for (FMQCGridChunk* Chunk : chunks)
+    for (FMQCGridChunk* Chunk : Chunks)
     {
         delete Chunk;
     }
 
-    chunks.Empty();
+    Chunks.Empty();
 }
 
 void FMQCMap::ResetChunkStates(const TArray<int32>& ChunkIndices)
 {
     for (int32 i : ChunkIndices)
     {
-        if (chunks.IsValidIndex(i))
+        if (Chunks.IsValidIndex(i))
         {
-            chunks[i]->ResetVoxels();
+            Chunks[i]->ResetVoxels();
         }
     }
 }
 
 void FMQCMap::ResetAllChunkStates()
 {
-    for (FMQCGridChunk* Chunk : chunks)
+    for (FMQCGridChunk* Chunk : Chunks)
     {
         Chunk->ResetVoxels();
     }
@@ -430,45 +424,11 @@ void FMQCMap::GetEdgeList(TArray<FMQCEdgePointList>& OutLists, int32 StateIndex)
 
 // ----------------------------------------------------------------------------
 
-UMQCMapRef::UMQCMapRef()
-    : VoxelResolution(8)
-    , ChunkResolution(2)
-    , MaterialType(EMQCMaterialType::MT_COLOR)
-    , ExtrusionHeight(-1.f)
-    , MaxFeatureAngle(135.f)
-    , MaxParallelAngle(8.f)
-{
-}
-
-UMQCMapRef::~UMQCMapRef()
-{
-}
-
 // MAP SETTINGS FUNCTIONS
-
-void UMQCMapRef::ApplyMapSettings()
-{
-    VoxelMap.voxelResolution = VoxelResolution;
-    VoxelMap.chunkResolution = ChunkResolution;
-    VoxelMap.extrusionHeight = ExtrusionHeight;
-
-    VoxelMap.MaterialType = MaterialType;
-
-    VoxelMap.MaxFeatureAngle = MaxFeatureAngle;
-    VoxelMap.MaxParallelAngle = MaxParallelAngle;
-
-    VoxelMap.SurfaceStates = SurfaceStates;
-}
 
 void UMQCMapRef::InitializeVoxelMap()
 {
-    ApplyMapSettings();
-    VoxelMap.Initialize();
-}
-
-FMQCMaterial UMQCMapRef::GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor)
-{
-    return UMQCMaterialUtility::GetTypedInputMaterial(MaterialType, MaterialIndex, MaterialColor);
+    VoxelMap.Initialize(MapConfig);
 }
 
 // TRIANGULATION FUNCTIONS
@@ -519,8 +479,8 @@ void UMQCMapRef::ResetAllChunkStates()
 FVector UMQCMapRef::GetChunkPosition(int32 ChunkIndex) const
 {
     return HasChunk(ChunkIndex)
-        ? FVector(VoxelMap.GetChunk(ChunkIndex).Position, 0.f)
-        : FVector();
+        ? FVector(VoxelMap.GetChunk(ChunkIndex).GetOffsetId(), 0.f)
+        : FVector(ForceInitToZero);
 }
 
 FPMUMeshSectionRef UMQCMapRef::GetSurfaceSection(int32 ChunkIndex, int32 StateIndex)
@@ -589,12 +549,6 @@ void UMQCMapRef::GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, i
 
 AMQCMap::AMQCMap()
     : MapRef(nullptr)
-    , VoxelResolution(8)
-    , ChunkResolution(2)
-    , MaterialType(EMQCMaterialType::MT_COLOR)
-    , ExtrusionHeight(-1.f)
-    , MaxFeatureAngle(135.f)
-    , MaxParallelAngle(8.f)
 {
     PrimaryActorTick.bCanEverTick = true;
 
@@ -667,13 +621,14 @@ void AMQCMap::Initialize()
     }
 
     // Apply settings and initialize map
-    MapRef->VoxelResolution = VoxelResolution;
-    MapRef->ChunkResolution = ChunkResolution;
-    MapRef->MaterialType = MaterialType;
-    MapRef->SurfaceStates = SurfaceStates;
-    MapRef->ExtrusionHeight = ExtrusionHeight;
-    MapRef->MaxFeatureAngle = MaxFeatureAngle;
-    MapRef->MaxParallelAngle = MaxParallelAngle;
+    //MapRef->VoxelResolution = VoxelResolution;
+    //MapRef->ChunkResolution = ChunkResolution;
+    //MapRef->MaxFeatureAngle = MaxFeatureAngle;
+    //MapRef->MaxParallelAngle = MaxParallelAngle;
+    //MapRef->ExtrusionHeight = ExtrusionHeight;
+    //MapRef->MaterialType = MaterialType;
+    //MapRef->SurfaceStates = SurfaceStates;
+    MapRef->MapConfig = MapConfig;
     MapRef->InitializeVoxelMap();
 
     // Set mesh anchor offset

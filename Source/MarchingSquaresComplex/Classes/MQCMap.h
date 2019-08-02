@@ -44,60 +44,62 @@ class MARCHINGSQUARESCOMPLEX_API FMQCMap
 {
 private:
 
-    friend class FMQCStencil;
-
     typedef TArray<FMQCEdgeSyncData> FEdgeSyncList;
     typedef TArray<FEdgeSyncList> FStateEdgeSyncList;
 
-    TArray<FMQCGridChunk*> chunks;
+    int32 VoxelResolution;
+    int32 ChunkResolution;
+    float MaxFeatureAngle;
+    float MaxParallelAngle;
+    float ExtrusionHeight;
+    EMQCMaterialType MaterialType;
+    TArray<FMQCSurfaceState> SurfaceStates;
+
+    TArray<FMQCGridChunk*> Chunks;
     TArray<FStateEdgeSyncList> EdgeSyncGroups;
 
     bool bRequireFinalizeAsync = false;
 
-    void InitializeSettings();
-    void InitializeChunkSettings(int32 i, int32 x, int32 y, FMQCChunkConfig& ChunkConfig);
-    void InitializeChunk(int32 i, const FMQCChunkConfig& ChunkConfig);
+    void InitializeSettings(const FMQCMapConfig& MapConfig);
+    void InitializeChunk(int32 i, int32 x, int32 y);
     void InitializeChunks();
     void ResolveChunkEdgeData();
     void ResolveChunkEdgeData(int32 StateIndex);
 
 public:
 
-    FMQCMap() = default;
+    FMQCMap();
+    ~FMQCMap();
 
-    ~FMQCMap()
-    {
-        Clear();
-    }
-
-    float MaxFeatureAngle = 135.f;
-    float MaxParallelAngle = 8.f;
-
-    int32 voxelResolution = 8;
-    int32 chunkResolution = 2;
-    float extrusionHeight = -1.f;
-
-    EMQCMaterialType MaterialType;
-
-    TArray<FMQCSurfaceState> SurfaceStates;
-
-    void Initialize();
+    void Initialize(const FMQCMapConfig& MapConfig);
     void Clear();
 
-    FORCEINLINE EMQCMaterialType GetMaterialType() const
+    FORCEINLINE int32 GetVoxelResolution() const
     {
-        return MaterialType;
+        return VoxelResolution;
     }
 
-    FORCEINLINE int32 GetVoxelCount() const
+    FORCEINLINE int32 GetChunkResolution() const
     {
-        return chunkResolution * voxelResolution;
+        return ChunkResolution;
+    }
+
+    FORCEINLINE int32 GetVoxelDimension() const
+    {
+        return ChunkResolution * VoxelResolution;
     }
 
     FORCEINLINE int32 GetStateCount() const
     {
         return SurfaceStates.Num();
     }
+
+    FORCEINLINE EMQCMaterialType GetMaterialType() const
+    {
+        return MaterialType;
+    }
+
+    FMQCMaterial GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor);
 
     // CHUNK FUNCTIONS
 
@@ -130,29 +132,8 @@ class MARCHINGSQUARESCOMPLEX_API UMQCMapRef : public UObject
 
 public:
 
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
-    int32 VoxelResolution;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
-    int32 ChunkResolution;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    EMQCMaterialType MaterialType;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    TArray<FMQCSurfaceState> SurfaceStates;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    float ExtrusionHeight;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    float MaxFeatureAngle;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    float MaxParallelAngle;
-
-    UMQCMapRef();
-    ~UMQCMapRef();
+    UPROPERTY(EditAnywhere, Category="Map Settings")
+    FMQCMapConfig MapConfig;
 
     FORCEINLINE FMQCMap& GetMap()
     {
@@ -164,8 +145,10 @@ public:
         return VoxelMap;
     }
 
-    void ApplyMapSettings();
-    FMQCMaterial GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor);
+    FORCEINLINE FMQCMaterial GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor)
+    {
+        return VoxelMap.GetTypedMaterial(MaterialIndex, MaterialColor);
+    }
 
     UFUNCTION(BlueprintCallable)
     bool IsInitialized() const;
@@ -195,22 +178,25 @@ public:
     void ResetAllChunkStates();
 
     UFUNCTION(BlueprintCallable)
-    float GetMapSize() const;
+    int32 GetVoxelDimension() const;
+
+    UFUNCTION(BlueprintCallable)
+    FIntPoint GetVoxelDimension2D() const;
+
+    UFUNCTION(BlueprintCallable)
+    float GetVectorDimension() const;
+
+    UFUNCTION(BlueprintCallable)
+    FVector2D GetVectorDimension2D() const;
 
     UFUNCTION(BlueprintCallable)
     FVector2D GetCenter() const;
 
     UFUNCTION(BlueprintCallable)
-    FVector2D GetMapDimension() const;
-
-    UFUNCTION(BlueprintCallable)
-    int32 GetVoxelCount() const;
-
-    UFUNCTION(BlueprintCallable)
-    FIntPoint GetVoxelDimension() const;
-
-    UFUNCTION(BlueprintCallable)
     FVector2D GetMeshInverseScale() const;
+
+    UFUNCTION(BlueprintCallable)
+    int32 GetStateCount() const;
 
     UFUNCTION(BlueprintCallable)
     bool HasChunk(int32 ChunkIndex) const;
@@ -263,26 +249,8 @@ protected:
 
 public:
 
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
-    int32 VoxelResolution;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite, meta=(ClampMin="1", UIMin="1"))
-    int32 ChunkResolution;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    EMQCMaterialType MaterialType;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    TArray<FMQCSurfaceState> SurfaceStates;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    float ExtrusionHeight;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    float MaxFeatureAngle;
-
-    UPROPERTY(EditAnywhere, Category="Map Settings", BlueprintReadWrite)
-    float MaxParallelAngle;
+    UPROPERTY(EditAnywhere, Category="Map Settings")
+    FMQCMapConfig MapConfig;
 
     AMQCMap();
     ~AMQCMap();
@@ -335,6 +303,28 @@ public:
     void SimplifyMesh(int32 StateIndex, FPMUMeshSimplifierOptions Options);
 };
 
+// Inlines
+
+FORCEINLINE bool FMQCMap::HasChunk(int32 ChunkIndex) const
+{
+    return Chunks.IsValidIndex(ChunkIndex);
+}
+
+FORCEINLINE int32 FMQCMap::GetChunkCount() const
+{
+    return Chunks.Num();
+}
+
+FORCEINLINE const FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex) const
+{
+    return *Chunks[ChunkIndex];
+}
+
+FORCEINLINE FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex)
+{
+    return *Chunks[ChunkIndex];
+}
+
 // Blueprint Inlines
 
 FORCEINLINE_DEBUGGABLE bool UMQCMapRef::IsInitialized() const
@@ -342,52 +332,59 @@ FORCEINLINE_DEBUGGABLE bool UMQCMapRef::IsInitialized() const
     return HasChunk(0);
 }
 
-FORCEINLINE_DEBUGGABLE float UMQCMapRef::GetMapSize() const
+FORCEINLINE_DEBUGGABLE int32 UMQCMapRef::GetVoxelDimension() const
 {
-    return VoxelMap.voxelResolution * VoxelMap.chunkResolution;
+    return VoxelMap.GetVoxelDimension();
+}
+
+FORCEINLINE_DEBUGGABLE FIntPoint UMQCMapRef::GetVoxelDimension2D() const
+{
+    return FIntPoint(
+        VoxelMap.GetVoxelDimension(),
+        VoxelMap.GetVoxelDimension()
+        );
+}
+
+FORCEINLINE_DEBUGGABLE float UMQCMapRef::GetVectorDimension() const
+{
+    return VoxelMap.GetVoxelDimension();
+}
+
+FORCEINLINE_DEBUGGABLE FVector2D UMQCMapRef::GetVectorDimension2D() const
+{
+    return FVector2D(
+        GetVectorDimension(),
+        GetVectorDimension()
+        );
 }
 
 FORCEINLINE_DEBUGGABLE FVector2D UMQCMapRef::GetCenter() const
 {
-    float Center = (GetMapSize() - 1.f) * .5f;
+    float Center = (GetVectorDimension() - 1.f) * .5f;
     return FVector2D(Center, Center);
-}
-
-FORCEINLINE_DEBUGGABLE FVector2D UMQCMapRef::GetMapDimension() const
-{
-    const float MapSize = GetMapSize();
-    return FVector2D(MapSize, MapSize);
-}
-
-FORCEINLINE_DEBUGGABLE int32 UMQCMapRef::GetVoxelCount() const
-{
-    return VoxelMap.GetVoxelCount();
-}
-
-FORCEINLINE_DEBUGGABLE FIntPoint UMQCMapRef::GetVoxelDimension() const
-{
-    return FIntPoint(
-        VoxelMap.voxelResolution * VoxelMap.chunkResolution,
-        VoxelMap.voxelResolution * VoxelMap.chunkResolution
-        );
 }
 
 FORCEINLINE_DEBUGGABLE FVector2D UMQCMapRef::GetMeshInverseScale() const
 {
-    FIntPoint VoxelDimension = GetVoxelDimension();
+    FIntPoint VoxelDimensions = GetVoxelDimension2D();
     FVector2D ScaleVector = FVector2D::UnitVector;
 
-    if (VoxelDimension.X > 1)
+    if (VoxelDimensions.X > 1)
     {
-        ScaleVector.X = 1.f/VoxelDimension.X;
+        ScaleVector.X = 1.f/VoxelDimensions.X;
     }
 
-    if (VoxelDimension.Y > 1)
+    if (VoxelDimensions.Y > 1)
     {
-        ScaleVector.Y = 1.f/VoxelDimension.Y;
+        ScaleVector.Y = 1.f/VoxelDimensions.Y;
     }
 
     return ScaleVector;
+}
+
+FORCEINLINE_DEBUGGABLE int32 UMQCMapRef::GetStateCount() const
+{
+    return VoxelMap.GetStateCount();
 }
 
 FORCEINLINE_DEBUGGABLE bool UMQCMapRef::HasChunk(int32 ChunkIndex) const

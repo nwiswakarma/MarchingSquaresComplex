@@ -72,7 +72,7 @@ void FMQCStencil::GetMapRange(int32& X0, int32& X1, int32& Y0, int32& Y1, const 
 
 void FMQCStencil::GetChunkRange(int32& X0, int32& X1, int32& Y0, int32& Y1, const FMQCGridChunk& Chunk) const
 {
-    const int32 Resolution = Chunk.voxelResolution;
+    const int32 Resolution = Chunk.GetVoxelResolution();
     const FIntPoint Offset = Chunk.GetOffsetId();
 
     X0 = FMath::Max(GetBoundsMinX()-Offset.X, 0);
@@ -104,7 +104,7 @@ void FMQCStencil::GetChunks(TArray<FMQCGridChunk*>& Chunks, FMQCMap& Map, const 
 
     for (int32 i : ChunkIndices)
     {
-        Chunks.Emplace(Map.chunks[i]);
+        Chunks.Emplace(&Map.GetChunk(i));
     }
 }
 
@@ -433,8 +433,8 @@ void FMQCStencil::Initialize(const FMQCMap& VoxelMap)
 
 void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 {
-    const int32 VoxelResolution = Map.voxelResolution;
-    const int32 ChunkResolution = Map.chunkResolution;
+    const int32 VoxelResolution = Map.GetVoxelResolution();
+    const int32 ChunkResolution = Map.GetChunkResolution();
 
     TArray<int32> ChunkIndices;
     TArray<FMQCGridChunk*> Chunks;
@@ -450,8 +450,8 @@ void FMQCStencil::EditMap(FMQCMap& Map, const FVector2D& center)
 
 void FMQCStencil::EditMaterial(FMQCMap& Map, const FVector2D& center)
 {
-    const int32 VoxelResolution = Map.voxelResolution;
-    const int32 ChunkResolution = Map.chunkResolution;
+    const int32 VoxelResolution = Map.GetVoxelResolution();
+    const int32 ChunkResolution = Map.GetChunkResolution();
 
     TArray<int32> ChunkIndices;
     TArray<FMQCGridChunk*> Chunks;

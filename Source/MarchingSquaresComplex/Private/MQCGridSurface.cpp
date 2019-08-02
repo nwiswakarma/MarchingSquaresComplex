@@ -26,6 +26,7 @@
 // 
 
 #include "MQCGridSurface.h"
+#include "MQCMaterialUtility.h"
 
 void FMQCGridSurface::Configure(const FMQCSurfaceConfig& Config)
 {
@@ -261,6 +262,15 @@ void FMQCGridSurface::AddEdge(uint32 a, uint32 b)
 
 void FMQCGridSurface::AddMaterialFace(uint32 a, uint32 b, uint32 c)
 {
+    // Skip non index based material
+    if (MaterialType != EMQCMaterialType::MT_TRIPLE_INDEX)
+    {
+        return;
+    }
+
+    // ONLY ALLOW TRIPLE INDEX, DOUBLE INDEX NOT IMPLEMENTED YET!
+    check(MaterialType == EMQCMaterialType::MT_TRIPLE_INDEX);
+
     const FMeshData& SrcMeshData(SurfaceMeshData);
 
     check(SrcMeshData.Materials.IsValidIndex(a));

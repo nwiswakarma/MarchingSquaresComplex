@@ -27,9 +27,11 @@
 
 #include "MQCGridChunk.h"
 #include "MQCStencil.h"
-#include "MQCMaterialUtility.h"
 
 FMQCGridChunk::FMQCGridChunk()
+    : xNeighbor(nullptr)
+    , yNeighbor(nullptr)
+    , xyNeighbor(nullptr)
 {
 }
 
@@ -60,17 +62,17 @@ void FMQCGridChunk::EnqueueTask(const TFunction<void()>& Task)
 void FMQCGridChunk::Configure(const FMQCChunkConfig& Config)
 {
     Position = Config.Position;
-    mapSize = Config.MapSize;
-    voxelResolution = Config.VoxelResolution;
+    MapSize = Config.MapSize;
+    VoxelResolution = Config.VoxelResolution;
     MaterialType = Config.MaterialType;
 
     cell.sharpFeatureLimit = FMath::Cos(FMath::DegreesToRadians(Config.MaxFeatureAngle));
     cell.parallelLimit     = FMath::Cos(FMath::DegreesToRadians(Config.MaxParallelAngle));
 
-    voxels.SetNumZeroed(voxelResolution * voxelResolution);
+    voxels.SetNumZeroed(VoxelResolution * VoxelResolution);
     
-    for (int32 y=0, i=0; y<voxelResolution; y++)
-    for (int32 x=0     ; x<voxelResolution; x++, i++)
+    for (int32 y=0, i=0; y<VoxelResolution; y++)
+    for (int32 x=0     ; x<VoxelResolution; x++, i++)
     {
         CreateVoxel(i, x, y);
     }
@@ -88,8 +90,8 @@ void FMQCGridChunk::CreateRenderers(const FMQCChunkConfig& GridConfig)
     {
         FMQCSurfaceConfig Config;
         Config.Position        = Position;
-        Config.MapSize         = mapSize;
-        Config.VoxelResolution = voxelResolution;
+        Config.MapSize         = MapSize;
+        Config.VoxelResolution = VoxelResolution;
         Config.ExtrusionHeight = GridConfig.ExtrusionHeight;
         Config.MaterialType    = GridConfig.MaterialType;
 
@@ -123,6 +125,21 @@ void FMQCGridChunk::ResetVoxels()
     }
 }
 
+void FMQCGridChunk::SetNeighbourX(const FMQCGridChunk* InNeighbour)
+{
+    xNeighbor = InNeighbour;
+}
+
+void FMQCGridChunk::SetNeighbourY(const FMQCGridChunk* InNeighbour)
+{
+    yNeighbor = InNeighbour;
+}
+
+void FMQCGridChunk::SetNeighbourXY(const FMQCGridChunk* InNeighbour)
+{
+    xyNeighbor = InNeighbour;
+}
+
 void FMQCGridChunk::TriangulateInternal()
 {
     for (int32 i=1; i<Renderers.Num(); i++)
@@ -154,7 +171,7 @@ void FMQCGridChunk::SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int3
 
     for (int32 y=Y0; y<=Y1; y++)
     {
-        int32 i = y*voxelResolution + X0;
+        int32 i = y*VoxelResolution + X0;
 
         for (int32 x=X0; x<=X1; x++, i++)
         {
@@ -180,7 +197,7 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
         X0 -= 1;
     }
 
-    if (X1 == voxelResolution - 1)
+    if (X1 == VoxelResolution - 1)
     {
         X1 -= 1;
         bCrossGapX = xNeighbor != nullptr;
@@ -191,7 +208,7 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
         Y0 -= 1;
     }
 
-    if (Y1 == voxelResolution - 1)
+    if (Y1 == VoxelResolution - 1)
     {
         Y1 -= 1;
         bIncludeLastRowY = true;
@@ -203,7 +220,7 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
 
     for (int32 y = Y0; y <= Y1; y++)
     {
-        int32 i = y * voxelResolution + X0;
+        int32 i = y * VoxelResolution + X0;
         b = &voxels[i];
 
         for (int32 x = X0; x <= X1; x++, i++)
@@ -211,18 +228,18 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
             a = b;
             b = &voxels[i + 1];
             Stencil.SetCrossingX(*a, *b, Position);
-            Stencil.SetCrossingY(*a, voxels[i + voxelResolution], Position);
+            Stencil.SetCrossingY(*a, voxels[i + VoxelResolution], Position);
         }
 
-        Stencil.SetCrossingY(*b, voxels[i + voxelResolution], Position);
+        Stencil.SetCrossingY(*b, voxels[i + VoxelResolution], Position);
 
         if (bCrossGapX)
         {
             check(xNeighbor);
-            const int32 neighborIndex = y * voxelResolution;
+            const int32 neighborIndex = y * VoxelResolution;
             if (xNeighbor->voxels.IsValidIndex(neighborIndex))
             {
-                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], voxelResolution);
+                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], VoxelResolution);
                 Stencil.SetCrossingX(*b, dummyX, Position);
             }
         }
@@ -230,7 +247,7 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
 
     if (bIncludeLastRowY)
     {
-        int32 i = voxels.Num() - voxelResolution + X0;
+        int32 i = voxels.Num() - VoxelResolution + X0;
         b = &voxels[i];
 
         for (int32 x = X0; x <= X1; x++, i++)
@@ -243,7 +260,7 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
             {
                 check(yNeighbor);
                 check(yNeighbor->voxels.IsValidIndex(x));
-                dummyY.BecomeYDummyOf(yNeighbor->voxels[x], voxelResolution);
+                dummyY.BecomeYDummyOf(yNeighbor->voxels[x], VoxelResolution);
                 Stencil.SetCrossingY(*a, dummyY, Position);
             }
         }
@@ -254,7 +271,7 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
             const int32 neighborIndex = X1 + 1;
             if (yNeighbor->voxels.IsValidIndex(neighborIndex))
             {
-                dummyY.BecomeYDummyOf(yNeighbor->voxels[neighborIndex], voxelResolution);
+                dummyY.BecomeYDummyOf(yNeighbor->voxels[neighborIndex], VoxelResolution);
                 Stencil.SetCrossingY(*b, dummyY, Position);
             }
         }
@@ -262,10 +279,10 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
         if (bCrossGapX)
         {
             check(xNeighbor);
-            const int32 neighborIndex = voxels.Num() - voxelResolution;
+            const int32 neighborIndex = voxels.Num() - VoxelResolution;
             if (xNeighbor->voxels.IsValidIndex(neighborIndex))
             {
-                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], voxelResolution);
+                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], VoxelResolution);
                 Stencil.SetCrossingX(*b, dummyX, Position);
             }
         }
@@ -282,7 +299,7 @@ void FMQCGridChunk::SetMaterialsInternal(const FMQCStencil& Stencil, int32 X0, i
 
     for (int32 y=Y0; y<=Y1; y++)
     {
-        int32 i = y*voxelResolution + X0;
+        int32 i = y*VoxelResolution + X0;
 
         for (int32 x=X0; x<=X1; x++, i++)
         {
@@ -436,14 +453,14 @@ void FMQCGridChunk::FillFirstRowCache()
     CacheFirstCorner(voxels[0]);
 
     int32 i;
-    for (i=0; i<voxelResolution-1; i++)
+    for (i=0; i<VoxelResolution-1; i++)
     {
         CacheNextEdgeAndCorner(i, voxels[i], voxels[i + 1]);
     }
 
     if (xNeighbor)
     {
-        dummyX.BecomeXDummyOf(xNeighbor->voxels[0], voxelResolution);
+        dummyX.BecomeXDummyOf(xNeighbor->voxels[0], VoxelResolution);
         CacheNextEdgeAndCorner(i, voxels[i], dummyX);
     }
 }
@@ -546,20 +563,20 @@ void FMQCGridChunk::SwapRowCaches()
 
 void FMQCGridChunk::TriangulateCellRows()
 {
-    int32 cells = voxelResolution - 1;
+    int32 cells = VoxelResolution - 1;
     for (int32 i=0, y=0; y<cells; y++, i++)
     {
         SwapRowCaches();
-        CacheFirstCorner(voxels[i + voxelResolution]);
-        CacheFirstMiddleEdge(voxels[i], voxels[i + voxelResolution]);
+        CacheFirstCorner(voxels[i + VoxelResolution]);
+        CacheFirstMiddleEdge(voxels[i], voxels[i + VoxelResolution]);
 
         for (int32 x=0; x<cells; x++, i++)
         {
             const FMQCVoxel&
                 a(voxels[i]),
                 b(voxels[i + 1]),
-                c(voxels[i + voxelResolution]),
-                d(voxels[i + voxelResolution + 1]);
+                c(voxels[i + VoxelResolution]),
+                d(voxels[i + VoxelResolution + 1]);
             CacheNextEdgeAndCorner(x, c, d);
             CacheNextMiddleEdge(x, b, d);
             TriangulateCell(x, a, b, c, d);
@@ -576,17 +593,17 @@ void FMQCGridChunk::TriangulateGapRow()
 {
     check(yNeighbor != nullptr);
 
-    dummyY.BecomeYDummyOf(yNeighbor->voxels[0], voxelResolution);
-    int32 cells = voxelResolution - 1;
-    int32 offset = cells * voxelResolution;
+    dummyY.BecomeYDummyOf(yNeighbor->voxels[0], VoxelResolution);
+    int32 cells = VoxelResolution - 1;
+    int32 offset = cells * VoxelResolution;
     SwapRowCaches();
     CacheFirstCorner(dummyY);
-    CacheFirstMiddleEdge(voxels[cells * voxelResolution], dummyY);
+    CacheFirstMiddleEdge(voxels[cells * VoxelResolution], dummyY);
 
     for (int32 x=0; x<cells; x++)
     {
         Swap(dummyT, dummyY);
-        dummyY.BecomeYDummyOf(yNeighbor->voxels[x + 1], voxelResolution);
+        dummyY.BecomeYDummyOf(yNeighbor->voxels[x + 1], VoxelResolution);
 
         CacheNextEdgeAndCorner(x, dummyT, dummyY);
         CacheNextMiddleEdge(x, voxels[x + offset + 1], dummyY);
@@ -603,7 +620,7 @@ void FMQCGridChunk::TriangulateGapRow()
     {
         check(xyNeighbor != nullptr);
 
-        dummyT.BecomeXYDummyOf(xyNeighbor->voxels[0], voxelResolution);
+        dummyT.BecomeXYDummyOf(xyNeighbor->voxels[0], VoxelResolution);
 
         CacheNextEdgeAndCorner(cells, dummyY, dummyT);
         CacheNextMiddleEdge(cells, dummyX, dummyT);
@@ -622,17 +639,17 @@ void FMQCGridChunk::TriangulateGapCell(int32 i)
     check(xNeighbor != nullptr);
 
     Swap(dummyT, dummyX);
-    dummyX.BecomeXDummyOf(xNeighbor->voxels[i + 1], voxelResolution);
+    dummyX.BecomeXDummyOf(xNeighbor->voxels[i + 1], VoxelResolution);
 
-    int32 cacheIndex = voxelResolution - 1;
-    CacheNextEdgeAndCorner(cacheIndex, voxels[i + voxelResolution], dummyX);
+    int32 cacheIndex = VoxelResolution - 1;
+    CacheNextEdgeAndCorner(cacheIndex, voxels[i + VoxelResolution], dummyX);
     CacheNextMiddleEdge(cacheIndex, dummyT, dummyX);
 
     TriangulateCell(
         cacheIndex,
         voxels[i],
         dummyT,
-        voxels[i + voxelResolution],
+        voxels[i + VoxelResolution],
         dummyX
         );
 }

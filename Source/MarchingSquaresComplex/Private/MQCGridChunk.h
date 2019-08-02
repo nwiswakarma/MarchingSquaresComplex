@@ -37,13 +37,11 @@
 #include "MQCVoxelTypes.h"
 
 class FMQCGridSurface;
+class FMQCStencil;
 
 class FMQCGridChunk
 {
 private:
-
-    friend class FMQCMap;
-    friend class FMQCStencil;
 
     class FAsyncTask
     {
@@ -81,9 +79,15 @@ private:
     TIndirectArray<FMQCGridRenderer> Renderers;
     TArray<FMQCVoxel> voxels;
 
-    int32 mapSize;
-    int32 voxelResolution;
+    FIntPoint Position;
+
+    int32 MapSize;
+    int32 VoxelResolution;
     EMQCMaterialType MaterialType;
+
+    const FMQCGridChunk* xNeighbor;
+    const FMQCGridChunk* yNeighbor;
+    const FMQCGridChunk* xyNeighbor;
 
     FMQCVoxel dummyX;
     FMQCVoxel dummyY;
@@ -122,14 +126,12 @@ public:
     FMQCGridChunk();
     ~FMQCGridChunk();
 
-    FIntPoint Position;
-
-    FMQCGridChunk* xNeighbor = nullptr;
-    FMQCGridChunk* yNeighbor = nullptr;
-    FMQCGridChunk* xyNeighbor = nullptr;
-
     void Configure(const FMQCChunkConfig& Config);
     void ResetVoxels();
+
+    void SetNeighbourX(const FMQCGridChunk* InNeighbour);
+    void SetNeighbourY(const FMQCGridChunk* InNeighbour);
+    void SetNeighbourXY(const FMQCGridChunk* InNeighbour);
 
     void Triangulate();
     void SetStates(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
@@ -150,6 +152,11 @@ public:
     FORCEINLINE FIntPoint GetOffsetId() const
     {
         return Position;
+    }
+
+    FORCEINLINE int32 GetVoxelResolution() const
+    {
+        return VoxelResolution;
     }
 
     FORCEINLINE bool HasRenderer(int32 RendererIndex) const

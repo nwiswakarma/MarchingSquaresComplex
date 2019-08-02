@@ -83,25 +83,6 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     float MaterialBlendRadius = 1.f;
 
-    virtual void EditMapAt(UMQCMapRef* MapRef, FVector2D Center) override
-    {
-        if (IsValid(MapRef) && MapRef->IsInitialized())
-        {
-            Stencil.RadiusSetting = Radius;
-            Stencil.FillTypeSetting = FillType;
-            Stencil.EditMap(MapRef->GetMap(), Center);
-        }
-    }
-
-    virtual void EditMaterialAt(UMQCMapRef* MapRef, FVector2D Center) override
-    {
-        if (IsValid(MapRef) && MapRef->IsInitialized())
-        {
-            Stencil.RadiusSetting = Radius;
-            Stencil.MaterialBlendRadiusSetting = MaterialBlendRadius;
-            Stencil.MaterialSetting = MapRef->GetTypedMaterial(MaterialIndex, MaterialColor);
-            Stencil.MaterialBlendSetting = MaterialBlendType;
-            Stencil.EditMaterial(MapRef->GetMap(), Center);
-        }
-    }
+    virtual void EditMapAt(UMQCMapRef* MapRef, FVector2D Center) override;
+    virtual void EditMaterialAt(UMQCMapRef* MapRef, FVector2D Center) override;
 };

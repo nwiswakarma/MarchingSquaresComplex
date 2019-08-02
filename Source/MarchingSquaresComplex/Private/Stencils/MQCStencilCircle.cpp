@@ -181,3 +181,25 @@ void FMQCStencilCircle::ApplyMaterial(FMQCVoxel& Voxel, const FIntPoint& ChunkOf
         Voxel.Material = GetMaterialFor(Voxel, ChunkOffset);
     }
 }
+
+void UMQCStencilCircleRef::EditMapAt(UMQCMapRef* MapRef, FVector2D Center)
+{
+    if (IsValid(MapRef) && MapRef->IsInitialized())
+    {
+        Stencil.RadiusSetting = Radius;
+        Stencil.FillTypeSetting = FillType;
+        Stencil.EditMap(MapRef->GetMap(), Center);
+    }
+}
+
+void UMQCStencilCircleRef::EditMaterialAt(UMQCMapRef* MapRef, FVector2D Center)
+{
+    if (IsValid(MapRef) && MapRef->IsInitialized())
+    {
+        Stencil.RadiusSetting = Radius;
+        Stencil.MaterialBlendRadiusSetting = MaterialBlendRadius;
+        Stencil.MaterialSetting = MapRef->GetTypedMaterial(MaterialIndex, MaterialColor);
+        Stencil.MaterialBlendSetting = MaterialBlendType;
+        Stencil.EditMaterial(MapRef->GetMap(), Center);
+    }
+}

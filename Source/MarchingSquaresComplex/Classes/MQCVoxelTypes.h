@@ -69,3 +69,30 @@ struct FMQCChunkConfig
     EMQCMaterialType MaterialType;
     TArray<FMQCSurfaceState> States;
 };
+
+USTRUCT(BlueprintType)
+struct MARCHINGSQUARESCOMPLEX_API FMQCMapConfig
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 VoxelResolution = 8;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int32 ChunkResolution = 2;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float MaxFeatureAngle = 135.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float MaxParallelAngle = 8.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float ExtrusionHeight = -1.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    EMQCMaterialType MaterialType = EMQCMaterialType::MT_COLOR;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TArray<FMQCSurfaceState> States;
+};
