@@ -73,12 +73,12 @@ private:
 
     TFuture<void> OutstandingTask;
 
-    FMQCCell cell;
-
     TIndirectArray<FMQCGridSurface> Surfaces;
-    TArray<FMQCVoxel> voxels;
+    TArray<FMQCVoxel> Voxels;
 
     FIntPoint Position;
+    FIntPoint BoundsMin;
+    FIntPoint BoundsMax;
 
     int32 MapSize;
     int32 VoxelResolution;
@@ -88,6 +88,7 @@ private:
     const FMQCGridChunk* yNeighbor;
     const FMQCGridChunk* xyNeighbor;
 
+    FMQCCell Cell;
     FMQCVoxel dummyX;
     FMQCVoxel dummyY;
     FMQCVoxel dummyT;
@@ -176,6 +177,16 @@ public:
         return Position;
     }
 
+    FORCEINLINE bool IsPointOnChunk(const FIntPoint& Point) const
+    {
+        return (
+            Point.X >= BoundsMin.X &&
+            Point.Y >= BoundsMin.Y &&
+            Point.X <= BoundsMax.X &&
+            Point.Y <= BoundsMax.Y
+            );
+    }
+
     FORCEINLINE int32 GetVoxelResolution() const
     {
         return VoxelResolution;
@@ -196,13 +207,16 @@ public:
 
     FPMUMeshSection* GetSurfaceSection(int32 StateIndex);
     FPMUMeshSection* GetExtrudeSection(int32 StateIndex);
-    FPMUMeshSection* GetEdgeSection(int32 StateIndex);
-    FPMUMeshSection* GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material);
+    FPMUMeshSection* GetSurfaceMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material);
+    FPMUMeshSection* GetExtrudeMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material);
 
     int32 AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData, int32 StateIndex) const;
-    void RemapEdgeUVs(int32 StateIndex, int32 EdgeListId, float UVStart, float UVEnd);
-    void GetConnectedEdgePoints(TArray<FMQCEdgePoint>& OutPoints, int32 StateIndex, const FMQCEdgeSyncData& SyncData, float DistanceOffset) const;
+    void GetEdgePoints(TArray<FMQCEdgePointData>& OutPointList, int32 StateIndex) const;
+    void GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const;
+    void AppendConnectedEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const;
     void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
+
+    void AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bFilterExtrude);
 
     // Public Triangulation Interface
 

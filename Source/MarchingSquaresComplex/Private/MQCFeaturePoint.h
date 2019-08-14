@@ -114,30 +114,4 @@ struct FMQCFeaturePoint
         f.exists = bExists;
 		return f;
 	}
-
-	FORCEINLINE static uint32 GetHash(const FMQCFeaturePoint& f, const FIntPoint& Offset)
-    {
-        FIntPoint Position(f.position.X, f.position.Y);
-        uint8 EdgeX = FMQCVoxel::EncodeEdge(f.position.X-Position.X);
-        uint8 EdgeY = FMQCVoxel::EncodeEdge(f.position.Y-Position.Y);
-        return FMQCVoxel::GetPositionHashPacked(Offset+Position, EdgeX, EdgeY);
-    }
-
-	FORCEINLINE static uint32 GetHash8(const FMQCFeaturePoint& f, const FIntPoint& Offset)
-    {
-        FIntPoint Position(f.position.X, f.position.Y);
-        uint8 EdgeX = FMQCVoxel::EncodeEdge(f.position.X-Position.X);
-        uint8 EdgeY = FMQCVoxel::EncodeEdge(f.position.Y-Position.Y);
-        return FMQCVoxel::GetPositionHashPacked8(Offset+Position, EdgeX, EdgeY);
-    }
-
-	FORCEINLINE uint32 GetHash(const FIntPoint& Offset) const
-    {
-        return GetHash(*this, Offset);
-    }
-
-	FORCEINLINE uint32 GetHash8(const FIntPoint& Offset) const
-    {
-        return GetHash8(*this, Offset);
-    }
 };

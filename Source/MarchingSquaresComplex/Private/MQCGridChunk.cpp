@@ -48,15 +48,18 @@ void FMQCGridChunk::Configure(const FMQCChunkConfig& Config)
     VoxelResolution = Config.VoxelResolution;
     MaterialType = Config.MaterialType;
 
-    cell.sharpFeatureLimit = FMath::Cos(FMath::DegreesToRadians(Config.MaxFeatureAngle));
-    cell.parallelLimit     = FMath::Cos(FMath::DegreesToRadians(Config.MaxParallelAngle));
+    BoundsMin = Position;
+    BoundsMax = Position+FIntPoint(VoxelResolution, VoxelResolution);
 
-    voxels.SetNumZeroed(VoxelResolution * VoxelResolution);
+    Cell.sharpFeatureLimit = FMath::Cos(FMath::DegreesToRadians(Config.MaxFeatureAngle));
+    Cell.parallelLimit     = FMath::Cos(FMath::DegreesToRadians(Config.MaxParallelAngle));
+
+    Voxels.SetNumZeroed(VoxelResolution * VoxelResolution);
     
     for (int32 y=0, i=0; y<VoxelResolution; y++)
     for (int32 x=0     ; x<VoxelResolution; x++, i++)
     {
-        voxels[i].Set(x, y);
+        Voxels[i].Set(x, y);
     }
 
     CreateSurfaces(Config);
@@ -101,7 +104,7 @@ void FMQCGridChunk::ResetVoxels()
 {
     WaitForAsyncTask();
 
-    for (FMQCVoxel& voxel : voxels)
+    for (FMQCVoxel& voxel : Voxels)
     {
         voxel.Init();
     }
@@ -136,20 +139,25 @@ FPMUMeshSection* FMQCGridChunk::GetExtrudeSection(int32 StateIndex)
         : nullptr;
 }
 
-FPMUMeshSection* FMQCGridChunk::GetEdgeSection(int32 StateIndex)
-{
-    return HasSurface(StateIndex)
-        ? &Surfaces[StateIndex].GetEdgeSection()
-        : nullptr;
-}
-
-FPMUMeshSection* FMQCGridChunk::GetMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material)
+FPMUMeshSection* FMQCGridChunk::GetSurfaceMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material)
 {
     FPMUMeshSection* Section = nullptr;
 
     if (HasSurface(StateIndex))
     {
-        Section = Surfaces[StateIndex].MaterialSectionMap.Find(Material);
+        Section = Surfaces[StateIndex].GetSurfaceMaterialSection(Material);
+    }
+
+    return Section;
+}
+
+FPMUMeshSection* FMQCGridChunk::GetExtrudeMaterialSection(int32 StateIndex, const FMQCMaterialBlend& Material)
+{
+    FPMUMeshSection* Section = nullptr;
+
+    if (HasSurface(StateIndex))
+    {
+        Section = Surfaces[StateIndex].GetExtrudeMaterialSection(Material);
     }
 
     return Section;
@@ -169,19 +177,27 @@ int32 FMQCGridChunk::AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData, i
     }
 }
 
-void FMQCGridChunk::RemapEdgeUVs(int32 StateIndex, int32 EdgeListId, float UVStart, float UVEnd)
+void FMQCGridChunk::GetEdgePoints(TArray<FMQCEdgePointData>& OutPointList, int32 StateIndex) const
 {
     if (HasSurface(StateIndex))
     {
-        Surfaces[StateIndex].RemapEdgeUVs(EdgeListId, UVStart, UVEnd);
+        Surfaces[StateIndex].GetEdgePoints(OutPointList);
     }
 }
 
-void FMQCGridChunk::GetConnectedEdgePoints(TArray<FMQCEdgePoint>& OutPoints, int32 StateIndex, const FMQCEdgeSyncData& SyncData, float DistanceOffset) const
+void FMQCGridChunk::GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const
 {
     if (HasSurface(StateIndex))
     {
-        Surfaces[StateIndex].GetConnectedEdgePoints(OutPoints, SyncData, DistanceOffset);
+        Surfaces[StateIndex].GetEdgePoints(OutPoints, EdgeListIndex);
+    }
+}
+
+void FMQCGridChunk::AppendConnectedEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const
+{
+    if (HasSurface(StateIndex))
+    {
+        Surfaces[StateIndex].AppendConnectedEdgePoints(OutPoints, EdgeListIndex);
     }
 }
 
@@ -190,6 +206,19 @@ void FMQCGridChunk::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
     for (int32 StateIndex=1; StateIndex<Surfaces.Num(); StateIndex++)
     {
         Surfaces[StateIndex].GetMaterialSet(MaterialSet);
+    }
+}
+
+void FMQCGridChunk::AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bFilterExtrude)
+{
+    check((Point.X-Position.X) >= 0);
+    check((Point.Y-Position.Y) >= 0);
+    check((Point.X-Position.X) < VoxelResolution);
+    check((Point.Y-Position.Y) < VoxelResolution);
+
+    if (StateIndex > 0 && HasSurface(StateIndex))
+    {
+        Surfaces[StateIndex].AddQuadFilter(Point, bFilterExtrude);
     }
 }
 
@@ -342,7 +371,7 @@ void FMQCGridChunk::SetStatesInternal(const FMQCStencil& Stencil, int32 X0, int3
 
         for (int32 x=X0; x<=X1; x++, i++)
         {
-            Stencil.ApplyVoxel(voxels[i], Position);
+            Stencil.ApplyVoxel(Voxels[i], Position);
         }
     }
 }
@@ -388,25 +417,25 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
     for (int32 y = Y0; y <= Y1; y++)
     {
         int32 i = y * VoxelResolution + X0;
-        b = &voxels[i];
+        b = &Voxels[i];
 
         for (int32 x = X0; x <= X1; x++, i++)
         {
             a = b;
-            b = &voxels[i + 1];
+            b = &Voxels[i + 1];
             Stencil.SetCrossingX(*a, *b, Position);
-            Stencil.SetCrossingY(*a, voxels[i + VoxelResolution], Position);
+            Stencil.SetCrossingY(*a, Voxels[i + VoxelResolution], Position);
         }
 
-        Stencil.SetCrossingY(*b, voxels[i + VoxelResolution], Position);
+        Stencil.SetCrossingY(*b, Voxels[i + VoxelResolution], Position);
 
         if (bCrossGapX)
         {
             check(xNeighbor);
             const int32 neighborIndex = y * VoxelResolution;
-            if (xNeighbor->voxels.IsValidIndex(neighborIndex))
+            if (xNeighbor->Voxels.IsValidIndex(neighborIndex))
             {
-                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], VoxelResolution);
+                dummyX.BecomeXDummyOf(xNeighbor->Voxels[neighborIndex], VoxelResolution);
                 Stencil.SetCrossingX(*b, dummyX, Position);
             }
         }
@@ -414,20 +443,20 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
 
     if (bIncludeLastRowY)
     {
-        int32 i = voxels.Num() - VoxelResolution + X0;
-        b = &voxels[i];
+        int32 i = Voxels.Num() - VoxelResolution + X0;
+        b = &Voxels[i];
 
         for (int32 x = X0; x <= X1; x++, i++)
         {
             a = b;
-            b = &voxels[i + 1];
+            b = &Voxels[i + 1];
             Stencil.SetCrossingX(*a, *b, Position);
 
             if (bCrossGapY)
             {
                 check(yNeighbor);
-                check(yNeighbor->voxels.IsValidIndex(x));
-                dummyY.BecomeYDummyOf(yNeighbor->voxels[x], VoxelResolution);
+                check(yNeighbor->Voxels.IsValidIndex(x));
+                dummyY.BecomeYDummyOf(yNeighbor->Voxels[x], VoxelResolution);
                 Stencil.SetCrossingY(*a, dummyY, Position);
             }
         }
@@ -436,9 +465,9 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
         {
             check(yNeighbor);
             const int32 neighborIndex = X1 + 1;
-            if (yNeighbor->voxels.IsValidIndex(neighborIndex))
+            if (yNeighbor->Voxels.IsValidIndex(neighborIndex))
             {
-                dummyY.BecomeYDummyOf(yNeighbor->voxels[neighborIndex], VoxelResolution);
+                dummyY.BecomeYDummyOf(yNeighbor->Voxels[neighborIndex], VoxelResolution);
                 Stencil.SetCrossingY(*b, dummyY, Position);
             }
         }
@@ -446,10 +475,10 @@ void FMQCGridChunk::SetCrossingsInternal(const FMQCStencil& Stencil, int32 X0, i
         if (bCrossGapX)
         {
             check(xNeighbor);
-            const int32 neighborIndex = voxels.Num() - VoxelResolution;
-            if (xNeighbor->voxels.IsValidIndex(neighborIndex))
+            const int32 neighborIndex = Voxels.Num() - VoxelResolution;
+            if (xNeighbor->Voxels.IsValidIndex(neighborIndex))
             {
-                dummyX.BecomeXDummyOf(xNeighbor->voxels[neighborIndex], VoxelResolution);
+                dummyX.BecomeXDummyOf(xNeighbor->Voxels[neighborIndex], VoxelResolution);
                 Stencil.SetCrossingX(*b, dummyX, Position);
             }
         }
@@ -470,7 +499,7 @@ void FMQCGridChunk::SetMaterialsInternal(const FMQCStencil& Stencil, int32 X0, i
 
         for (int32 x=X0; x<=X1; x++, i++)
         {
-            Stencil.ApplyMaterial(voxels[i], Position);
+            Stencil.ApplyMaterial(Voxels[i], Position);
         }
     }
 }
@@ -498,18 +527,18 @@ void FMQCGridChunk::EnqueueTask(const TFunction<void()>& Task)
 
 void FMQCGridChunk::FillFirstRowCache()
 {
-    CacheFirstCorner(voxels[0]);
+    CacheFirstCorner(Voxels[0]);
 
     int32 i;
     for (i=0; i<VoxelResolution-1; i++)
     {
-        CacheNextEdgeAndCorner(i, voxels[i], voxels[i + 1]);
+        CacheNextEdgeAndCorner(i, Voxels[i], Voxels[i + 1]);
     }
 
     if (xNeighbor)
     {
-        dummyX.BecomeXDummyOf(xNeighbor->voxels[0], VoxelResolution);
-        CacheNextEdgeAndCorner(i, voxels[i], dummyX);
+        dummyX.BecomeXDummyOf(xNeighbor->Voxels[0], VoxelResolution);
+        CacheNextEdgeAndCorner(i, Voxels[i], dummyX);
     }
 }
 
@@ -563,12 +592,12 @@ void FMQCGridChunk::CacheNextEdgeAndCorner(int32 i, const FMQCVoxel& xMin, const
             }
             else
             {
-                SurfaceMin.CacheEdgeXWithWall(i, xMin, MaterialMin);
+                SurfaceMin.CacheEdgeX(i, xMin, MaterialMin);
             }
         }
         else
         {
-            SurfaceMax.CacheEdgeXWithWall(i, xMin, MaterialMax);
+            SurfaceMax.CacheEdgeX(i, xMin, MaterialMax);
         }
     }
 }
@@ -599,12 +628,12 @@ void FMQCGridChunk::CacheNextMiddleEdge(const FMQCVoxel& yMin, const FMQCVoxel& 
             }
             else
             {
-                SurfaceMin.CacheEdgeYWithWall(yMin, MaterialMin);
+                SurfaceMin.CacheEdgeY(yMin, MaterialMin);
             }
         }
         else
         {
-            SurfaceMax.CacheEdgeYWithWall(yMin, MaterialMax);
+            SurfaceMax.CacheEdgeY(yMin, MaterialMax);
         }
     }
 }
@@ -617,16 +646,16 @@ void FMQCGridChunk::TriangulateCellRows()
     for (int32 i=0, y=0; y<cells; y++, i++)
     {
         SwapRowCaches();
-        CacheFirstCorner(voxels[i + VoxelResolution]);
-        CacheNextMiddleEdge(voxels[i], voxels[i + VoxelResolution]);
+        CacheFirstCorner(Voxels[i + VoxelResolution]);
+        CacheNextMiddleEdge(Voxels[i], Voxels[i + VoxelResolution]);
 
         for (int32 x=0; x<cells; x++, i++)
         {
             const FMQCVoxel&
-                a(voxels[i]),
-                b(voxels[i + 1]),
-                c(voxels[i + VoxelResolution]),
-                d(voxels[i + VoxelResolution + 1]);
+                a(Voxels[i]),
+                b(Voxels[i + 1]),
+                c(Voxels[i + VoxelResolution]),
+                d(Voxels[i + VoxelResolution + 1]);
             CacheNextEdgeAndCorner(x, c, d);
             CacheNextMiddleEdge(b, d);
             TriangulateCell(x, a, b, c, d);
@@ -643,24 +672,24 @@ void FMQCGridChunk::TriangulateGapRow()
 {
     check(yNeighbor != nullptr);
 
-    dummyY.BecomeYDummyOf(yNeighbor->voxels[0], VoxelResolution);
+    dummyY.BecomeYDummyOf(yNeighbor->Voxels[0], VoxelResolution);
     int32 cells = VoxelResolution - 1;
     int32 offset = cells * VoxelResolution;
     SwapRowCaches();
     CacheFirstCorner(dummyY);
-    CacheNextMiddleEdge(voxels[cells * VoxelResolution], dummyY);
+    CacheNextMiddleEdge(Voxels[cells * VoxelResolution], dummyY);
 
     for (int32 x=0; x<cells; x++)
     {
         Swap(dummyT, dummyY);
-        dummyY.BecomeYDummyOf(yNeighbor->voxels[x + 1], VoxelResolution);
+        dummyY.BecomeYDummyOf(yNeighbor->Voxels[x + 1], VoxelResolution);
 
         CacheNextEdgeAndCorner(x, dummyT, dummyY);
-        CacheNextMiddleEdge(voxels[x + offset + 1], dummyY);
+        CacheNextMiddleEdge(Voxels[x + offset + 1], dummyY);
         TriangulateCell(
             x,
-            voxels[x + offset],
-            voxels[x + offset + 1],
+            Voxels[x + offset],
+            Voxels[x + offset + 1],
             dummyT,
             dummyY
             );
@@ -670,13 +699,13 @@ void FMQCGridChunk::TriangulateGapRow()
     {
         check(xyNeighbor != nullptr);
 
-        dummyT.BecomeXYDummyOf(xyNeighbor->voxels[0], VoxelResolution);
+        dummyT.BecomeXYDummyOf(xyNeighbor->Voxels[0], VoxelResolution);
 
         CacheNextEdgeAndCorner(cells, dummyY, dummyT);
         CacheNextMiddleEdge(dummyX, dummyT);
         TriangulateCell(
             cells,
-            voxels[voxels.Num() - 1],
+            Voxels[Voxels.Num() - 1],
             dummyX,
             dummyY,
             dummyT
@@ -689,28 +718,28 @@ void FMQCGridChunk::TriangulateGapCell(int32 i)
     check(xNeighbor != nullptr);
 
     Swap(dummyT, dummyX);
-    dummyX.BecomeXDummyOf(xNeighbor->voxels[i + 1], VoxelResolution);
+    dummyX.BecomeXDummyOf(xNeighbor->Voxels[i + 1], VoxelResolution);
 
     int32 cacheIndex = VoxelResolution - 1;
-    CacheNextEdgeAndCorner(cacheIndex, voxels[i + VoxelResolution], dummyX);
+    CacheNextEdgeAndCorner(cacheIndex, Voxels[i + VoxelResolution], dummyX);
     CacheNextMiddleEdge(dummyT, dummyX);
 
     TriangulateCell(
         cacheIndex,
-        voxels[i],
+        Voxels[i],
         dummyT,
-        voxels[i + VoxelResolution],
+        Voxels[i + VoxelResolution],
         dummyX
         );
 }
 
 void FMQCGridChunk::TriangulateCell(int32 i, const FMQCVoxel& a, const FMQCVoxel& b, const FMQCVoxel& c, const FMQCVoxel& d)
 {
-    cell.i = i;
-    cell.a = a;
-    cell.b = b;
-    cell.c = c;
-    cell.d = d;
+    Cell.i = i;
+    Cell.a = a;
+    Cell.b = b;
+    Cell.c = c;
+    Cell.d = d;
 
     if (a.voxelState == b.voxelState)
     {
@@ -802,49 +831,49 @@ void FMQCGridChunk::Triangulate0000()
 
 void FMQCGridChunk::Triangulate0001()
 {
-    FMQCFeaturePoint f(cell.GetFeatureNE());
+    FMQCFeaturePoint f(Cell.GetFeatureNE());
     FillABC(f);
     FillD(f);
 }
 
 void FMQCGridChunk::Triangulate0010()
 {
-    FMQCFeaturePoint f(cell.GetFeatureNW());
+    FMQCFeaturePoint f(Cell.GetFeatureNW());
     FillABD(f);
     FillC(f);
 }
 
 void FMQCGridChunk::Triangulate0100()
 {
-    FMQCFeaturePoint f(cell.GetFeatureSE());
+    FMQCFeaturePoint f(Cell.GetFeatureSE());
     FillACD(f);
     FillB(f);
 }
 
 void FMQCGridChunk::Triangulate0111()
 {
-    FMQCFeaturePoint f(cell.GetFeatureSW());
+    FMQCFeaturePoint f(Cell.GetFeatureSW());
     FillA(f);
     FillBCD(f);
 }
 
 void FMQCGridChunk::Triangulate0011()
 {
-    FMQCFeaturePoint f(cell.GetFeatureEW());
+    FMQCFeaturePoint f(Cell.GetFeatureEW());
     FillAB(f);
     FillCD(f);
 }
 
 void FMQCGridChunk::Triangulate0101()
 {
-    FMQCFeaturePoint f(cell.GetFeatureNS());
+    FMQCFeaturePoint f(Cell.GetFeatureNS());
     FillAC(f);
     FillBD(f);
 }
 
 void FMQCGridChunk::Triangulate0012()
 {
-    FMQCFeaturePoint f(cell.GetFeatureNEW());
+    FMQCFeaturePoint f(Cell.GetFeatureNEW());
     FillAB(f);
     FillC(f);
     FillD(f);
@@ -852,7 +881,7 @@ void FMQCGridChunk::Triangulate0012()
 
 void FMQCGridChunk::Triangulate0102()
 {
-    FMQCFeaturePoint f(cell.GetFeatureNSE());
+    FMQCFeaturePoint f(Cell.GetFeatureNSE());
     FillAC(f);
     FillB(f);
     FillD(f);
@@ -860,7 +889,7 @@ void FMQCGridChunk::Triangulate0102()
 
 void FMQCGridChunk::Triangulate0121()
 {
-    FMQCFeaturePoint f(cell.GetFeatureNSW());
+    FMQCFeaturePoint f(Cell.GetFeatureNSW());
     FillA(f);
     FillBD(f);
     FillC(f);
@@ -868,7 +897,7 @@ void FMQCGridChunk::Triangulate0121()
 
 void FMQCGridChunk::Triangulate0122()
 {
-    FMQCFeaturePoint f(cell.GetFeatureSEW());
+    FMQCFeaturePoint f(Cell.GetFeatureSEW());
     FillA(f);
     FillB(f);
     FillCD(f);
@@ -876,30 +905,30 @@ void FMQCGridChunk::Triangulate0122()
 
 void FMQCGridChunk::Triangulate0110()
 {
-    FMQCFeaturePoint fA(cell.GetFeatureSW());
-    FMQCFeaturePoint fB(cell.GetFeatureSE());
-    FMQCFeaturePoint fC(cell.GetFeatureNW());
-    FMQCFeaturePoint fD(cell.GetFeatureNE());
+    FMQCFeaturePoint fA(Cell.GetFeatureSW());
+    FMQCFeaturePoint fB(Cell.GetFeatureSE());
+    FMQCFeaturePoint fC(Cell.GetFeatureNW());
+    FMQCFeaturePoint fD(Cell.GetFeatureNE());
     
-    if (cell.HasConnectionAD(fA, fD))
+    if (Cell.HasConnectionAD(fA, fD))
     {
-        fB.exists &= cell.IsInsideABD(fB.position);
-        fC.exists &= cell.IsInsideACD(fC.position);
+        fB.exists &= Cell.IsInsideABD(fB.position);
+        fC.exists &= Cell.IsInsideACD(fC.position);
         FillADToB(fB);
         FillADToC(fC);
         FillB(fB);
         FillC(fC);
     }
-    else if (cell.HasConnectionBC(fB, fC))
+    else if (Cell.HasConnectionBC(fB, fC))
     {
-        fA.exists &= cell.IsInsideABC(fA.position);
-        fD.exists &= cell.IsInsideBCD(fD.position);
+        fA.exists &= Cell.IsInsideABC(fA.position);
+        fD.exists &= Cell.IsInsideBCD(fD.position);
         FillA(fA);
         FillD(fD);
         FillBCToA(fA);
         FillBCToD(fD);
     }
-    else if (cell.a.IsFilled() && cell.b.IsFilled())
+    else if (Cell.a.IsFilled() && Cell.b.IsFilled())
     {
         FillJoinedCorners(fA, fB, fC, fD);
     }
@@ -914,21 +943,21 @@ void FMQCGridChunk::Triangulate0110()
 
 void FMQCGridChunk::Triangulate0112()
 {
-    FMQCFeaturePoint fA(cell.GetFeatureSW());
-    FMQCFeaturePoint fB(cell.GetFeatureSE());
-    FMQCFeaturePoint fC(cell.GetFeatureNW());
-    FMQCFeaturePoint fD(cell.GetFeatureNE());
+    FMQCFeaturePoint fA(Cell.GetFeatureSW());
+    FMQCFeaturePoint fB(Cell.GetFeatureSE());
+    FMQCFeaturePoint fC(Cell.GetFeatureNW());
+    FMQCFeaturePoint fD(Cell.GetFeatureNE());
 
-    if (cell.HasConnectionBC(fB, fC))
+    if (Cell.HasConnectionBC(fB, fC))
     {
-        fA.exists &= cell.IsInsideABC(fA.position);
-        fD.exists &= cell.IsInsideBCD(fD.position);
+        fA.exists &= Cell.IsInsideABC(fA.position);
+        fD.exists &= Cell.IsInsideBCD(fD.position);
         FillA(fA);
         FillD(fD);
         FillBCToA(fA);
         FillBCToD(fD);
     }
-    else if (cell.b.IsFilled() || cell.HasConnectionAD(fA, fD))
+    else if (Cell.b.IsFilled() || Cell.HasConnectionAD(fA, fD))
     {
         FillJoinedCorners(fA, fB, fC, fD);
     }
@@ -941,21 +970,21 @@ void FMQCGridChunk::Triangulate0112()
 
 void FMQCGridChunk::Triangulate0120()
 {
-    FMQCFeaturePoint fA(cell.GetFeatureSW());
-    FMQCFeaturePoint fB(cell.GetFeatureSE());
-    FMQCFeaturePoint fC(cell.GetFeatureNW());
-    FMQCFeaturePoint fD(cell.GetFeatureNE());
+    FMQCFeaturePoint fA(Cell.GetFeatureSW());
+    FMQCFeaturePoint fB(Cell.GetFeatureSE());
+    FMQCFeaturePoint fC(Cell.GetFeatureNW());
+    FMQCFeaturePoint fD(Cell.GetFeatureNE());
 
-    if (cell.HasConnectionAD(fA, fD))
+    if (Cell.HasConnectionAD(fA, fD))
     {
-        fB.exists &= cell.IsInsideABD(fB.position);
-        fC.exists &= cell.IsInsideACD(fC.position);
+        fB.exists &= Cell.IsInsideABD(fB.position);
+        fC.exists &= Cell.IsInsideACD(fC.position);
         FillADToB(fB);
         FillADToC(fC);
         FillB(fB);
         FillC(fC);
     }
-    else if (cell.a.IsFilled() || cell.HasConnectionBC(fB, fC))
+    else if (Cell.a.IsFilled() || Cell.HasConnectionBC(fB, fC))
     {
         FillJoinedCorners(fA, fB, fC, fD);
     }
@@ -969,145 +998,145 @@ void FMQCGridChunk::Triangulate0120()
 void FMQCGridChunk::Triangulate0123()
 {
     FillJoinedCorners(
-        cell.GetFeatureSW(), cell.GetFeatureSE(),
-        cell.GetFeatureNW(), cell.GetFeatureNE());
+        Cell.GetFeatureSW(), Cell.GetFeatureSE(),
+        Cell.GetFeatureNW(), Cell.GetFeatureNE());
 }
 
 // -- Fill Functions
 
 void FMQCGridChunk::FillA(const FMQCFeaturePoint& f)
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillA(cell, f);
+        Surfaces[Cell.a.voxelState].FillA(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillB(const FMQCFeaturePoint& f)
 {
-    if (cell.b.IsFilled())
+    if (Cell.b.IsFilled())
     {
-        Surfaces[cell.b.voxelState].FillB(cell, f);
+        Surfaces[Cell.b.voxelState].FillB(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillC(const FMQCFeaturePoint& f)
 {
-    if (cell.c.IsFilled())
+    if (Cell.c.IsFilled())
     {
-        Surfaces[cell.c.voxelState].FillC(cell, f);
+        Surfaces[Cell.c.voxelState].FillC(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillD(const FMQCFeaturePoint& f)
 {
-    if (cell.d.IsFilled())
+    if (Cell.d.IsFilled())
     {
-        Surfaces[cell.d.voxelState].FillD(cell, f);
+        Surfaces[Cell.d.voxelState].FillD(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillABC(const FMQCFeaturePoint& f)
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillABC(cell, f);
+        Surfaces[Cell.a.voxelState].FillABC(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillABD(const FMQCFeaturePoint& f)
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillABD(cell, f);
+        Surfaces[Cell.a.voxelState].FillABD(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillACD(const FMQCFeaturePoint& f)
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillACD(cell, f);
+        Surfaces[Cell.a.voxelState].FillACD(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillBCD(const FMQCFeaturePoint& f)
 {
-    if (cell.b.IsFilled())
+    if (Cell.b.IsFilled())
     {
-        Surfaces[cell.b.voxelState].FillBCD(cell, f);
+        Surfaces[Cell.b.voxelState].FillBCD(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillAB(const FMQCFeaturePoint& f)
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillAB(cell, f);
+        Surfaces[Cell.a.voxelState].FillAB(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillAC(const FMQCFeaturePoint& f)
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillAC(cell, f);
+        Surfaces[Cell.a.voxelState].FillAC(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillBD(const FMQCFeaturePoint& f)
 {
-    if (cell.b.IsFilled())
+    if (Cell.b.IsFilled())
     {
-        Surfaces[cell.b.voxelState].FillBD(cell, f);
+        Surfaces[Cell.b.voxelState].FillBD(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillCD(const FMQCFeaturePoint& f)
 {
-    if (cell.c.IsFilled())
+    if (Cell.c.IsFilled())
     {
-        Surfaces[cell.c.voxelState].FillCD(cell, f);
+        Surfaces[Cell.c.voxelState].FillCD(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillADToB(const FMQCFeaturePoint& f)
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillADToB(cell, f);
+        Surfaces[Cell.a.voxelState].FillADToB(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillADToC(const FMQCFeaturePoint& f)
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillADToC(cell, f);
+        Surfaces[Cell.a.voxelState].FillADToC(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillBCToA(const FMQCFeaturePoint& f)
 {
-    if (cell.b.IsFilled())
+    if (Cell.b.IsFilled())
     {
-        Surfaces[cell.b.voxelState].FillBCToA(cell, f);
+        Surfaces[Cell.b.voxelState].FillBCToA(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillBCToD(const FMQCFeaturePoint& f)
 {
-    if (cell.b.IsFilled())
+    if (Cell.b.IsFilled())
     {
-        Surfaces[cell.b.voxelState].FillBCToD(cell, f);
+        Surfaces[Cell.b.voxelState].FillBCToD(Cell, f);
     }
 }
 
 void FMQCGridChunk::FillABCD()
 {
-    if (cell.a.IsFilled())
+    if (Cell.a.IsFilled())
     {
-        Surfaces[cell.a.voxelState].FillABCD(cell);
+        Surfaces[Cell.a.voxelState].FillABCD(Cell);
     }
 }
 
@@ -1118,7 +1147,7 @@ void FMQCGridChunk::FillJoinedCorners(
     const FMQCFeaturePoint& fD
     )
 {
-    FMQCFeaturePoint point = cell.GetFeatureAverage(fA, fB, fC, fD);
+    FMQCFeaturePoint point = Cell.GetFeatureAverage(fA, fB, fC, fD);
     FillA(point);
     FillB(point);
     FillC(point);

@@ -89,9 +89,19 @@ public:
         return ChunkResolution * VoxelResolution;
     }
 
+    bool IsWithinDimension(int32 X, int32 Y) const
+    {
+        return X < GetVoxelDimension() && Y < GetVoxelDimension();
+    }
+
     FORCEINLINE int32 GetStateCount() const
     {
         return SurfaceStates.Num();
+    }
+
+    FORCEINLINE bool HasState(int32 StateIndex) const
+    {
+        return StateIndex > 0 && StateIndex <= GetStateCount();
     }
 
     FORCEINLINE EMQCMaterialType GetMaterialType() const
@@ -105,8 +115,11 @@ public:
 
     bool HasChunk(int32 ChunkIndex) const;
     int32 GetChunkCount() const;
+    int32 GetChunkIndex(int32 ChunkX, int32 ChunkY) const;
+    int32 GetChunkIndexByPoint(int32 X, int32 Y) const;
     const FMQCGridChunk& GetChunk(int32 ChunkIndex) const;
     FMQCGridChunk& GetChunk(int32 ChunkIndex);
+    void GetChunks(TArray<FMQCGridChunk*>& OutChunks, const FIntPoint& BoundsMin, const FIntPoint& BoundsMax);
 
     // TRIANGULATION FUNCTIONS
 
@@ -119,8 +132,11 @@ public:
 
     // GEOMETRY FUNCTIONS
 
-    int32 GetEdgeListCount(int32 StateIndex) const;
-    void GetEdgeList(TArray<FMQCEdgePointList>& OutLists, int32 StateIndex) const;
+    void AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bExtrudeFilter);
+    int32 GetEdgePointListCount(int32 StateIndex) const;
+    void GetEdgePoints(TArray<FMQCEdgePointList>& OutPointList, int32 StateIndex) const;
+    void GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const;
+    void GetEdgePointsByChunkSurface(TArray<FMQCEdgePointData>& OutPointList, int32 ChunkIndex, int32 StateIndex) const;
 };
 
 UCLASS(BlueprintType, Blueprintable)
@@ -151,7 +167,7 @@ public:
     }
 
     UFUNCTION(BlueprintCallable)
-    bool IsInitialized() const;
+    FORCEINLINE_DEBUGGABLE bool IsInitialized() const;
 
     UFUNCTION(BlueprintCallable)
     void InitializeVoxelMap();
@@ -178,31 +194,34 @@ public:
     void ResetAllChunkStates();
 
     UFUNCTION(BlueprintCallable)
-    int32 GetVoxelDimension() const;
+    FORCEINLINE_DEBUGGABLE int32 GetVoxelDimension() const;
 
     UFUNCTION(BlueprintCallable)
-    FIntPoint GetVoxelDimension2D() const;
+    FORCEINLINE_DEBUGGABLE FIntPoint GetVoxelDimension2D() const;
 
     UFUNCTION(BlueprintCallable)
-    float GetVectorDimension() const;
+    FORCEINLINE_DEBUGGABLE float GetVectorDimension() const;
 
     UFUNCTION(BlueprintCallable)
-    FVector2D GetVectorDimension2D() const;
+    FORCEINLINE_DEBUGGABLE FVector2D GetVectorDimension2D() const;
 
     UFUNCTION(BlueprintCallable)
-    FVector2D GetCenter() const;
+    FORCEINLINE_DEBUGGABLE FVector2D GetCenter() const;
 
     UFUNCTION(BlueprintCallable)
-    FVector2D GetMeshInverseScale() const;
+    FORCEINLINE_DEBUGGABLE FVector2D GetMeshInverseScale() const;
 
     UFUNCTION(BlueprintCallable)
-    int32 GetStateCount() const;
+    FORCEINLINE_DEBUGGABLE int32 GetStateCount() const;
 
     UFUNCTION(BlueprintCallable)
-    bool HasChunk(int32 ChunkIndex) const;
+    FORCEINLINE_DEBUGGABLE bool HasState(int32 StateIndex) const;
 
     UFUNCTION(BlueprintCallable)
-    int32 GetChunkCount() const;
+    FORCEINLINE_DEBUGGABLE bool HasChunk(int32 ChunkIndex) const;
+
+    UFUNCTION(BlueprintCallable)
+    FORCEINLINE_DEBUGGABLE int32 GetChunkCount() const;
 
     UFUNCTION(BlueprintCallable)
     FVector GetChunkPosition(int32 ChunkIndex) const;
@@ -214,10 +233,19 @@ public:
     FPMUMeshSectionRef GetExtrudeSection(int32 ChunkIndex, int32 StateIndex);
 
     UFUNCTION(BlueprintCallable)
-    FPMUMeshSectionRef GetEdgeSection(int32 ChunkIndex, int32 StateIndex);
+    void GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex);
 
     UFUNCTION(BlueprintCallable)
-    void GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListId);
+    void GetEdgePointsByChunkSurface(TArray<FMQCEdgePointData>& OutPointList, int32 ChunkIndex, int32 StateIndex);
+
+    UFUNCTION(BlueprintCallable)
+    FORCEINLINE_DEBUGGABLE int32 GetEdgePointListCount(int32 StateIndex) const;
+
+    UFUNCTION(BlueprintCallable)
+    void AddQuadFilters(const TArray<FIntPoint>& Points, int32 StateIndex, bool bFilterExtrude);
+
+    UFUNCTION(BlueprintCallable)
+    void AddQuadFiltersByBounds(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax, int32 StateIndex, bool bFilterExtrude);
 };
 
 UCLASS(BlueprintType)
@@ -315,6 +343,16 @@ FORCEINLINE int32 FMQCMap::GetChunkCount() const
     return Chunks.Num();
 }
 
+FORCEINLINE int32 FMQCMap::GetChunkIndex(int32 ChunkX, int32 ChunkY) const
+{
+    return ChunkX + ChunkY * ChunkResolution;
+}
+
+FORCEINLINE int32 FMQCMap::GetChunkIndexByPoint(int32 X, int32 Y) const
+{
+    return (X/VoxelResolution) + (Y/VoxelResolution) * ChunkResolution;
+}
+
 FORCEINLINE const FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex) const
 {
     return *Chunks[ChunkIndex];
@@ -323,6 +361,21 @@ FORCEINLINE const FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex) const
 FORCEINLINE FMQCGridChunk& FMQCMap::GetChunk(int32 ChunkIndex)
 {
     return *Chunks[ChunkIndex];
+}
+
+FORCEINLINE void FMQCMap::GetChunks(TArray<FMQCGridChunk*>& OutChunks, const FIntPoint& BoundsMin, const FIntPoint& BoundsMax)
+{
+    int32 ChunkMinX = FMath::Max(BoundsMin.X/VoxelResolution, 0);
+    int32 ChunkMaxX = FMath::Min(BoundsMax.X/VoxelResolution, ChunkResolution-1);
+
+    int32 ChunkMinY = FMath::Max(BoundsMin.Y/VoxelResolution, 0);
+    int32 ChunkMaxY = FMath::Min(BoundsMax.Y/VoxelResolution, ChunkResolution-1);
+
+    for (int32 y=ChunkMinY; y<=ChunkMaxY; ++y)
+    for (int32 x=ChunkMinX; x<=ChunkMaxX; ++x)
+    {
+        OutChunks.Emplace(Chunks[GetChunkIndex(x, y)]);
+    }
 }
 
 // Blueprint Inlines
@@ -387,6 +440,11 @@ FORCEINLINE_DEBUGGABLE int32 UMQCMapRef::GetStateCount() const
     return VoxelMap.GetStateCount();
 }
 
+FORCEINLINE_DEBUGGABLE bool UMQCMapRef::HasState(int32 StateIndex) const
+{
+    return VoxelMap.HasState(StateIndex);
+}
+
 FORCEINLINE_DEBUGGABLE bool UMQCMapRef::HasChunk(int32 ChunkIndex) const
 {
     return VoxelMap.HasChunk(ChunkIndex);
@@ -395,6 +453,11 @@ FORCEINLINE_DEBUGGABLE bool UMQCMapRef::HasChunk(int32 ChunkIndex) const
 FORCEINLINE_DEBUGGABLE int32 UMQCMapRef::GetChunkCount() const
 {
     return VoxelMap.GetChunkCount();
+}
+
+FORCEINLINE_DEBUGGABLE int32 UMQCMapRef::GetEdgePointListCount(int32 StateIndex) const
+{
+    return IsInitialized() ? VoxelMap.GetEdgePointListCount(StateIndex) : 0;
 }
 
 FORCEINLINE_DEBUGGABLE UMQCMapRef* AMQCMap::K2_GetMap() const

@@ -132,7 +132,7 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
     // Construct edge sync data connection list
     while (SyncCandidates.Num() > 0)
     {
-        EdgeSyncLists.SetNum(EdgeSyncLists.Num()+1);
+        EdgeSyncLists.AddDefaulted(1);
         TDoubleLinkedList<FMQCEdgeSyncData>& SyncList(EdgeSyncLists.Last());
 
         SyncList.AddTail(SyncCandidates[0]);
@@ -180,6 +180,8 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
         }
     }
 
+    // Generate edge sync array from linked list
+
     FStateEdgeSyncList& EdgeSyncGroup(EdgeSyncGroups[StateIndex]);
 
     EdgeSyncGroup.Reset();
@@ -197,53 +199,6 @@ void FMQCMap::ResolveChunkEdgeData(int32 StateIndex)
             EdgeSyncArr.Emplace(SyncData);
         }
     }
-
-#if 0
-    // Remap connected edge distances and uvs
-    for (int32 ListIndex=0; ListIndex<EdgeSyncLists.Num(); ++ListIndex)
-    {
-        const FEdgeSyncList& SyncList(EdgeSyncLists[ListIndex]);
-
-        // Skip edge list that does not have any connection (remap not required)
-        if (SyncList.Num() < 2)
-        {
-            continue;
-        }
-
-        int32 j=0;
-        float Length = 0.f;
-        float LengthInv = 0.f;
-
-        // Find edge list total length
-
-        for (const FMQCEdgeSyncData& SyncData : SyncList)
-        {
-            Length += SyncData.Length;
-        }
-
-        // Calculate inversed edge total length
-
-        if (Length > 0.f)
-        {
-            LengthInv = 1.f/Length;
-        }
-
-        // Remap edge list uv
-
-        float UV0 = 0.f;
-        float UV1 = 0.f;
-
-        // Remap edge uvs
-        for (const FMQCEdgeSyncData& SyncData : SyncList)
-        {
-            UV0 = UV1;
-            UV1 = UV0 + SyncData.Length * LengthInv;
-
-            FMQCGridChunk& Chunk(*chunks[SyncData.ChunkIndex]);
-            Chunk.RemapEdgeUVs(StateIndex, SyncData.EdgeListIndex, UV0, UV1);
-        }
-    }
-#endif
 }
 
 void FMQCMap::InitializeSettings(const FMQCMapConfig& MapConfig)
@@ -366,14 +321,23 @@ void FMQCMap::ResetAllChunkStates()
     }
 }
 
-int32 FMQCMap::GetEdgeListCount(int32 StateIndex) const
+void FMQCMap::AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bExtrudeFilter)
+{
+    if (IsWithinDimension(Point.X, Point.Y))
+    {
+        int32 ChunkIndex = GetChunkIndexByPoint(Point.X, Point.Y);
+        GetChunk(ChunkIndex).AddQuadFilter(Point, StateIndex, bExtrudeFilter);
+    }
+}
+
+int32 FMQCMap::GetEdgePointListCount(int32 StateIndex) const
 {
     return EdgeSyncGroups.IsValidIndex(StateIndex)
         ? EdgeSyncGroups[StateIndex].Num()
         : 0;
 }
 
-void FMQCMap::GetEdgeList(TArray<FMQCEdgePointList>& OutLists, int32 StateIndex) const
+void FMQCMap::GetEdgePoints(TArray<FMQCEdgePointList>& OutPointList, int32 StateIndex) const
 {
     // Invalid state, abort
     if (! EdgeSyncGroups.IsValidIndex(StateIndex))
@@ -383,41 +347,48 @@ void FMQCMap::GetEdgeList(TArray<FMQCEdgePointList>& OutLists, int32 StateIndex)
 
     const FStateEdgeSyncList& EdgeSyncs(EdgeSyncGroups[StateIndex]);
 
-    OutLists.Reset();
-    OutLists.SetNum(EdgeSyncs.Num(), true);
+    OutPointList.Reset();
+    OutPointList.SetNum(EdgeSyncs.Num(), true);
 
     for (int32 i=0; i<EdgeSyncs.Num(); ++i)
     {
         const FEdgeSyncList& SyncList(EdgeSyncs[i]);
-        TArray<FMQCEdgePoint>& Points(OutLists[i].Points);
-        float Distance = 0.f;
-
-        Points.Reset(SyncList.Num());
+        FMQCEdgePointList& Points(OutPointList[i]);
 
         // Generate connected edge point list
         for (const FMQCEdgeSyncData& SyncData : SyncList)
         {
             const FMQCGridChunk& Chunk(GetChunk(SyncData.ChunkIndex));
-
-            //UE_LOG(LogTemp,Warning, TEXT("GetEdgeList() SyncData: %s"), *SyncData.ToString());
-
-            Chunk.GetConnectedEdgePoints(Points, StateIndex, SyncData, Distance);
-
-            Distance += SyncData.Length;
+            Chunk.AppendConnectedEdgePoints(Points, StateIndex, SyncData.EdgeListIndex);
         }
+    }
+}
 
-        // Check for circular edge list
-        if (Points.Num() > 2)
-        {
-            const FMQCEdgePoint& P0(Points[0]);
-            const FMQCEdgePoint& PN(Points.Last());
+void FMQCMap::GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const
+{
+    // Invalid edge list index, abort
+    if (! EdgeSyncGroups.IsValidIndex(StateIndex) ||
+        ! EdgeSyncGroups[StateIndex].IsValidIndex(EdgeListIndex)
+        )
+    {
+        return;
+    }
 
-            // Copy first point normal to the last if circular
-            if (P0.Position.Equals(PN.Position))
-            {
-                Points.Last().Normal = Points[0].Normal;
-            }
-        }
+    const FEdgeSyncList& SyncList(EdgeSyncGroups[StateIndex][EdgeListIndex]);
+
+    // Generate connected edge points
+    for (const FMQCEdgeSyncData& SyncData : SyncList)
+    {
+        const FMQCGridChunk& Chunk(GetChunk(SyncData.ChunkIndex));
+        Chunk.AppendConnectedEdgePoints(OutPoints, StateIndex, SyncData.EdgeListIndex);
+    }
+}
+
+void FMQCMap::GetEdgePointsByChunkSurface(TArray<FMQCEdgePointData>& OutPointList, int32 ChunkIndex, int32 StateIndex) const
+{
+    if (Chunks.IsValidIndex(ChunkIndex))
+    {
+        GetChunk(ChunkIndex).GetEdgePoints(OutPointList, StateIndex);
     }
 }
 
@@ -508,38 +479,53 @@ FPMUMeshSectionRef UMQCMapRef::GetExtrudeSection(int32 ChunkIndex, int32 StateIn
     }
 }
 
-FPMUMeshSectionRef UMQCMapRef::GetEdgeSection(int32 ChunkIndex, int32 StateIndex)
+void UMQCMapRef::GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex)
 {
-    if (HasChunk(ChunkIndex))
+    if (IsInitialized())
     {
-        FMQCGridChunk& Chunk(VoxelMap.GetChunk(ChunkIndex));
-        return FPMUMeshSectionRef(*Chunk.GetEdgeSection(StateIndex));
-    }
-    else
-    {
-        return FPMUMeshSectionRef();
+        VoxelMap.GetEdgePoints(OutPoints, StateIndex, EdgeListIndex);
     }
 }
 
-void UMQCMapRef::GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListId)
+void UMQCMapRef::GetEdgePointsByChunkSurface(TArray<FMQCEdgePointData>& OutPointList, int32 ChunkIndex, int32 StateIndex)
 {
-    if (! IsInitialized())
+    if (IsInitialized())
     {
-        return;
+        VoxelMap.GetEdgePointsByChunkSurface(OutPointList, ChunkIndex, StateIndex);
     }
+}
 
-    TArray<FMQCEdgePointList> EdgeLists;
-    VoxelMap.GetEdgeList(EdgeLists, StateIndex);
-
-    if (EdgeLists.IsValidIndex(EdgeListId))
+void UMQCMapRef::AddQuadFilters(const TArray<FIntPoint>& Points, int32 StateIndex, bool bFilterExtrude)
+{
+    if (IsInitialized() && VoxelMap.HasState(StateIndex))
     {
-        const TArray<FMQCEdgePoint>& EdgePoints(EdgeLists[EdgeListId].Points);
-
-        OutPoints.Reset(EdgePoints.Num());
-
-        for (const FMQCEdgePoint& EdgePoint : EdgePoints)
+        for (const FIntPoint& Point : Points)
         {
-            OutPoints.Emplace(EdgePoint.Position);
+            VoxelMap.AddQuadFilter(Point, StateIndex, bFilterExtrude);
+        }
+    }
+}
+
+void UMQCMapRef::AddQuadFiltersByBounds(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax, int32 StateIndex, bool bFilterExtrude)
+{
+    if (IsInitialized() && VoxelMap.HasState(StateIndex))
+    {
+        FIntPoint ClampedMin;
+        FIntPoint ClampedMax;
+
+        ClampedMin.X = FMath::Clamp(BoundsMin.X, 0, GetVoxelDimension()-1);
+        ClampedMin.Y = FMath::Clamp(BoundsMin.Y, 0, GetVoxelDimension()-1);
+        ClampedMax.X = FMath::Clamp(BoundsMax.X, ClampedMin.X, GetVoxelDimension()-1);
+        ClampedMax.Y = FMath::Clamp(BoundsMax.Y, ClampedMin.Y, GetVoxelDimension()-1);
+
+        FIntPoint Point;
+
+        for (int32 y=ClampedMin.Y; y<=ClampedMax.Y; ++y)
+        for (int32 x=ClampedMin.X; x<=ClampedMax.X; ++x)
+        {
+            Point.X = x;
+            Point.Y = y;
+            VoxelMap.AddQuadFilter(Point, StateIndex, bFilterExtrude);
         }
     }
 }
@@ -677,7 +663,6 @@ void AMQCMap::GenerateMapMesh()
         FMQCGridChunk& Chunk(Map.GetChunk(ChunkIndex));
         FPMUMeshSectionRef SurfaceRef(*Chunk.GetSurfaceSection(StateIndex));
         FPMUMeshSectionRef ExtrudeRef(*Chunk.GetExtrudeSection(StateIndex));
-        FPMUMeshSectionRef EdgeRef(*Chunk.GetEdgeSection(StateIndex));
 
         //UPMUMeshComponent* Mesh;
         UPMUMeshComponent* Mesh = GetSurfaceMesh(ChunkIndex);
@@ -690,7 +675,6 @@ void AMQCMap::GenerateMapMesh()
 
         Mesh->CreateNewSection(SurfaceRef, MGI_SURFACE);
         //Mesh->CreateNewSection(ExtrudeRef, MGI_EXTRUDE);
-        //Mesh->CreateNewSection(EdgeRef, MGI_EDGE);
         Mesh->UpdateRenderState();
     }
 }
@@ -709,7 +693,9 @@ void AMQCMap::GenerateMaterialMesh(
         return;
     }
 
-    FMQCMaterialBlend MaterialId;
+    // Generate material blend identifier
+
+    FMQCMaterialBlend MaterialBlend;
 
     if (bUseTripleIndex)
     {
@@ -728,7 +714,7 @@ void AMQCMap::GenerateMaterialMesh(
             Swap(MaterialIndex0, MaterialIndex1);
         }
 
-        MaterialId = FMQCMaterialBlend(
+        MaterialBlend = FMQCMaterialBlend(
             MaterialIndex0,
             MaterialIndex1,
             MaterialIndex2
@@ -743,11 +729,11 @@ void AMQCMap::GenerateMaterialMesh(
 
         if (MaterialIndex0 == MaterialIndex1)
         {
-            MaterialId = FMQCMaterialBlend(MaterialIndex0);
+            MaterialBlend = FMQCMaterialBlend(MaterialIndex0);
         }
         else
         {
-            MaterialId = FMQCMaterialBlend(MaterialIndex0, MaterialIndex1);
+            MaterialBlend = FMQCMaterialBlend(MaterialIndex0, MaterialIndex1);
         }
     }
 
@@ -763,7 +749,7 @@ void AMQCMap::GenerateMaterialMesh(
         FMQCGridChunk& Chunk(Map.GetChunk(ChunkIndex));
         FPMUMeshSection* SectionPtr;
 
-        SectionPtr = Chunk.GetMaterialSection(StateIndex, MaterialId);
+        SectionPtr = Chunk.GetSurfaceMaterialSection(StateIndex, MaterialBlend);
 
         if (SectionPtr)
         {

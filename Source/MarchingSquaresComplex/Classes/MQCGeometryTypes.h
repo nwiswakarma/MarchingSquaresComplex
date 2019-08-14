@@ -28,6 +28,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MQCGeometryTypes.generated.h"
 
 struct FMQCEdgeSyncData
 {
@@ -35,37 +36,25 @@ struct FMQCEdgeSyncData
     int32 EdgeListIndex;
     uint32 HeadHash;
     uint32 TailHash;
-    float Length;
 
     FORCEINLINE FString ToString() const
     {
-        return FString::Printf(TEXT("(ChunkIndex: %d, EdgeListIndex: %d, HeadHash: %u, TailHash: %u, Length: %f)"),
+        return FString::Printf(TEXT("(ChunkIndex: %d, EdgeListIndex: %d, HeadHash: %u, TailHash: %u)"),
             ChunkIndex,
             EdgeListIndex,
             HeadHash,
-            TailHash,
-            Length
+            TailHash
             );
     }
 };
 
-struct FMQCEdgePoint
-{
-    FVector2D Position;
-    FVector2D Normal;
-    float Distance;
+typedef TArray<FVector2D> FMQCEdgePointList;
 
-    FORCEINLINE FString ToString() const
-    {
-        return FString::Printf(TEXT("(Position: %s, Normal: %s, Distance: %f)"),
-            *Position.ToString(),
-            *Normal.ToString(),
-            Distance
-            );
-    }
-};
-
-struct FMQCEdgePointList
+USTRUCT(BlueprintType)
+struct FMQCEdgePointData
 {
-    TArray<FMQCEdgePoint> Points;
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TArray<FVector2D> Points;
 };

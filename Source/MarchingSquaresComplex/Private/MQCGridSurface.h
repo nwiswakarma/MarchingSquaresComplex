@@ -33,19 +33,53 @@
 #include "MQCVoxelTypes.h"
 #include "MQCGeometryTypes.h"
 #include "MQCMaterial.h"
+#include "GULMathLibrary.h"
 
 class FMQCGridSurface
 {
 private:
 
-    friend class FMQCGridChunk;
-    friend class FMQCGridRenderer;
+    typedef TMap<uint32, uint32> FIndexMap;
+    typedef TArray<uint32> FIndexArray;
 
-    struct FEdgePoint
+    struct FMeshData
     {
-        uint32 VertexIndex;
-        FVector2D Normal;
-        float Distance;
+        // Geometry Data
+        FPMUMeshSection Section;
+        TSet<uint32> QuadFilterHashSet;
+
+        // Material Data
+        TArray<FMQCMaterial> Materials;
+        TMap<FMQCMaterialBlend, FPMUMeshSection> MaterialSectionMap;
+        TMap<FMQCMaterialBlend, FIndexMap> MaterialIndexMap;
+
+        // Geometry Generation
+        FORCEINLINE void AddFace(uint32 a, uint32 b, uint32 c);
+        FORCEINLINE void AddQuad(uint32 a, uint32 b, uint32 c, uint32 d);
+        FORCEINLINE void AddQuadInversed(uint32 a, uint32 b, uint32 c, uint32 d);
+        FORCEINLINE bool IsQuadFiltered(uint32 VertexIndex) const;
+        FORCEINLINE uint32 DuplicateVertex(FPMUMeshSection& DstSection, uint32 SourceVertexIndex);
+
+        // Material Geometry Generation
+
+        FORCEINLINE void AddMaterialVertex(
+            FPMUMeshSection& MaterialSection,
+            FIndexMap& VertexIndexMap,
+            uint32 VertexIndex,
+            uint8 BlendA,
+            uint8 BlendB,
+            uint8 BlendC
+            );
+
+        FORCEINLINE void AddMaterialFace(
+            const FMQCMaterialBlend& MaterialBlend,
+            uint32 VertexIndexA,
+            uint32 VertexIndexB,
+            uint32 VertexIndexC,
+            uint8 BlendsA[3],
+            uint8 BlendsB[3],
+            uint8 BlendsC[3]
+            );
     };
 
     struct FEdgeLink
@@ -60,192 +94,19 @@ private:
         FEdgeLink* Head;
         FEdgeLink* Tail;
 
-        FEdgeLinkList()
-            : ElementCount(0)
-            , Head(nullptr)
-            , Tail(nullptr)
-        {
-        }
+        FEdgeLinkList();
+        ~FEdgeLinkList();
 
-        ~FEdgeLinkList()
-        {
-            FEdgeLink* Node = Head;
-            while (Node)
-            {
-                FEdgeLink* Next = Node->Next;
-                delete Node;
-                Node = Next;
-            }
-        }
+        int32 Num() const;
+        bool IsEmpty() const;
+        void Reset();
 
-        FORCEINLINE int32 Num() const
-        {
-            return ElementCount;
-        }
+        void AddHead(uint32 Value);
+        void AddTail(uint32 Value);
 
-        FORCEINLINE bool IsEmpty() const
-        {
-            return ElementCount == 0;
-        }
-
-        FORCEINLINE void Reset()
-        {
-            check(Head == nullptr);
-            check(Tail == nullptr);
-            ElementCount = 0;
-        }
-
-        FORCEINLINE void AddHead(uint32 Value)
-        {
-            FEdgeLink* Link = new FEdgeLink;
-            Link->Value = Value;
-            Link->Next = Head;
-
-            if (Head)
-            {
-                Head = Link;
-            }
-            else
-            {
-                check(! Tail);
-                Head = Link;
-                Tail = Link;
-            }
-
-            ++ElementCount;
-        }
-
-        FORCEINLINE void AddTail(uint32 Value)
-        {
-            FEdgeLink* Link = new FEdgeLink;
-            Link->Value = Value;
-            Link->Next = nullptr;
-
-            if (Tail)
-            {
-                check(! Tail->Next);
-                Tail->Next = Link;
-                Tail = Link;
-            }
-            else
-            {
-                check(! Head);
-                Head = Link;
-                Tail = Link;
-            }
-
-            ++ElementCount;
-        }
-
-        // Connect an edge to the list.
-        // Index order is not commutative.
-        // List must not be empty.
-        inline bool Connect(uint32 InHeadIndex, uint32 InTailIndex)
-        {
-            check(Head);
-            check(Tail);
-
-            uint32 HeadIndex = Head->Value;
-            uint32 TailIndex = Tail->Value;
-
-            bool bHasConnection = false;
-
-            // Connect edge at tail
-            if (TailIndex == InHeadIndex)
-            {
-                AddTail(InTailIndex);
-                bHasConnection = true;
-            }
-            // Connect edge at head
-            else
-            if (HeadIndex == InTailIndex)
-            {
-                AddHead(InHeadIndex);
-                bHasConnection = true;
-            }
-
-            return bHasConnection;
-        }
-
-        // Merge another list.
-        // Index order is not commutative.
-        // Both lists must not be empty.
-        inline bool Merge(FEdgeLinkList& LinkList)
-        {
-            check(Head);
-            check(Tail);
-
-            check(LinkList.Head);
-            check(LinkList.Tail);
-
-            if (LinkList.Head == LinkList.Tail)
-            {
-                return false;
-            }
-
-            uint32 HeadValue0 = Head->Value;
-            uint32 TailValue0 = Tail->Value;
-
-            uint32 HeadValue1 = LinkList.Head->Value;
-            uint32 TailValue1 = LinkList.Tail->Value;
-
-            bool bHasConnection = false;
-
-            // Merge list at tail
-            if (TailValue0 == HeadValue1)
-            {
-                Tail->Next = LinkList.Head->Next;
-                delete LinkList.Head;
-                Tail = LinkList.Tail;
-                LinkList.Head = nullptr;
-                LinkList.Tail = nullptr;
-                LinkList.Reset();
-                bHasConnection = true;
-            }
-            // Merge list at head
-            else
-            if (HeadValue0 == TailValue1)
-            {
-                LinkList.Tail->Next = Head->Next;
-                delete Head;
-                Head = LinkList.Head;
-                LinkList.Head = nullptr;
-                LinkList.Tail = nullptr;
-                LinkList.Reset();
-                bHasConnection = true;
-            }
-
-            return bHasConnection;
-        }
+        bool Connect(uint32 InHeadIndex, uint32 InTailIndex);
+        bool Merge(FEdgeLinkList& LinkList);
     };
-
-    struct FMeshData
-    {
-        FPMUMeshSection Section;
-        TArray<FMQCMaterial> Materials;
-
-        FORCEINLINE void AddFace(uint32 a, uint32 b, uint32 c)
-        {
-            if (a != b && a != c && b != c)
-            {
-                Section.Indices.Emplace(a);
-                Section.Indices.Emplace(b);
-                Section.Indices.Emplace(c);
-                //UE_LOG(LogTemp,Warning, TEXT("%u %u %u"), a, b, c);
-            }
-        }
-
-        FORCEINLINE void AddFaceNoCheck(uint32 a, uint32 b, uint32 c)
-        {
-            Section.Indices.Emplace(a);
-            Section.Indices.Emplace(b);
-            Section.Indices.Emplace(c);
-            //UE_LOG(LogTemp,Warning, TEXT("%u %u %u NO CHECK"), a, b, c);
-        }
-    };
-
-    typedef TMap<uint32, uint32> FIndexMap;
-    typedef TArray<struct FEdgePoint> FEdgePointList;
 
 	const FName SHAPE_HEIGHT_MAP_NAME   = TEXT("PMU_VOXEL_SHAPE_HEIGHT_MAP");
 	const FName SURFACE_HEIGHT_MAP_NAME = TEXT("PMU_VOXEL_SURFACE_HEIGHT_MAP");
@@ -257,11 +118,10 @@ private:
 
 	int32 VoxelResolution;
     int32 VoxelCount;
-    bool bRequireHash16;
     float MapSize;
     float MapSizeInv;
 	float ExtrusionHeight;
-    FIntPoint Position;
+    FIntPoint ChunkPosition;
 
     EMQCMaterialType MaterialType;
 
@@ -280,19 +140,14 @@ private:
 	uint32 yEdgeMin;
 	uint32 yEdgeMax;
 
-    TMap<uint32, uint32> VertexMap;
-    TMap<uint32, uint32> EdgeMap;
+    FIndexMap VertexMap;
 
     TIndirectArray<FEdgeLinkList> EdgeLinkLists;
     TArray<FMQCEdgeSyncData> EdgeSyncList;
-    TArray<FEdgePointList> EdgePointLists;
+    TArray<FIndexArray> EdgePointIndexList;
 
     FMeshData SurfaceMeshData;
     FMeshData ExtrudeMeshData;
-    FMeshData EdgeMeshData;
-
-    TMap<FMQCMaterialBlend, FIndexMap> MaterialIndexMaps;
-    TMap<FMQCMaterialBlend, FPMUMeshSection> MaterialSectionMap;
 
     void ResetGeometry();
     void ReserveGeometry();
@@ -300,8 +155,6 @@ private:
 
     void ReserveGeometry(FMeshData& MeshData);
     void CompactGeometry(FMeshData& MeshData);
-
-    void GenerateEdgeGeometry();
 
 public:
 
@@ -315,10 +168,10 @@ public:
 	void Clear();
 
     void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
-    void RemapEdgeUVs(int32 EdgeListId, float UVStart, float UVEnd);
 
-    void GetEdgePoint(FMQCEdgePoint& EdgePoint, const FEdgePoint& SourcePoint, float DistanceOffset) const;
-    void GetConnectedEdgePoints(TArray<FMQCEdgePoint>& OutPoints, const FMQCEdgeSyncData& SyncData, float DistanceOffset) const;
+    void GetEdgePoints(TArray<FMQCEdgePointData>& OutPointList) const;
+    void GetEdgePoints(TArray<FVector2D>& OutPoints, int32 EdgeListIndex) const;
+    void AppendConnectedEdgePoints(TArray<FVector2D>& OutPoints, int32 EdgeListIndex) const;
 
     FORCEINLINE uint32 GetVertexCount() const
     {
@@ -337,11 +190,6 @@ public:
         return ExtrudeMeshData.Section;
     }
 
-    FORCEINLINE FPMUMeshSection& GetEdgeSection()
-    {
-        return EdgeMeshData.Section;
-    }
-
     FORCEINLINE const FPMUMeshSection& GetSurfaceSection() const
     {
         return SurfaceMeshData.Section;
@@ -352,38 +200,29 @@ public:
         return ExtrudeMeshData.Section;
     }
 
-    FORCEINLINE const FPMUMeshSection& GetEdgeSection() const
+    FORCEINLINE FPMUMeshSection* GetSurfaceMaterialSection(const FMQCMaterialBlend& Material)
     {
-        return EdgeMeshData.Section;
+        return SurfaceMeshData.MaterialSectionMap.Find(Material);
     }
 
-    FORCEINLINE FVector2D GetPositionByHash(uint32 Hash) const
+    FORCEINLINE FPMUMeshSection* GetExtrudeMaterialSection(const FMQCMaterialBlend& Material)
     {
-        const uint32* IndexPtr = VertexMap.Find(Hash);
-
-        if (IndexPtr)
-        {
-            return !bExtrusionSurface
-                ? FVector2D(GetSurfaceSection().Positions[*IndexPtr])
-                : FVector2D(GetExtrudeSection().Positions[*IndexPtr]);
-        }
-
-        return FVector2D();
+        return ExtrudeMeshData.MaterialSectionMap.Find(Material);
     }
 
-    FORCEINLINE FVector2D GetPositionByIndex(uint32 Index) const
+    FORCEINLINE const FPMUMeshSection* GetSurfaceMaterialSection(const FMQCMaterialBlend& Material) const
     {
-        return !bExtrusionSurface
-            ? FVector2D(GetSurfaceSection().Positions[Index])
-            : FVector2D(GetExtrudeSection().Positions[Index]);
+        return SurfaceMeshData.MaterialSectionMap.Find(Material);
     }
 
-    FORCEINLINE int32 AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData) const
+    FORCEINLINE const FPMUMeshSection* GetExtrudeMaterialSection(const FMQCMaterialBlend& Material) const
     {
-        int32 StartIndex = OutSyncData.Num();
-        OutSyncData.Append(EdgeSyncList);
-        return StartIndex;
+        return ExtrudeMeshData.MaterialSectionMap.Find(Material);
     }
+
+    FVector2D GetPositionByIndex(uint32 Index) const;
+    int32 AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData) const;
+    void AddQuadFilter(const FIntPoint& Point, bool bFilterExtrude);
 
     // -- Corner and Edge Caching
 
@@ -392,9 +231,7 @@ public:
 	void CacheFirstCorner(const FMQCVoxel& voxel);
 	void CacheNextCorner(int32 i, const FMQCVoxel& voxel);
 	void CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material);
-	void CacheEdgeXWithWall(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material);
 	void CacheEdgeY(const FMQCVoxel& voxel, const FMQCMaterial& Material);
-	void CacheEdgeYWithWall(const FMQCVoxel& voxel, const FMQCMaterial& Material);
 	int32 CacheFeaturePoint(const FMQCFeaturePoint& f);
 
     // -- Fill Functions
@@ -460,63 +297,54 @@ private:
 
     // -- Geometry Generation Functions
 
-	void AddTriangle(uint32 a, uint32 b, uint32 c);
-	void AddQuad(uint32 a, uint32 b, uint32 c, uint32 d);
-	void AddQuadCorners(uint32 a, uint32 b, uint32 c, uint32 d);
-	void AddPentagon(uint32 a, uint32 b, uint32 c, uint32 d, uint32 e);
-	void AddHexagon(uint32 a, uint32 b, uint32 c, uint32 d, uint32 e, uint32 f);
+    void GenerateEdgeListData();
+    void GenerateEdgeListData(int32 EdgeListIndex);
 
-    static uint32 DuplicateVertex(
-        const FMeshData& SrcMeshData,
-        FMeshData& DstMeshData,
-        uint32 VertexIndex
-        );
+	void AddQuadFace(uint32 a, uint32 b, uint32 c, uint32 d);
+	void AddTriangleEdgeFace(uint32 a, uint32 b, uint32 c);
+	void AddQuadEdgeFace(uint32 a, uint32 b, uint32 c, uint32 d);
+	void AddPentagonEdgeFace(uint32 a, uint32 b, uint32 c, uint32 d, uint32 e);
+	void AddHexagonEdgeFace(uint32 a, uint32 b, uint32 c, uint32 d, uint32 e, uint32 f);
 
-    static uint32 DuplicateVertex(
-        const FPMUMeshSection& SrcSection,
-        FPMUMeshSection& DstSection,
-        uint32 VertexIndex
-        );
-
-    void GenerateEdgeVertex(TArray<uint32>& EdgeIndices, uint32 SourceIndex);
-    float GenerateEdgeSegment(TArray<uint32>& EdgeIndices0, TArray<uint32>& EdgeIndices1);
-    void GenerateEdgeSyncData(int32 EdgeListId);
-
-    void AddVertex(
-        const FVector2D& Vertex,
-        const FMQCMaterial& Material,
-        bool bIsExtrusion
-        );
-
+    void AddVertex(const FVector2D& Vertex, const FMQCMaterial& Material, bool bIsExtrusion);
     void AddEdge(uint32 a, uint32 b);
     void AddMaterialFace(uint32 a, uint32 b, uint32 c);
 
-    inline uint32 AddVertex2(uint32 Hash, const FVector2D& Vertex, const FMQCMaterial& Material)
+    inline uint32 AddVertex2(const FVector2D& Point, const FMQCMaterial& Material)
     {
-        uint32* IndexPtr = VertexMap.Find(Hash);
+        // Generate fixed precision integer point vertex
+        FIntPoint VertexFixed = UGULMathLibrary::ScaleToIntPoint(FVector2D(ChunkPosition)+Point);
 
-        if (IndexPtr)
+        // Generate position hash
+        uint32 Hash = UGULMathLibrary::GetHash(VertexFixed);
+
+        if (uint32* IndexPtr = VertexMap.Find(Hash))
         {
             return *IndexPtr;
         }
-
-        uint32 Index = GetVertexCount();
-
-        AddVertex(Vertex, Material, bExtrusionSurface);
-
-        if (bGenerateExtrusion)
+        else
         {
-            AddVertex(Vertex, Material, true);
+            uint32 Index = GetVertexCount();
+
+            // Generate fixed precision vertex position
+            FVector2D Vertex = UGULMathLibrary::ScaleToVector2D(VertexFixed);
+
+            AddVertex(Vertex, Material, bExtrusionSurface);
+
+            if (bGenerateExtrusion)
+            {
+                AddVertex(Vertex, Material, true);
+            }
+
+            VertexMap.Emplace(Hash, Index);
+
+            return Index;
         }
-
-        VertexMap.Emplace(Hash, Index);
-
-        return Index;
     }
 
-    FORCEINLINE void MapEdge(uint32 VertexIndex, uint32 Hash)
+    FORCEINLINE uint32 GetVertexHash(uint32 VertexIndex) const
     {
-        EdgeMap.Emplace(VertexIndex, Hash);
+        return UGULMathLibrary::GetHash(GetPositionByIndex(VertexIndex));
     }
 
     FORCEINLINE void AddEdge(uint32 a, uint32 b, uint32 c)
@@ -537,6 +365,34 @@ private:
     }
 };
 
+FORCEINLINE FVector2D FMQCGridSurface::GetPositionByIndex(uint32 Index) const
+{
+    return !bExtrusionSurface
+        ? FVector2D(GetSurfaceSection().Positions[Index])
+        : FVector2D(GetExtrudeSection().Positions[Index]);
+}
+
+FORCEINLINE int32 FMQCGridSurface::AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData) const
+{
+    int32 StartIndex = OutSyncData.Num();
+    OutSyncData.Append(EdgeSyncList);
+    return StartIndex;
+}
+
+FORCEINLINE void FMQCGridSurface::AddQuadFilter(const FIntPoint& Point, bool bFilterExtrude)
+{
+    uint32 Hash = UGULMathLibrary::GetHash(UGULMathLibrary::ScaleInt(Point));
+
+    if (bFilterExtrude)
+    {
+        ExtrudeMeshData.QuadFilterHashSet.Emplace(Hash);
+    }
+    else
+    {
+        SurfaceMeshData.QuadFilterHashSet.Emplace(Hash);
+    }
+}
+
 // -- Corner and Edge Caching
 
 FORCEINLINE void FMQCGridSurface::PrepareCacheForNextCell()
@@ -552,57 +408,28 @@ FORCEINLINE void FMQCGridSurface::PrepareCacheForNextRow()
 
 FORCEINLINE void FMQCGridSurface::CacheFirstCorner(const FMQCVoxel& voxel)
 {
-    uint32 Hash = bRequireHash16
-        ? voxel.GetPositionOnlyHash(Position)
-        : voxel.GetPositionOnlyHash8(Position);
-    cornersMax[0] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
+    cornersMax[0] = AddVertex2(voxel.GetPosition(), voxel.Material);
 }
 
 FORCEINLINE void FMQCGridSurface::CacheNextCorner(int32 i, const FMQCVoxel& voxel)
 {
-    uint32 Hash = bRequireHash16
-        ? voxel.GetPositionOnlyHash(Position)
-        : voxel.GetPositionOnlyHash8(Position);
-    cornersMax[i+1] = AddVertex2(Hash, voxel.GetPosition(), voxel.Material);
+    cornersMax[i+1] = AddVertex2(voxel.GetPosition(), voxel.Material);
 }
 
 FORCEINLINE void FMQCGridSurface::CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
 {
-    uint32 Hash = bRequireHash16
-        ? voxel.GetEdgePointHashX(Position)
-        : voxel.GetEdgePointHashX8(Position);
-    FVector2D EdgePoint(voxel.GetXEdgePoint());
-    xEdgesMax[i] = AddVertex2(Hash, EdgePoint, Material);
-    MapEdge(xEdgesMax[i], Hash);
-}
-
-FORCEINLINE void FMQCGridSurface::CacheEdgeXWithWall(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
-{
-    CacheEdgeX(i, voxel, Material);
+    xEdgesMax[i] = AddVertex2(voxel.GetXEdgePoint(), Material);
 }
 
 FORCEINLINE void FMQCGridSurface::CacheEdgeY(const FMQCVoxel& voxel, const FMQCMaterial& Material)
 {
-    uint32 Hash = bRequireHash16
-        ? voxel.GetEdgePointHashY(Position)
-        : voxel.GetEdgePointHashY8(Position);
-    FVector2D EdgePoint(voxel.GetYEdgePoint());
-    yEdgeMax = AddVertex2(Hash, EdgePoint, Material);
-    MapEdge(yEdgeMax, Hash);
-}
-
-FORCEINLINE void FMQCGridSurface::CacheEdgeYWithWall(const FMQCVoxel& voxel, const FMQCMaterial& Material)
-{
-    CacheEdgeY(voxel, Material);
+    yEdgeMax = AddVertex2(voxel.GetYEdgePoint(), Material);
 }
 
 FORCEINLINE int32 FMQCGridSurface::CacheFeaturePoint(const FMQCFeaturePoint& f)
 {
     check(f.exists);
-    uint32 Hash = bRequireHash16 ? f.GetHash(Position) : f.GetHash8(Position);
-    uint32 FeaturePointIndex = AddVertex2(Hash, f.position, f.Material);
-    MapEdge(FeaturePointIndex, Hash);
-    return FeaturePointIndex;
+    return AddVertex2(f.position, f.Material);
 }
 
 // -- Fill Functions
@@ -824,64 +651,64 @@ FORCEINLINE void FMQCGridSurface::FillABCD(const FMQCCell& cell)
 
 FORCEINLINE void FMQCGridSurface::AddQuadABCD(int32 i)
 {
-    AddQuadCorners(cornersMin[i], cornersMax[i], cornersMax[i + 1], cornersMin[i + 1]);
+    AddQuadFace(cornersMin[i], cornersMax[i], cornersMax[i + 1], cornersMin[i + 1]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddTriangleA(int32 i, const bool bWall0)
 {
-    AddTriangle(cornersMin[i], yEdgeMin, xEdgesMin[i]);
+    AddTriangleEdgeFace(cornersMin[i], yEdgeMin, xEdgesMin[i]);
     if (bWall0) AddEdge(yEdgeMin, xEdgesMin[i]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddQuadA(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
 {
-    AddQuad(FeatureVertexIndex, xEdgesMin[i], cornersMin[i], yEdgeMin);
+    AddQuadEdgeFace(FeatureVertexIndex, xEdgesMin[i], cornersMin[i], yEdgeMin);
     if (bWall0) AddEdge(yEdgeMin, FeatureVertexIndex);
     if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMin[i]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddTriangleB(int32 i, const bool bWall0)
 {
-    AddTriangle(cornersMin[i + 1], xEdgesMin[i], yEdgeMax);
+    AddTriangleEdgeFace(cornersMin[i + 1], xEdgesMin[i], yEdgeMax);
     if (bWall0) AddEdge(xEdgesMin[i], yEdgeMax);
 }
 
 FORCEINLINE void FMQCGridSurface::AddQuadB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
 {
-    AddQuad(FeatureVertexIndex, yEdgeMax, cornersMin[i + 1], xEdgesMin[i]);
+    AddQuadEdgeFace(FeatureVertexIndex, yEdgeMax, cornersMin[i + 1], xEdgesMin[i]);
     if (bWall0) AddEdge(xEdgesMin[i], FeatureVertexIndex);
     if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMax);
 }
 
 FORCEINLINE void FMQCGridSurface::AddTriangleC(int32 i, const bool bWall0)
 {
-    AddTriangle(cornersMax[i], xEdgesMax[i], yEdgeMin);
+    AddTriangleEdgeFace(cornersMax[i], xEdgesMax[i], yEdgeMin);
     if (bWall0) AddEdge(xEdgesMax[i], yEdgeMin);
 }
 
 FORCEINLINE void FMQCGridSurface::AddQuadC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
 {
-    AddQuad(FeatureVertexIndex, yEdgeMin, cornersMax[i], xEdgesMax[i]);
+    AddQuadEdgeFace(FeatureVertexIndex, yEdgeMin, cornersMax[i], xEdgesMax[i]);
     if (bWall0) AddEdge(xEdgesMax[i], FeatureVertexIndex);
     if (bWall1) AddEdge(FeatureVertexIndex, yEdgeMin);
 }
 
 FORCEINLINE void FMQCGridSurface::AddTriangleD(int32 i, const bool bWall0)
 {
-    AddTriangle(cornersMax[i + 1], yEdgeMax, xEdgesMax[i]);
+    AddTriangleEdgeFace(cornersMax[i + 1], yEdgeMax, xEdgesMax[i]);
     if (bWall0) AddEdge(yEdgeMax, xEdgesMax[i]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddQuadD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
 {
-    AddQuad(FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1], yEdgeMax);
+    AddQuadEdgeFace(FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1], yEdgeMax);
     if (bWall0) AddEdge(yEdgeMax, FeatureVertexIndex);
     if (bWall1) AddEdge(FeatureVertexIndex, xEdgesMax[i]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonABC(int32 i, const bool bWall0)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         cornersMin[i], cornersMax[i], xEdgesMax[i],
         yEdgeMax, cornersMin[i + 1]);
     if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax);
@@ -889,7 +716,7 @@ FORCEINLINE void FMQCGridSurface::AddPentagonABC(int32 i, const bool bWall0)
 
 FORCEINLINE void FMQCGridSurface::AddHexagonABC(int32 i, int32 FeatureVertexIndex, const bool bWall0)
 {
-    AddHexagon(
+    AddHexagonEdgeFace(
         FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
         cornersMin[i], cornersMax[i], xEdgesMax[i]);
     if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
@@ -897,7 +724,7 @@ FORCEINLINE void FMQCGridSurface::AddHexagonABC(int32 i, int32 FeatureVertexInde
 
 FORCEINLINE void FMQCGridSurface::AddPentagonABD(int32 i, const bool bWall0)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         cornersMin[i + 1], cornersMin[i], yEdgeMin,
         xEdgesMax[i], cornersMax[i + 1]);
     if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i]);
@@ -905,7 +732,7 @@ FORCEINLINE void FMQCGridSurface::AddPentagonABD(int32 i, const bool bWall0)
 
 FORCEINLINE void FMQCGridSurface::AddHexagonABD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
 {
-    AddHexagon(
+    AddHexagonEdgeFace(
         FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
         cornersMin[i + 1], cornersMin[i], yEdgeMin);
     if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
@@ -913,7 +740,7 @@ FORCEINLINE void FMQCGridSurface::AddHexagonABD(int32 i, int32 FeatureVertexInde
 
 FORCEINLINE void FMQCGridSurface::AddPentagonACD(int32 i, const bool bWall0)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         cornersMax[i], cornersMax[i + 1], yEdgeMax,
         xEdgesMin[i], cornersMin[i]);
     if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i]);
@@ -921,7 +748,7 @@ FORCEINLINE void FMQCGridSurface::AddPentagonACD(int32 i, const bool bWall0)
 
 FORCEINLINE void FMQCGridSurface::AddHexagonACD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
 {
-    AddHexagon(
+    AddHexagonEdgeFace(
         FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
         cornersMax[i], cornersMax[i + 1], yEdgeMax);
     if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
@@ -929,7 +756,7 @@ FORCEINLINE void FMQCGridSurface::AddHexagonACD(int32 i, int32 FeatureVertexInde
 
 FORCEINLINE void FMQCGridSurface::AddPentagonBCD(int32 i, const bool bWall0)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         cornersMax[i + 1], cornersMin[i + 1], xEdgesMin[i],
         yEdgeMin, cornersMax[i]);
     if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin);
@@ -937,7 +764,7 @@ FORCEINLINE void FMQCGridSurface::AddPentagonBCD(int32 i, const bool bWall0)
 
 FORCEINLINE void FMQCGridSurface::AddHexagonBCD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
 {
-    AddHexagon(
+    AddHexagonEdgeFace(
         FeatureVertexIndex, yEdgeMin, cornersMax[i],
         cornersMax[i + 1], cornersMin[i + 1], xEdgesMin[i]);
     if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
@@ -945,13 +772,13 @@ FORCEINLINE void FMQCGridSurface::AddHexagonBCD(int32 i, int32 FeatureVertexInde
 
 FORCEINLINE void FMQCGridSurface::AddQuadAB(int32 i, const bool bWall0)
 {
-    AddQuad(cornersMin[i], yEdgeMin, yEdgeMax, cornersMin[i + 1]);
+    AddQuadEdgeFace(cornersMin[i], yEdgeMin, yEdgeMax, cornersMin[i + 1]);
     if (bWall0) AddEdge(yEdgeMin, yEdgeMax);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonAB(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
         cornersMin[i], yEdgeMin);
     if (bWall0) AddEdge(yEdgeMin, FeatureVertexIndex);
@@ -960,13 +787,13 @@ FORCEINLINE void FMQCGridSurface::AddPentagonAB(int32 i, int32 FeatureVertexInde
 
 FORCEINLINE void FMQCGridSurface::AddQuadAC(int32 i, const bool bWall0)
 {
-    AddQuad(cornersMin[i], cornersMax[i], xEdgesMax[i], xEdgesMin[i]);
+    AddQuadEdgeFace(cornersMin[i], cornersMax[i], xEdgesMax[i], xEdgesMin[i]);
     if (bWall0) AddEdge(xEdgesMax[i], xEdgesMin[i]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonAC(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
         cornersMax[i], xEdgesMax[i]);
     if (bWall0) AddEdge(xEdgesMax[i], FeatureVertexIndex);
@@ -975,13 +802,13 @@ FORCEINLINE void FMQCGridSurface::AddPentagonAC(int32 i, int32 FeatureVertexInde
 
 FORCEINLINE void FMQCGridSurface::AddQuadBD(int32 i, const bool bWall0)
 {
-    AddQuad(xEdgesMin[i], xEdgesMax[i], cornersMax[i + 1], cornersMin[i + 1]);
+    AddQuadEdgeFace(xEdgesMin[i], xEdgesMax[i], cornersMax[i + 1], cornersMin[i + 1]);
     if (bWall0) AddEdge(xEdgesMin[i], xEdgesMax[i]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonBD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
         cornersMin[i + 1], xEdgesMin[i]);
     if (bWall0) AddEdge(xEdgesMin[i], FeatureVertexIndex);
@@ -990,13 +817,13 @@ FORCEINLINE void FMQCGridSurface::AddPentagonBD(int32 i, int32 FeatureVertexInde
 
 FORCEINLINE void FMQCGridSurface::AddQuadCD(int32 i, const bool bWall0)
 {
-    AddQuad(yEdgeMin, cornersMax[i], cornersMax[i + 1], yEdgeMax);
+    AddQuadEdgeFace(yEdgeMin, cornersMax[i], cornersMax[i + 1], yEdgeMax);
     if (bWall0) AddEdge(yEdgeMax, yEdgeMin);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonCD(int32 i, int32 FeatureVertexIndex, const bool bWall0, const bool bWall1)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         FeatureVertexIndex, yEdgeMin, cornersMax[i],
         cornersMax[i + 1], yEdgeMax);
     if (bWall0) AddEdge(yEdgeMax, FeatureVertexIndex);
@@ -1005,13 +832,13 @@ FORCEINLINE void FMQCGridSurface::AddPentagonCD(int32 i, int32 FeatureVertexInde
 
 FORCEINLINE void FMQCGridSurface::AddQuadBCToA(int32 i, const bool bWall0)
 {
-    AddQuad(yEdgeMin, cornersMax[i], cornersMin[i + 1], xEdgesMin[i]);
+    AddQuadEdgeFace(yEdgeMin, cornersMax[i], cornersMin[i + 1], xEdgesMin[i]);
     if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonBCToA(int32 i, int32 FeatureVertexIndex, const bool bWall0)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         FeatureVertexIndex, yEdgeMin, cornersMax[i],
         cornersMin[i + 1], xEdgesMin[i]);
     if (bWall0) AddEdge(xEdgesMin[i], yEdgeMin, FeatureVertexIndex);
@@ -1019,13 +846,13 @@ FORCEINLINE void FMQCGridSurface::AddPentagonBCToA(int32 i, int32 FeatureVertexI
 
 FORCEINLINE void FMQCGridSurface::AddQuadBCToD(int32 i, const bool bWall0)
 {
-    AddQuad(yEdgeMax, cornersMin[i + 1], cornersMax[i], xEdgesMax[i]);
+    AddQuadEdgeFace(yEdgeMax, cornersMin[i + 1], cornersMax[i], xEdgesMax[i]);
     if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonBCToD(int32 i, int32 FeatureVertexIndex, const bool bWall0)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         FeatureVertexIndex, yEdgeMax, cornersMin[i + 1],
         cornersMax[i], xEdgesMax[i]);
     if (bWall0) AddEdge(xEdgesMax[i], yEdgeMax, FeatureVertexIndex);
@@ -1033,13 +860,13 @@ FORCEINLINE void FMQCGridSurface::AddPentagonBCToD(int32 i, int32 FeatureVertexI
 
 FORCEINLINE void FMQCGridSurface::AddQuadADToB(int32 i, const bool bWall0)
 {
-    AddQuad(xEdgesMin[i], cornersMin[i], cornersMax[i + 1], yEdgeMax);
+    AddQuadEdgeFace(xEdgesMin[i], cornersMin[i], cornersMax[i + 1], yEdgeMax);
     if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonADToB(int32 i, int32 FeatureVertexIndex, const bool bWall0)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         FeatureVertexIndex, xEdgesMin[i], cornersMin[i],
         cornersMax[i + 1], yEdgeMax);
     if (bWall0) AddEdge(yEdgeMax, xEdgesMin[i], FeatureVertexIndex);
@@ -1047,14 +874,300 @@ FORCEINLINE void FMQCGridSurface::AddPentagonADToB(int32 i, int32 FeatureVertexI
 
 FORCEINLINE void FMQCGridSurface::AddQuadADToC(int32 i, const bool bWall0)
 {
-    AddQuad(xEdgesMax[i], cornersMax[i + 1], cornersMin[i], yEdgeMin);
+    AddQuadEdgeFace(xEdgesMax[i], cornersMax[i + 1], cornersMin[i], yEdgeMin);
     if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i]);
 }
 
 FORCEINLINE void FMQCGridSurface::AddPentagonADToC(int32 i, int32 FeatureVertexIndex, const bool bWall0)
 {
-    AddPentagon(
+    AddPentagonEdgeFace(
         FeatureVertexIndex, xEdgesMax[i], cornersMax[i + 1],
         cornersMin[i], yEdgeMin);
     if (bWall0) AddEdge(yEdgeMin, xEdgesMax[i], FeatureVertexIndex);
+}
+
+// -- Mesh Data
+
+FORCEINLINE void FMQCGridSurface::FMeshData::AddFace(uint32 a, uint32 b, uint32 c)
+{
+    if (a != b && a != c && b != c)
+    {
+        Section.Indices.Emplace(a);
+        Section.Indices.Emplace(b);
+        Section.Indices.Emplace(c);
+        //UE_LOG(LogTemp,Warning, TEXT("%u %u %u"), a, b, c);
+    }
+}
+
+FORCEINLINE void FMQCGridSurface::FMeshData::AddQuad(uint32 a, uint32 b, uint32 c, uint32 d)
+{
+    // Ensure no duplicate index
+    check(a != b);
+    check(a != c);
+    check(a != d);
+    check(b != c);
+    check(b != d);
+    check(c != d);
+
+    Section.Indices.Emplace(a);
+    Section.Indices.Emplace(b);
+    Section.Indices.Emplace(c);
+
+    Section.Indices.Emplace(a);
+    Section.Indices.Emplace(c);
+    Section.Indices.Emplace(d);
+
+    //UE_LOG(LogTemp,Warning, TEXT("%u %u %u %u NO CHECK"), a, b, c, d);
+}
+
+FORCEINLINE void FMQCGridSurface::FMeshData::AddQuadInversed(uint32 a, uint32 b, uint32 c, uint32 d)
+{
+    // Ensure no duplicate index
+    check(a != b);
+    check(a != c);
+    check(a != d);
+    check(b != c);
+    check(b != d);
+    check(c != d);
+
+    Section.Indices.Emplace(c);
+    Section.Indices.Emplace(b);
+    Section.Indices.Emplace(a);
+
+    Section.Indices.Emplace(d);
+    Section.Indices.Emplace(c);
+    Section.Indices.Emplace(a);
+
+    //UE_LOG(LogTemp,Warning, TEXT("%u %u %u %u NO CHECK INVERSED"), a, b, c, d);
+}
+
+FORCEINLINE bool FMQCGridSurface::FMeshData::IsQuadFiltered(uint32 VertexIndex) const
+{
+    return QuadFilterHashSet.Contains(UGULMathLibrary::GetHash(FVector2D(Section.Positions[VertexIndex])));
+}
+
+FORCEINLINE uint32 FMQCGridSurface::FMeshData::DuplicateVertex(FPMUMeshSection& DstSection, uint32 SourceVertexIndex)
+{
+    // Ensure valid source vertex index
+    check(Section.Positions.IsValidIndex(SourceVertexIndex));
+
+    uint32 OutIndex = DstSection.Positions.Num();
+
+    DstSection.Positions.Emplace(Section.Positions[SourceVertexIndex]);
+    DstSection.UVs.Emplace(Section.UVs[SourceVertexIndex]);
+    DstSection.Colors.Emplace(Section.Colors[SourceVertexIndex]);
+    DstSection.Tangents.Emplace(Section.Tangents[(SourceVertexIndex*2)  ]);
+    DstSection.Tangents.Emplace(Section.Tangents[(SourceVertexIndex*2)+1]);
+    DstSection.SectionLocalBox += Section.Positions[SourceVertexIndex];
+
+    return OutIndex;
+}
+
+FORCEINLINE void FMQCGridSurface::FMeshData::AddMaterialVertex(
+    FPMUMeshSection& MaterialSection,
+    FIndexMap& VertexIndexMap,
+    uint32 VertexIndex,
+    uint8 BlendA,
+    uint8 BlendB,
+    uint8 BlendC
+    )
+{
+    uint32 MappedIndex;
+
+    if (uint32* MappedIndexPtr = VertexIndexMap.Find(VertexIndex))
+    {
+        MappedIndex = *MappedIndexPtr;
+    }
+    else
+    {
+        MappedIndex = DuplicateVertex(MaterialSection, VertexIndex);
+
+        // Assign blend value
+        MaterialSection.Colors[MappedIndex].R = BlendA;
+        MaterialSection.Colors[MappedIndex].G = BlendB;
+        MaterialSection.Colors[MappedIndex].B = BlendC;
+
+        // Map duplicated vertex index
+        VertexIndexMap.Emplace(VertexIndex, MappedIndex);
+    }
+
+    MaterialSection.Indices.Emplace(MappedIndex);
+}
+
+FORCEINLINE void FMQCGridSurface::FMeshData::AddMaterialFace(
+    const FMQCMaterialBlend& MaterialBlend,
+    uint32 VertexIndexA,
+    uint32 VertexIndexB,
+    uint32 VertexIndexC,
+    uint8 BlendsA[3],
+    uint8 BlendsB[3],
+    uint8 BlendsC[3]
+    )
+{
+    FPMUMeshSection& MaterialSection(MaterialSectionMap.FindOrAdd(MaterialBlend));
+    FIndexMap& VertexIndexMap(MaterialIndexMap.FindOrAdd(MaterialBlend));
+
+    AddMaterialVertex(MaterialSection, VertexIndexMap, VertexIndexA, BlendsA[0], BlendsB[0], BlendsC[0]);
+    AddMaterialVertex(MaterialSection, VertexIndexMap, VertexIndexB, BlendsA[1], BlendsB[1], BlendsC[1]);
+    AddMaterialVertex(MaterialSection, VertexIndexMap, VertexIndexC, BlendsA[2], BlendsB[2], BlendsC[2]);
+}
+
+// -- Edge Link List
+
+FMQCGridSurface::FEdgeLinkList::FEdgeLinkList()
+    : ElementCount(0)
+    , Head(nullptr)
+    , Tail(nullptr)
+{
+}
+
+FMQCGridSurface::FEdgeLinkList::~FEdgeLinkList()
+{
+    FEdgeLink* Node = Head;
+    while (Node)
+    {
+        FEdgeLink* Next = Node->Next;
+        delete Node;
+        Node = Next;
+    }
+}
+
+FORCEINLINE int32 FMQCGridSurface::FEdgeLinkList::Num() const
+{
+    return ElementCount;
+}
+
+FORCEINLINE bool FMQCGridSurface::FEdgeLinkList::IsEmpty() const
+{
+    return ElementCount == 0;
+}
+
+FORCEINLINE void FMQCGridSurface::FEdgeLinkList::Reset()
+{
+    check(Head == nullptr);
+    check(Tail == nullptr);
+    ElementCount = 0;
+}
+
+FORCEINLINE void FMQCGridSurface::FEdgeLinkList::AddHead(uint32 Value)
+{
+    FEdgeLink* Link = new FEdgeLink;
+    Link->Value = Value;
+    Link->Next = Head;
+
+    if (Head)
+    {
+        Head = Link;
+    }
+    else
+    {
+        check(! Tail);
+        Head = Link;
+        Tail = Link;
+    }
+
+    ++ElementCount;
+}
+
+FORCEINLINE void FMQCGridSurface::FEdgeLinkList::AddTail(uint32 Value)
+{
+    FEdgeLink* Link = new FEdgeLink;
+    Link->Value = Value;
+    Link->Next = nullptr;
+
+    if (Tail)
+    {
+        check(! Tail->Next);
+        Tail->Next = Link;
+        Tail = Link;
+    }
+    else
+    {
+        check(! Head);
+        Head = Link;
+        Tail = Link;
+    }
+
+    ++ElementCount;
+}
+
+// Connect an edge to the list.
+// Index order is not commutative.
+// List must not be empty.
+inline bool FMQCGridSurface::FEdgeLinkList::Connect(uint32 InHeadIndex, uint32 InTailIndex)
+{
+    check(Head);
+    check(Tail);
+
+    uint32 HeadIndex = Head->Value;
+    uint32 TailIndex = Tail->Value;
+
+    bool bHasConnection = false;
+
+    // Connect edge at tail
+    if (TailIndex == InHeadIndex)
+    {
+        AddTail(InTailIndex);
+        bHasConnection = true;
+    }
+    // Connect edge at head
+    else
+    if (HeadIndex == InTailIndex)
+    {
+        AddHead(InHeadIndex);
+        bHasConnection = true;
+    }
+
+    return bHasConnection;
+}
+
+// Merge another list.
+// Index order is not commutative.
+// Both lists must not be empty.
+inline bool FMQCGridSurface::FEdgeLinkList::Merge(FEdgeLinkList& LinkList)
+{
+    check(Head);
+    check(Tail);
+
+    check(LinkList.Head);
+    check(LinkList.Tail);
+
+    if (LinkList.Head == LinkList.Tail)
+    {
+        return false;
+    }
+
+    uint32 HeadValue0 = Head->Value;
+    uint32 TailValue0 = Tail->Value;
+
+    uint32 HeadValue1 = LinkList.Head->Value;
+    uint32 TailValue1 = LinkList.Tail->Value;
+
+    bool bHasConnection = false;
+
+    // Merge list at tail
+    if (TailValue0 == HeadValue1)
+    {
+        Tail->Next = LinkList.Head->Next;
+        delete LinkList.Head;
+        Tail = LinkList.Tail;
+        LinkList.Head = nullptr;
+        LinkList.Tail = nullptr;
+        LinkList.Reset();
+        bHasConnection = true;
+    }
+    // Merge list at head
+    else
+    if (HeadValue0 == TailValue1)
+    {
+        LinkList.Tail->Next = Head->Next;
+        delete Head;
+        Head = LinkList.Head;
+        LinkList.Head = nullptr;
+        LinkList.Tail = nullptr;
+        LinkList.Reset();
+        bHasConnection = true;
+    }
+
+    return bHasConnection;
 }
