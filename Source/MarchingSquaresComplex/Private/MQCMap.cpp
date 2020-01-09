@@ -321,12 +321,51 @@ void FMQCMap::ResetAllChunkStates()
     }
 }
 
-void FMQCMap::AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bExtrudeFilter)
+void FMQCMap::AddGeometry(const TArray<FVector2D>& Points, const TArray<int32>& Indices, int32 ChunkIndex, int32 StateIndex, bool bExtrudeGeometry)
+{
+    const int32 PointCount = Points.Num();
+    const int32 IndexCount = Indices.Num();
+    const int32 TriangleCount = IndexCount / 3;
+
+    if (PointCount < 3 || IndexCount < 3 || ! HasChunk(ChunkIndex))
+    {
+        return;
+    }
+
+    // Generate point materials
+
+    TArray<uint32> MappedVertexIndices;
+    MappedVertexIndices.SetNumUninitialized(PointCount);
+
+    FMQCGridChunk& TargetChunk(GetChunk(ChunkIndex));
+    FVector2D ChunkOffset(TargetChunk.GetOffsetId());
+
+    for (int32 i=0; i<PointCount; ++i)
+    {
+        const FVector2D& Position(Points[i]);
+        const FIntPoint Point = Position.IntPoint();
+        FMQCMaterial Material = GetVoxelMaterial(Point);
+
+        MappedVertexIndices[i] = TargetChunk.AddVertex(Position-ChunkOffset, Material, StateIndex, bExtrudeGeometry);
+    }
+
+    for (int32 ti=0; ti<TriangleCount; ++ti)
+    {
+        const int32 i = ti*3;
+        const int32 a = MappedVertexIndices[Indices[i  ]];
+        const int32 b = MappedVertexIndices[Indices[i+1]];
+        const int32 c = MappedVertexIndices[Indices[i+2]];
+
+        TargetChunk.AddFace(a, b, c, StateIndex, bExtrudeGeometry);
+    }
+}
+
+void FMQCMap::AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bExtrudeGeometry)
 {
     if (IsWithinDimension(Point.X, Point.Y))
     {
         int32 ChunkIndex = GetChunkIndexByPoint(Point.X, Point.Y);
-        GetChunk(ChunkIndex).AddQuadFilter(Point, StateIndex, bExtrudeFilter);
+        GetChunk(ChunkIndex).AddQuadFilter(Point, StateIndex, bExtrudeGeometry);
     }
 }
 
@@ -390,6 +429,14 @@ void FMQCMap::GetEdgePointsByChunkSurface(TArray<FMQCEdgePointData>& OutPointLis
     {
         GetChunk(ChunkIndex).GetEdgePoints(OutPointList, StateIndex);
     }
+}
+
+FMQCMaterial FMQCMap::GetVoxelMaterial(const FIntPoint& Position) const
+{
+    int32 X = FMath::Clamp(Position.X, 0, GetVoxelDimension()-1);
+    int32 Y = FMath::Clamp(Position.Y, 0, GetVoxelDimension()-1);
+    int32 ChunkIndex = GetChunkIndexByPoint(X, Y);
+    return GetChunk(ChunkIndex).GetVoxelMaterial(X, Y);
 }
 
 // ----------------------------------------------------------------------------
@@ -495,20 +542,20 @@ void UMQCMapRef::GetEdgePointsByChunkSurface(TArray<FMQCEdgePointData>& OutPoint
     }
 }
 
-void UMQCMapRef::AddQuadFilters(const TArray<FIntPoint>& Points, int32 StateIndex, bool bFilterExtrude)
+void UMQCMapRef::AddQuadFilters(const TArray<FIntPoint>& Points, int32 StateIndex, bool bExtrudeGeometry)
 {
-    if (IsInitialized() && VoxelMap.HasState(StateIndex))
+    if (IsInitialized() && HasState(StateIndex))
     {
         for (const FIntPoint& Point : Points)
         {
-            VoxelMap.AddQuadFilter(Point, StateIndex, bFilterExtrude);
+            VoxelMap.AddQuadFilter(Point, StateIndex, bExtrudeGeometry);
         }
     }
 }
 
-void UMQCMapRef::AddQuadFiltersByBounds(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax, int32 StateIndex, bool bFilterExtrude)
+void UMQCMapRef::AddQuadFiltersByBounds(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax, int32 StateIndex, bool bExtrudeGeometry)
 {
-    if (IsInitialized() && VoxelMap.HasState(StateIndex))
+    if (IsInitialized() && HasState(StateIndex))
     {
         FIntPoint ClampedMin;
         FIntPoint ClampedMax;
@@ -525,7 +572,7 @@ void UMQCMapRef::AddQuadFiltersByBounds(const FIntPoint& BoundsMin, const FIntPo
         {
             Point.X = x;
             Point.Y = y;
-            VoxelMap.AddQuadFilter(Point, StateIndex, bFilterExtrude);
+            VoxelMap.AddQuadFilter(Point, StateIndex, bExtrudeGeometry);
         }
     }
 }
@@ -768,6 +815,7 @@ void AMQCMap::ApplyHeightMap(
     float HeightScale
     )
 {
+#if 0
     if (! HasValidMap())
     {
         return;
@@ -809,20 +857,25 @@ void AMQCMap::ApplyHeightMap(
     {
         FVector2D PosScale = MapRef->GetMeshInverseScale();
 
+        FPMUMeshApplyHeightParameters HeightMapParameters;
+        HeightMapParameters.HeightScale = HeightScale;
+        HeightMapParameters.bUseUV = false;
+        HeightMapParameters.UVScaleX = PosScale.X;
+        HeightMapParameters.UVScaleY = PosScale.Y;
+        HeightMapParameters.bMaskByColor = false;
+        HeightMapParameters.bInverseColorMask = false;
+        HeightMapParameters.bAlongTangents = false;
+        HeightMapParameters.bAssignTangents = bGenerateTangents;
+
         UPMUMeshUtility::ApplyHeightMapToMeshSectionMulti(
-            this,               // WorldContextObject
-            SectionRefs,        // SectionRefs
-            HeightTexture,      // HeightTexture
-            HeightScale,        // HeightScale
-            false,              // bUseUV
-            PosScale.X,         // PositionToUVScaleX
-            PosScale.Y,         // PositionToUVScaleX
-            false,              // bMaskByColor
-            false,              // bInverseColorMask
-            bGenerateTangents,  // bAssignTangents
-            nullptr             // CallbackEvent
+            this,
+            SectionRefs,
+            HeightTexture,
+            HeightMapParameters,
+            nullptr
             );
     }
+#endif
 }
 
 void AMQCMap::CalculateMeshNormal(int32 StateIndex)

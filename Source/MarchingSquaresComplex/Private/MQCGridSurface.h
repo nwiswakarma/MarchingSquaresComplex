@@ -224,6 +224,9 @@ public:
     int32 AppendEdgeSyncData(TArray<FMQCEdgeSyncData>& OutSyncData) const;
     void AddQuadFilter(const FIntPoint& Point, bool bFilterExtrude);
 
+    inline uint32 AddVertexMapped(const FVector2D& Point, const FMQCMaterial& Material);
+    inline void AddFace(uint32 a, uint32 b, uint32 c);
+
     // -- Corner and Edge Caching
 
 	void PrepareCacheForNextCell();
@@ -306,41 +309,9 @@ private:
 	void AddPentagonEdgeFace(uint32 a, uint32 b, uint32 c, uint32 d, uint32 e);
 	void AddHexagonEdgeFace(uint32 a, uint32 b, uint32 c, uint32 d, uint32 e, uint32 f);
 
-    void AddVertex(const FVector2D& Vertex, const FMQCMaterial& Material, bool bIsExtrusion);
+    void AddVertex(const FVector2D& Point, const FMQCMaterial& Material, bool bIsExtrusion);
     void AddEdge(uint32 a, uint32 b);
     void AddMaterialFace(uint32 a, uint32 b, uint32 c);
-
-    inline uint32 AddVertex2(const FVector2D& Point, const FMQCMaterial& Material)
-    {
-        // Generate fixed precision integer point vertex
-        FIntPoint VertexFixed = UGULMathLibrary::ScaleToIntPoint(FVector2D(ChunkPosition)+Point);
-
-        // Generate position hash
-        uint32 Hash = UGULMathLibrary::GetHash(VertexFixed);
-
-        if (uint32* IndexPtr = VertexMap.Find(Hash))
-        {
-            return *IndexPtr;
-        }
-        else
-        {
-            uint32 Index = GetVertexCount();
-
-            // Generate fixed precision vertex position
-            FVector2D Vertex = UGULMathLibrary::ScaleToVector2D(VertexFixed);
-
-            AddVertex(Vertex, Material, bExtrusionSurface);
-
-            if (bGenerateExtrusion)
-            {
-                AddVertex(Vertex, Material, true);
-            }
-
-            VertexMap.Emplace(Hash, Index);
-
-            return Index;
-        }
-    }
 
     FORCEINLINE uint32 GetVertexHash(uint32 VertexIndex) const
     {
@@ -393,6 +364,43 @@ FORCEINLINE void FMQCGridSurface::AddQuadFilter(const FIntPoint& Point, bool bFi
     }
 }
 
+inline uint32 FMQCGridSurface::AddVertexMapped(const FVector2D& Point, const FMQCMaterial& Material)
+{
+    // Generate fixed precision integer point vertex
+    FIntPoint VertexFixed = UGULMathLibrary::ScaleToIntPoint(FVector2D(ChunkPosition)+Point);
+
+    // Generate position hash
+    uint32 Hash = UGULMathLibrary::GetHash(VertexFixed);
+
+    if (uint32* IndexPtr = VertexMap.Find(Hash))
+    {
+        return *IndexPtr;
+    }
+    else
+    {
+        uint32 Index = GetVertexCount();
+
+        // Generate fixed precision vertex position
+        FVector2D Vertex = UGULMathLibrary::ScaleToVector2D(VertexFixed);
+
+        AddVertex(Vertex, Material, bExtrusionSurface);
+
+        if (bGenerateExtrusion)
+        {
+            AddVertex(Vertex, Material, true);
+        }
+
+        VertexMap.Emplace(Hash, Index);
+
+        return Index;
+    }
+}
+
+inline void FMQCGridSurface::AddFace(uint32 a, uint32 b, uint32 c)
+{
+    AddTriangleEdgeFace(a, b, c);
+}
+
 // -- Corner and Edge Caching
 
 FORCEINLINE void FMQCGridSurface::PrepareCacheForNextCell()
@@ -408,28 +416,28 @@ FORCEINLINE void FMQCGridSurface::PrepareCacheForNextRow()
 
 FORCEINLINE void FMQCGridSurface::CacheFirstCorner(const FMQCVoxel& voxel)
 {
-    cornersMax[0] = AddVertex2(voxel.GetPosition(), voxel.Material);
+    cornersMax[0] = AddVertexMapped(voxel.GetPosition(), voxel.Material);
 }
 
 FORCEINLINE void FMQCGridSurface::CacheNextCorner(int32 i, const FMQCVoxel& voxel)
 {
-    cornersMax[i+1] = AddVertex2(voxel.GetPosition(), voxel.Material);
+    cornersMax[i+1] = AddVertexMapped(voxel.GetPosition(), voxel.Material);
 }
 
 FORCEINLINE void FMQCGridSurface::CacheEdgeX(int32 i, const FMQCVoxel& voxel, const FMQCMaterial& Material)
 {
-    xEdgesMax[i] = AddVertex2(voxel.GetXEdgePoint(), Material);
+    xEdgesMax[i] = AddVertexMapped(voxel.GetXEdgePoint(), Material);
 }
 
 FORCEINLINE void FMQCGridSurface::CacheEdgeY(const FMQCVoxel& voxel, const FMQCMaterial& Material)
 {
-    yEdgeMax = AddVertex2(voxel.GetYEdgePoint(), Material);
+    yEdgeMax = AddVertexMapped(voxel.GetYEdgePoint(), Material);
 }
 
 FORCEINLINE int32 FMQCGridSurface::CacheFeaturePoint(const FMQCFeaturePoint& f)
 {
     check(f.exists);
-    return AddVertex2(f.position, f.Material);
+    return AddVertexMapped(f.position, f.Material);
 }
 
 // -- Fill Functions

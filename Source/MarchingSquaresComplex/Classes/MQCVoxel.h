@@ -140,6 +140,11 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCVoxel
         return Position;
     }
 
+    FORCEINLINE FMQCMaterial GetMaterial() const
+    {
+        return Material;
+    }
+
     // Mutation
 
     FORCEINLINE void Init()

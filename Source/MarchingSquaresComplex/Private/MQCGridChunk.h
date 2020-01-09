@@ -214,9 +214,13 @@ public:
     void GetEdgePoints(TArray<FMQCEdgePointData>& OutPointList, int32 StateIndex) const;
     void GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const;
     void AppendConnectedEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const;
-    void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
 
-    void AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bFilterExtrude);
+    void GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const;
+    FORCEINLINE FMQCMaterial GetVoxelMaterial(int32 X, int32 Y) const;
+
+    void AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bExtrudeGeometry);
+    uint32 AddVertex(const FVector2D& Point, const FMQCMaterial& Material, int32 StateIndex, bool bExtrudeGeometry);
+    void AddFace(int32 a, int32 b, int32 c, int32 StateIndex, bool bExtrudeGeometry);
 
     // Public Triangulation Interface
 
@@ -230,3 +234,18 @@ public:
     void SetCrossingsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
     void SetMaterialsAsync(const FMQCStencil& Stencil, int32 X0, int32 X1, int32 Y0, int32 Y1);
 };
+
+FORCEINLINE FMQCMaterial FMQCGridChunk::GetVoxelMaterial(int32 X, int32 Y) const
+{
+    int32 VoxelX = X-Position.X;
+    int32 VoxelY = Y-Position.Y;
+
+    check(VoxelX >= 0);
+    check(VoxelY >= 0);
+    check(VoxelX < VoxelResolution);
+    check(VoxelY < VoxelResolution);
+
+    const int32 VoxelIndex = VoxelX+VoxelY*VoxelResolution;
+
+    return Voxels[VoxelIndex].GetMaterial();
+}

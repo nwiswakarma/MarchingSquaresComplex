@@ -209,7 +209,7 @@ void FMQCGridChunk::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
     }
 }
 
-void FMQCGridChunk::AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bFilterExtrude)
+void FMQCGridChunk::AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bExtrudeGeometry)
 {
     check((Point.X-Position.X) >= 0);
     check((Point.Y-Position.Y) >= 0);
@@ -218,7 +218,22 @@ void FMQCGridChunk::AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool
 
     if (StateIndex > 0 && HasSurface(StateIndex))
     {
-        Surfaces[StateIndex].AddQuadFilter(Point, bFilterExtrude);
+        Surfaces[StateIndex].AddQuadFilter(Point, bExtrudeGeometry);
+    }
+}
+
+uint32 FMQCGridChunk::AddVertex(const FVector2D& Point, const FMQCMaterial& Material, int32 StateIndex, bool bExtrudeGeometry)
+{
+    return (StateIndex > 0 && HasSurface(StateIndex))
+        ? Surfaces[StateIndex].AddVertexMapped(Point, Material)
+        : ~0U;
+}
+
+void FMQCGridChunk::AddFace(int32 a, int32 b, int32 c, int32 StateIndex, bool bExtrudeGeometry)
+{
+    if (StateIndex > 0 && HasSurface(StateIndex))
+    {
+        Surfaces[StateIndex].AddFace(a, b, c);
     }
 }
 

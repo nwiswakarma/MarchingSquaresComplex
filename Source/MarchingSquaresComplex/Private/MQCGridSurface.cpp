@@ -163,9 +163,9 @@ void FMQCGridSurface::GetMaterialSet(TSet<FMQCMaterialBlend>& MaterialSet) const
     }
 }
 
-void FMQCGridSurface::AddVertex(const FVector2D& GlobalXY, const FMQCMaterial& Material, bool bIsExtrusion)
+void FMQCGridSurface::AddVertex(const FVector2D& Point, const FMQCMaterial& Material, bool bIsExtrusion)
 {
-    FVector2D UV(GlobalXY*MapSizeInv - MapSizeInv*.5f);
+    FVector2D UV(Point*MapSizeInv - MapSizeInv*.5f);
 
     float Height;
     float FaceSign;
@@ -186,7 +186,7 @@ void FMQCGridSurface::AddVertex(const FVector2D& GlobalXY, const FMQCMaterial& M
     }
 
     FPMUMeshSection& Section(MeshData->Section);
-    FVector Position(GlobalXY, Height);
+    FVector Position(Point, Height);
     FPackedNormal TangentX(FVector(1,0,0));
     FPackedNormal TangentZ(FVector4(0,0,FaceSign,FaceSign));
 

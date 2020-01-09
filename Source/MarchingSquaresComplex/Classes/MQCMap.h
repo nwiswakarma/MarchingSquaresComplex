@@ -111,7 +111,16 @@ public:
 
     FMQCMaterial GetTypedMaterial(uint8 MaterialIndex, const FLinearColor& MaterialColor);
 
-    // CHUNK FUNCTIONS
+    // Triangulation
+
+    void Triangulate();
+    void TriangulateAsync();
+    void WaitForAsyncTask();
+    void FinalizeAsync();
+    void ResetChunkStates(const TArray<int32>& ChunkIndices);
+    void ResetAllChunkStates();
+
+    // Chunk
 
     bool HasChunk(int32 ChunkIndex) const;
     int32 GetChunkCount() const;
@@ -121,22 +130,18 @@ public:
     FMQCGridChunk& GetChunk(int32 ChunkIndex);
     void GetChunks(TArray<FMQCGridChunk*>& OutChunks, const FIntPoint& BoundsMin, const FIntPoint& BoundsMax);
 
-    // TRIANGULATION FUNCTIONS
+    // Geometry
 
-    void Triangulate();
-    void TriangulateAsync();
-    void WaitForAsyncTask();
-    void FinalizeAsync();
-    void ResetChunkStates(const TArray<int32>& ChunkIndices);
-    void ResetAllChunkStates();
-
-    // GEOMETRY FUNCTIONS
-
-    void AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bExtrudeFilter);
+    void AddGeometry(const TArray<FVector2D>& Points, const TArray<int32>& Indices, int32 ChunkIndex, int32 StateIndex, bool bExtrudeGeometry);
+    void AddQuadFilter(const FIntPoint& Point, int32 StateIndex, bool bExtrudeGeometry);
     int32 GetEdgePointListCount(int32 StateIndex) const;
     void GetEdgePoints(TArray<FMQCEdgePointList>& OutPointList, int32 StateIndex) const;
     void GetEdgePoints(TArray<FVector2D>& OutPoints, int32 StateIndex, int32 EdgeListIndex) const;
     void GetEdgePointsByChunkSurface(TArray<FMQCEdgePointData>& OutPointList, int32 ChunkIndex, int32 StateIndex) const;
+
+    // Material
+
+    FMQCMaterial GetVoxelMaterial(const FIntPoint& Position) const;
 };
 
 UCLASS(BlueprintType, Blueprintable)
@@ -166,6 +171,8 @@ public:
         return VoxelMap.GetTypedMaterial(MaterialIndex, MaterialColor);
     }
 
+    // Triangulation
+
     UFUNCTION(BlueprintCallable)
     FORCEINLINE_DEBUGGABLE bool IsInitialized() const;
 
@@ -193,6 +200,8 @@ public:
     UFUNCTION(BlueprintCallable)
     void ResetAllChunkStates();
 
+    // Dimension
+
     UFUNCTION(BlueprintCallable)
     FORCEINLINE_DEBUGGABLE int32 GetVoxelDimension() const;
 
@@ -211,6 +220,8 @@ public:
     UFUNCTION(BlueprintCallable)
     FORCEINLINE_DEBUGGABLE FVector2D GetMeshInverseScale() const;
 
+    // Chunk
+
     UFUNCTION(BlueprintCallable)
     FORCEINLINE_DEBUGGABLE int32 GetStateCount() const;
 
@@ -225,6 +236,8 @@ public:
 
     UFUNCTION(BlueprintCallable)
     FVector GetChunkPosition(int32 ChunkIndex) const;
+
+    // Geometry
 
     UFUNCTION(BlueprintCallable)
     FPMUMeshSectionRef GetSurfaceSection(int32 ChunkIndex, int32 StateIndex);
@@ -242,10 +255,17 @@ public:
     FORCEINLINE_DEBUGGABLE int32 GetEdgePointListCount(int32 StateIndex) const;
 
     UFUNCTION(BlueprintCallable)
-    void AddQuadFilters(const TArray<FIntPoint>& Points, int32 StateIndex, bool bFilterExtrude);
+    void AddQuadFilters(const TArray<FIntPoint>& Points, int32 StateIndex, bool bExtrudeGeometry);
 
     UFUNCTION(BlueprintCallable)
-    void AddQuadFiltersByBounds(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax, int32 StateIndex, bool bFilterExtrude);
+    void AddQuadFiltersByBounds(const FIntPoint& BoundsMin, const FIntPoint& BoundsMax, int32 StateIndex, bool bExtrudeGeometry);
+
+    UFUNCTION(BlueprintCallable)
+    void AddGeometry(const TArray<FVector2D>& Points, const TArray<int32>& Indices, int32 ChunkIndex, int32 StateIndex, bool bExtrudeGeometry);
+
+    // Material Query
+
+    FORCEINLINE_DEBUGGABLE FMQCMaterial GetVoxelMaterial(const FIntPoint& Position) const;
 };
 
 UCLASS(BlueprintType)
@@ -378,7 +398,7 @@ FORCEINLINE void FMQCMap::GetChunks(TArray<FMQCGridChunk*>& OutChunks, const FIn
     }
 }
 
-// Blueprint Inlines
+// UMQCMapRef Blueprint Inlines
 
 FORCEINLINE_DEBUGGABLE bool UMQCMapRef::IsInitialized() const
 {
@@ -459,6 +479,23 @@ FORCEINLINE_DEBUGGABLE int32 UMQCMapRef::GetEdgePointListCount(int32 StateIndex)
 {
     return IsInitialized() ? VoxelMap.GetEdgePointListCount(StateIndex) : 0;
 }
+
+FORCEINLINE_DEBUGGABLE void UMQCMapRef::AddGeometry(const TArray<FVector2D>& Points, const TArray<int32>& Indices, int32 ChunkIndex, int32 StateIndex, bool bExtrudeGeometry)
+{
+    if (IsInitialized())
+    {
+        VoxelMap.AddGeometry(Points, Indices, ChunkIndex, StateIndex, bExtrudeGeometry);
+    }
+}
+
+FORCEINLINE_DEBUGGABLE FMQCMaterial UMQCMapRef::GetVoxelMaterial(const FIntPoint& Position) const
+{
+    return IsInitialized()
+        ? VoxelMap.GetVoxelMaterial(Position)
+        : FMQCMaterial(ForceInitToZero);
+}
+
+// AMQCMap Blueprint Inlines
 
 FORCEINLINE_DEBUGGABLE UMQCMapRef* AMQCMap::K2_GetMap() const
 {

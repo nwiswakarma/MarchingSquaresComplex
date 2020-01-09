@@ -57,6 +57,24 @@ enum class EMQCMaterialBlendType : uint8
 };
 
 USTRUCT(BlueprintType)
+struct MARCHINGSQUARESCOMPLEX_API FMQCMaterialId
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    uint8 Index0;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    uint8 Index1;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    uint8 Index2;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    EMQCMaterialType MaterialType;
+};
+
+USTRUCT(BlueprintType)
 struct MARCHINGSQUARESCOMPLEX_API FMQCMaterialInput
 {
     GENERATED_BODY()
@@ -315,6 +333,17 @@ struct MARCHINGSQUARESCOMPLEX_API FMQCMaterial
     inline void SetIndexB(T) = delete;
     template<typename T>
     inline void SetBlend(T) = delete;
+
+    // Debug
+
+	inline FString ToString() const
+	{
+        return FString::Printf(TEXT("Index0: %u (%u), Index1: %u (%u), Index2: %u (%u)"),
+            Index , R,
+            Index1, G,
+            Index2, B
+            );
+	}
 
     // Serialization
 

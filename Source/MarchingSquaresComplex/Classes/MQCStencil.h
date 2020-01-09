@@ -158,4 +158,9 @@ public:
 
     UFUNCTION(BlueprintCallable)
     virtual void EditMaterial(UMQCMapRef* MapRef);
+
+    virtual FMQCStencil* GetStencil()
+    {
+        return nullptr;
+    }
 };
