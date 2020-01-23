@@ -99,6 +99,13 @@ public:
         const FMQCTripleIndexBlend& C
         );
 
+    static FMQCTripleIndexBlend FindTripleIndexBlend(
+        const FMQCTripleIndexBlend& A,
+        const FMQCTripleIndexBlend& B,
+        const FMQCTripleIndexBlend& C,
+        const FMQCTripleIndexBlend& D
+        );
+
     static void FindDoubleIndexFaceBlend(
         const FMQCMaterial VertexMaterials[3],
         FMQCMaterialBlend& FaceMaterial,
@@ -111,5 +118,13 @@ public:
         uint8 MaterialBlends0[3],
         uint8 MaterialBlends1[3],
         uint8 MaterialBlends2[3]
+        );
+
+    static void FindTripleIndexFaceBlend(
+        FMQCMaterialBlend& FaceMaterial,
+        const FMQCMaterial VertexMaterials[4],
+        uint8 MaterialBlends0[4],
+        uint8 MaterialBlends1[4],
+        uint8 MaterialBlends2[4]
         );
 };

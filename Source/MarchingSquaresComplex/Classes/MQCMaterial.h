@@ -379,10 +379,23 @@ struct FMQCMaterialBlend
 		Invalid
 	};
 
-	FMQCMaterialBlend() = default;
+	uint8 Index0;
+	uint8 Index1;
+	uint8 Index2;
+	EKind Kind;
+
+	FMQCMaterialBlend()
+		: Index0(255)
+        , Index1(255)
+        , Index2(255)
+		, Kind(Invalid)
+    {
+    }
 
 	explicit FMQCMaterialBlend(uint8 Index)
 		: Index0(Index)
+        , Index1(255)
+        , Index2(255)
 		, Kind(Single)
 	{
 	}
@@ -390,6 +403,7 @@ struct FMQCMaterialBlend
 	explicit FMQCMaterialBlend(uint8 Index0, uint8 Index1)
 		: Index0(Index0)
 		, Index1(Index1)
+        , Index2(255)
 		, Kind(Double)
 	{
 		check(Index0 < Index1);
@@ -460,17 +474,14 @@ struct FMQCMaterialBlend
                 return {};
 		}
 	}
-
-	uint8 Index0 = 255;
-	uint8 Index1 = 255;
-	uint8 Index2 = 255;
-	EKind Kind = Invalid;
 };
 
 inline uint32 GetTypeHash(const FMQCMaterialBlend& O)
 {
 	return GetTypeHash(O.Index0) ^ GetTypeHash(O.Index1) ^ GetTypeHash(O.Index2) ^ GetTypeHash(O.Kind);
 }
+
+template <> struct TIsPODType<FMQCMaterialBlend> { enum { Value = true }; };
 
 // INDEX BLEND GENERATION
 
